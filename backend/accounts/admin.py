@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, ProfilePrestataire, ProfileFournisseur
+from .models import User, ProfileClient, ProfileFournisseur
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
@@ -14,13 +14,13 @@ class UserAdmin(BaseUserAdmin):
         }),
     )
 
-@admin.register(ProfilePrestataire)
-class ProfilePrestataireAdmin(admin.ModelAdmin):
-    list_display = ['user', 'raison_sociale', 'note_moyenne', 'prestations_effectuees', 'assurance_valide']
+@admin.register(ProfileFournisseur)
+class ProfileFournisseurAdmin(admin.ModelAdmin):
+    list_display = ['user', 'raison_sociale', 'note_moyenne', 'services_effectues', 'assurance_valide']
     list_filter = ['assurance_valide', 'annees_experience']
     search_fields = ['user__username', 'raison_sociale']
 
-@admin.register(ProfileFournisseur)
-class ProfileFournisseurAdmin(admin.ModelAdmin):
-    list_display = ['user', 'raison_sociale', 'secteur_activite', 'frequence_services']
+@admin.register(ProfileClient)
+class ProfileClientAdmin(admin.ModelAdmin):
+    list_display = ['user', 'raison_sociale', 'secteur_activite', 'frequence_besoins']
     search_fields = ['user__username', 'raison_sociale', 'secteur_activite']

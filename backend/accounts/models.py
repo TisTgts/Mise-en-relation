@@ -67,7 +67,7 @@ class ProfileClient(models.Model):
     besoins_services = models.JSONField(default=list, verbose_name="Types de services recherchés")
     fournisseurs_preferes = models.JSONField(default=list, verbose_name="Fournisseurs préférés")
     plage_budget = models.JSONField(default=dict, verbose_name="Plage de budget habituelle")
-    frequence_demandes = models.CharField(max_length=50, blank=True, verbose_name="Fréquence des demandes")
+    frequence_besoins = models.CharField(max_length=50, blank=True, verbose_name="Fréquence des besoins")
     contact_principal = models.CharField(max_length=100, blank=True, verbose_name="Contact principal")
     mode_paiement_preferes = models.JSONField(default=list, verbose_name="Modes de paiement préférés")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
@@ -100,7 +100,7 @@ class ProfileClient(models.Model):
     
     @property
     def request_frequency(self):
-        return self.frequence_demandes
+        return self.frequence_besoins
 
 class ProfileFournisseur(models.Model):
     """Profil détaillé pour les fournisseurs qui offrent les services"""

@@ -1,5 +1,14 @@
 import { API_ENDPOINTS } from '../config/api';
 
+const buildAuthHeaders = (extra = {}) => {
+  const token = localStorage.getItem('access_token');
+  const headers = { ...extra };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
+
 class DemandesService {
   // Récupérer toutes les demandes
   async getAllDemandes() {
@@ -7,18 +16,16 @@ class DemandesService {
     console.log('demandesService.getAllDemandes - token:', token ? 'exists' : 'none');
     
     // Essayer différents endpoints selon le rôle
-    let url = API_ENDPOINTS.SERVICES.DEMANDES;
+    let url = API_ENDPOINTS.SERVICES.BESOINS;
     
     // Pour les fournisseurs, essayer l'endpoint disponible
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     if (user.type_utilisateur === 'fournisseur') {
-      url = `${API_ENDPOINTS.SERVICES.DEMANDES}?available=true`;
+      url = `${API_ENDPOINTS.SERVICES.BESOINS}?available=true`;
     }
     
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: buildAuthHeaders(),
     });
     
     console.log('demandesService.getAllDemandes - response status:', response.status);
@@ -37,7 +44,7 @@ class DemandesService {
       console.log('demandesService.getAllPublicDemandes - Début du chargement');
       
       // Utiliser l'endpoint public pour voir toutes les demandes ouvertes
-      const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}public/`);
+      const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}public/`);
       console.log('demandesService.getAllPublicDemandes - response status:', response.status);
       
       if (!response.ok) {
@@ -58,11 +65,8 @@ class DemandesService {
 
   // Récupérer une demande par ID
   async getDemandeById(id) {
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}${id}/`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}${id}/`, {
+      headers: buildAuthHeaders(),
     });
     if (!response.ok) {
       throw new Error('Failed to fetch demande');
@@ -72,13 +76,9 @@ class DemandesService {
 
   // Créer une nouvelle demande
   async createDemande(demandeData) {
-    const token = localStorage.getItem('access_token');
-    const response = await fetch(API_ENDPOINTS.SERVICES.DEMANDES, {
+    const response = await fetch(API_ENDPOINTS.SERVICES.BESOINS, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(demandeData),
     });
     
@@ -100,14 +100,11 @@ class DemandesService {
     console.log('demandesService.updateDemande - user type:', user.type_utilisateur);
     console.log('demandesService.updateDemande - demande id:', id);
     console.log('demandesService.updateDemande - demande data:', demandeData);
-    console.log('demandesService.updateDemande - endpoint:', `${API_ENDPOINTS.SERVICES.DEMANDES}${id}/`);
+    console.log('demandesService.updateDemande - endpoint:', `${API_ENDPOINTS.SERVICES.BESOINS}${id}/`);
     
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}${id}/`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}${id}/`, {
+      method: 'PATCH',
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(demandeData),
     });
     
@@ -135,14 +132,11 @@ class DemandesService {
     console.log('demandesService.deleteDemande - user:', user);
     console.log('demandesService.deleteDemande - user type:', user.type_utilisateur);
     console.log('demandesService.deleteDemande - demande id:', id);
-    console.log('demandesService.deleteDemande - endpoint:', `${API_ENDPOINTS.SERVICES.DEMANDES}${id}/`);
+    console.log('demandesService.deleteDemande - endpoint:', `${API_ENDPOINTS.SERVICES.BESOINS}${id}/`);
     
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}${id}/`, {
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}${id}/`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: buildAuthHeaders({ 'Content-Type': 'application/json' }),
     });
     
     console.log('demandesService.deleteDemande - response status:', response.status);
@@ -155,19 +149,14 @@ class DemandesService {
       throw new Error(`Failed to delete demande: ${response.status} ${errorText}`);
     }
     
-    console.log('demandesService.deleteDemande - demande ${id} supprimée avec succès');
+    console.log(`demandesService.deleteDemande - demande ${id} supprimée avec succès`);
     return true;
   }
 
-  // Récupérer les demandes du client connecté
+  // Récupérer les besoins du client connecté (endpoint dédié backend)
   async getMyDemandes() {
-    const token = localStorage.getItem('access_token');
-    console.log('demandesService.getMyDemandes - token:', token ? 'exists' : 'none');
-    
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}?my=true`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}my/`, {
+      headers: buildAuthHeaders(),
     });
     
     console.log('demandesService.getMyDemandes - response status:', response.status);
@@ -184,7 +173,7 @@ class DemandesService {
 
   // Récupérer les demandes par catégorie
   async getDemandesByCategory(categorieId) {
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}?categorie=${categorieId}`);
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}?categorie=${categorieId}`);
     if (!response.ok) {
       throw new Error('Failed to fetch demandes by category');
     }
@@ -193,7 +182,7 @@ class DemandesService {
 
   // Rechercher des demandes
   async searchDemandes(query) {
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}?search=${encodeURIComponent(query)}`);
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}?search=${encodeURIComponent(query)}`);
     if (!response.ok) {
       throw new Error('Failed to search demandes');
     }
@@ -202,7 +191,7 @@ class DemandesService {
 
   // Récupérer les demandes urgentes
   async getDemandesUrgentes() {
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}?urgence=haute`);
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}?urgence=haute`);
     if (!response.ok) {
       throw new Error('Failed to fetch demandes urgentes');
     }

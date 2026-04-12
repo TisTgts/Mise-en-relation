@@ -19,7 +19,9 @@ export const API_ENDPOINTS = {
   SERVICES: {
     CATEGORIES: `${API_BASE_URL}/services/categories/`,
     PRESTATIONS: `${API_BASE_URL}/services/prestations/`,
-    DEMANDES: `${API_BASE_URL}/services/demandes/`,
+    BESOINS: `${API_BASE_URL}/services/besoins/`,
+    /** @deprecated utiliser BESOINS */
+    DEMANDES: `${API_BASE_URL}/services/besoins/`,
     TRANSACTIONS: `${API_BASE_URL}/services/transactions/`,
     MESSAGES: `${API_BASE_URL}/services/messages/`,
     STATISTICS: `${API_BASE_URL}/services/statistics/`,

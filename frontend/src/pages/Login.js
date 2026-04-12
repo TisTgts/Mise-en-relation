@@ -48,10 +48,10 @@ const Login = () => {
               navigate('/admin/dashboard');
               break;
             case 'fournisseur':
-              navigate('/client_dashboard');
-              break;
-            case 'prestataire':
               navigate('/fournisseur/dashboard');
+              break;
+            case 'client':
+              navigate('/client/dashboard');
               break;
             default:
               navigate('/dashboard');

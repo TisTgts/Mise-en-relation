@@ -51,9 +51,9 @@ def respond_to_offer(request, offer_id):
     try:
         offer = Prestation.objects.get(id=offer_id)
         
-        if request.user.type_utilisateur != 'fournisseur':
+        if request.user.type_utilisateur != 'client':
             return Response(
-                {'error': 'Accès réservé aux fournisseurs'},
+                {'error': 'Accès réservé aux clients'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -65,7 +65,7 @@ def respond_to_offer(request, offer_id):
             'message': 'Réponse enregistrée avec succès'
         })
         
-    except ServiceOffer.DoesNotExist:
+    except Prestation.DoesNotExist:
         return Response(
             {'error': 'Offre non trouvée'},
             status=status.HTTP_404_NOT_FOUND
@@ -78,9 +78,9 @@ def respond_to_need(request, need_id):
     try:
         need = Demande.objects.get(id=need_id)
         
-        if request.user.type_utilisateur != 'prestataire':
+        if request.user.type_utilisateur != 'fournisseur':
             return Response(
-                {'error': 'Accès réservé aux fournisseurs'},
+                {'error': 'Accès réservé aux fournisseurs de services'},
                 status=status.HTTP_403_FORBIDDEN
             )
         
@@ -109,7 +109,7 @@ class ProviderOfferListView(generics.ListCreateAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Prestation.objects.filter(prestataire=self.request.user)
+        return Prestation.objects.filter(fournisseur=self.request.user)
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -127,7 +127,7 @@ class ClientNeedListView(generics.ListCreateAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Demande.objects.filter(fournisseur=self.request.user)
+        return Demande.objects.filter(client=self.request.user)
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -143,16 +143,16 @@ def delete_offer(request, offer_id):
     """Vue dédiée pour la suppression d'une offre avec debug"""
     user = request.user
     
-    # Vérifier que l'utilisateur est bien un prestataire
-    if user.type_utilisateur != 'prestataire':
+    # Vérifier que l'utilisateur est bien un fournisseur de services
+    if user.type_utilisateur != 'fournisseur':
         return Response(
-            {'error': 'Accès réservé aux prestataires'},
+            {'error': 'Accès réservé aux fournisseurs de services'},
             status=status.HTTP_403_FORBIDDEN
         )
     
     try:
         # Récupérer la prestation
-        prestation = Prestation.objects.get(id=offer_id, prestataire=user)
+        prestation = Prestation.objects.get(id=offer_id, fournisseur=user)
         
         # Log avant suppression
         print(f"Tentative de suppression de la prestation {prestation.id} par {user.username}")
@@ -184,13 +184,13 @@ def delete_offer(request, offer_id):
 @permission_classes([permissions.IsAuthenticated])
 def my_offers(request):
     """Vue pour lister les offres de l'utilisateur connecté"""
-    if request.user.type_utilisateur != 'prestataire':
+    if request.user.type_utilisateur != 'fournisseur':
         return Response(
-            {'error': 'Accès réservé aux prestataires'},
+            {'error': 'Accès réservé aux fournisseurs de services'},
             status=status.HTTP_403_FORBIDDEN
         )
     
-    offers = Prestation.objects.filter(prestataire=request.user)
+    offers = Prestation.objects.filter(fournisseur=request.user)
     serializer = PrestationSerializer(offers, many=True)
     return Response(serializer.data)
 
@@ -198,13 +198,13 @@ def my_offers(request):
 @permission_classes([permissions.IsAuthenticated])
 def my_needs(request):
     """Vue pour lister les besoins de l'utilisateur connecté"""
-    if request.user.type_utilisateur != 'fournisseur':
+    if request.user.type_utilisateur != 'client':
         return Response(
-            {'error': 'Accès réservé aux fournisseurs'},
+            {'error': 'Accès réservé aux clients'},
             status=status.HTTP_403_FORBIDDEN
         )
     
-    needs = Demande.objects.filter(fournisseur=request.user)
+    needs = Demande.objects.filter(client=request.user)
     serializer = DemandeSerializer(needs, many=True)
     return Response(serializer.data)
 
@@ -212,14 +212,14 @@ def my_needs(request):
 @permission_classes([permissions.IsAuthenticated])
 def matching_needs(request):
     """Vue pour lister les besoins correspondants pour un fournisseur"""
-    if request.user.type_utilisateur != 'prestataire':
+    if request.user.type_utilisateur != 'fournisseur':
         return Response(
-            {'error': 'Accès réservé aux prestataires'},
+            {'error': 'Accès réservé aux fournisseurs de services'},
             status=status.HTTP_403_FORBIDDEN
         )
     
-    # Récupérer les offres du prestataire
-    provider_offers = Prestation.objects.filter(prestataire=request.user)
+    # Récupérer les offres du fournisseur
+    provider_offers = Prestation.objects.filter(fournisseur=request.user)
     matching_needs_list = []
     
     # Pour chaque offre, trouver les besoins correspondants
@@ -228,7 +228,7 @@ def matching_needs(request):
         potential_needs = Demande.objects.filter(
             categorie=offer.categorie,
             statut='ouverte'
-        ).exclude(fournisseur=request.user)[:5]  # Limiter à 5 besoins par offre
+        ).exclude(client=request.user)[:5]  # Limiter à 5 besoins par offre
         
         for need in potential_needs:
             matching_needs_list.append({
@@ -255,7 +255,7 @@ def matching_needs(request):
 def update_offer_status(request, offer_id):
     """Vue pour mettre à jour le statut d'une offre"""
     try:
-        offer = Prestation.objects.get(id=offer_id, prestataire=request.user)
+        offer = Prestation.objects.get(id=offer_id, fournisseur=request.user)
         
         new_status = request.data.get('status')
         if new_status in ['active', 'inactive', 'en_cours', 'terminee', 'annulee']:
@@ -274,7 +274,7 @@ def update_offer_status(request, offer_id):
                 'error': 'Statut invalide'
             }, status=status.HTTP_400_BAD_REQUEST)
             
-    except ServiceOffer.DoesNotExist:
+    except Prestation.DoesNotExist:
         return Response({
             'success': False,
             'error': 'Offre non trouvée'

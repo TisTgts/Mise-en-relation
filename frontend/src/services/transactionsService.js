@@ -20,9 +20,11 @@ class TransactionsService {
     
     // Filtrer les transactions de l'utilisateur connecté
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return transactionsList.filter(transaction => 
-      transaction.fournisseur?.id === user.id || 
-      transaction.prestataire?.id === user.id
+    return transactionsList.filter(transaction =>
+      transaction.fournisseur === user.id ||
+      transaction.client === user.id ||
+      transaction.fournisseur?.id === user.id ||
+      transaction.client?.id === user.id
     );
   }
 

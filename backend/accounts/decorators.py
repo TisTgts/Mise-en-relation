@@ -33,8 +33,8 @@ def client_provider_required(view_func):
         if not permission.has_permission(request, view_func):
             return JsonResponse({
                 'error': 'Accès refusé',
-                'message': 'Cette fonctionnalité est réservée aux fournisseurs clients',
-                'required_user_type': 'client_provider'
+                'message': 'Cette fonctionnalité est réservée aux clients',
+                'required_user_type': 'client'
             }, status=status.HTTP_403_FORBIDDEN)
         return view_func(request, *args, **kwargs)
     return _wrapped_view

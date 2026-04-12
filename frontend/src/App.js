@@ -17,46 +17,35 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
-import Offers from './pages/Offers';
-import Needs from './pages/Needs';
 
 // Nouvelles pages avec terminologie française
 import { 
   FournisseurDashboard, 
-  CreerPrestation,
+  PrestationCreate,
   PrestationDetail,
-  ModifierPrestation,
+  PrestationEdit,
   MesPrestations,
-  DemandesDisponibles,
   MesTransactions,
   MonProfil,
   MesMessages,
-  ToutesLesDemandes,
-  MesCollaborations as FournisseurCollaborations
+  MesCollaborations as FournisseurCollaborations,
+  FournisseurTransactionDetail,
 } from './pages/fournisseur';
 import { 
   ClientDashboard, 
-  CreerDemande,
-  MesDemandes,
-  PrestationsDisponibles,
+  BesoinCreate,
+  MesBesoins,
   ClientTransactions as ClientTransactions,
   ClientMessages as ClientMessages,
   ClientProfil as ClientProfil,
-  ToutesLesPrestations,
-  ClientCollaborations as ClientCollaborations
+  ClientCollaborations as ClientCollaborations,
+  BesoinDetail,
+  BesoinEdit,
+  TransactionDetail,
 } from './pages/client';
-import DemandeDetail from './pages/client/DemandeDetail';
-import DemandeEdit from './pages/client/DemandeEdit';
-import TransactionDetail from './pages/client/TransactionDetail';
 import { AdminDashboard, ManageUsers, ManageServices } from './pages/administrateur';
 
-// Anciennes pages (à migrer)
-import ProviderDashboard from './pages/provider/ProviderDashboard';
 import TestDashboard from './pages/TestDashboard';
-import CreateOffer from './pages/provider/CreateOffer';
-import CreateNeed from './pages/fournisseur/CreateNeed';
-import OffersList from './pages/OffersList';
-import NeedsList from './pages/NeedsList';
 
 // Composant pour les pages publiques (avec Header/Footer)
 const PublicPage = ({ children }) => (
@@ -111,7 +100,7 @@ function App() {
           <Route path="/dashboard/provider" element={
             <ProtectedRoute>
               <ProtectedPage>
-                <ProviderDashboard />
+                <FournisseurDashboard />
               </ProtectedPage>
             </ProtectedRoute>
           } />
@@ -141,21 +130,7 @@ function App() {
           <Route path="/fournisseur/creer-prestation" element={
             <FournisseurRoute>
               <ProtectedPage>
-                <CreerPrestation />
-              </ProtectedPage>
-            </FournisseurRoute>
-          } />
-          <Route path="/fournisseur/demandes" element={
-            <FournisseurRoute>
-              <ProtectedPage>
-                <DemandesDisponibles />
-              </ProtectedPage>
-            </FournisseurRoute>
-          } />
-          <Route path="/fournisseur/toutes-les-demandes" element={
-            <FournisseurRoute>
-              <ProtectedPage>
-                <ToutesLesDemandes />
+                <PrestationCreate />
               </ProtectedPage>
             </FournisseurRoute>
           } />
@@ -194,38 +169,52 @@ function App() {
               </ProtectedPage>
             </ClientRoute>
           } />
+          <Route path="/client/dashboard" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <ClientDashboard />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
           <Route path="/client/mes-demandes" element={
             <ClientRoute>
               <ProtectedPage>
-                <MesDemandes />
+                <MesBesoins />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
+          <Route path="/client/mes-besoins" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <MesBesoins />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
+          <Route path="/client/besoins/:id" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <BesoinDetail />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
+          <Route path="/client/besoins/:id/edit" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <BesoinEdit />
               </ProtectedPage>
             </ClientRoute>
           } />
           <Route path="/client/demandes/:id" element={
             <ClientRoute>
               <ProtectedPage>
-                <DemandeDetail />
+                <BesoinDetail />
               </ProtectedPage>
             </ClientRoute>
           } />
           <Route path="/client/demandes/:id/edit" element={
             <ClientRoute>
               <ProtectedPage>
-                <DemandeEdit />
-              </ProtectedPage>
-            </ClientRoute>
-          } />
-          <Route path="/client/prestations" element={
-            <ClientRoute>
-              <ProtectedPage>
-                <PrestationsDisponibles />
-              </ProtectedPage>
-            </ClientRoute>
-          } />
-          <Route path="/client/toutes-les-prestations" element={
-            <ClientRoute>
-              <ProtectedPage>
-                <ToutesLesPrestations />
+                <BesoinEdit />
               </ProtectedPage>
             </ClientRoute>
           } />
@@ -313,6 +302,13 @@ function App() {
               </ProtectedPage>
             </AdministrateurRoute>
           } />
+          <Route path="/admin/besoins" element={
+            <AdministrateurRoute>
+              <ProtectedPage>
+                <AdminDashboard />
+              </ProtectedPage>
+            </AdministrateurRoute>
+          } />
           <Route path="/admin/transactions" element={
             <AdministrateurRoute>
               <ProtectedPage>
@@ -337,7 +333,7 @@ function App() {
           <Route path="/fournisseur/creer-prestation" element={
             <FournisseurRoute>
               <ProtectedPage>
-                <CreerPrestation />
+                <PrestationCreate />
               </ProtectedPage>
             </FournisseurRoute>
           } />
@@ -351,7 +347,7 @@ function App() {
           <Route path="/fournisseur/modifier-prestation/:id" element={
             <FournisseurRoute>
               <ProtectedPage>
-                <ModifierPrestation />
+                <PrestationEdit />
               </ProtectedPage>
             </FournisseurRoute>
           } />
@@ -365,7 +361,7 @@ function App() {
           <Route path="/fournisseur/transactions/:id" element={
             <FournisseurRoute>
               <ProtectedPage>
-                <TransactionDetail />
+                <FournisseurTransactionDetail />
               </ProtectedPage>
             </FournisseurRoute>
           } />
@@ -386,21 +382,14 @@ function App() {
           <Route path="/client/creer-demande" element={
             <ClientRoute>
               <ProtectedPage>
-                <CreerDemande />
+                <BesoinCreate />
               </ProtectedPage>
             </ClientRoute>
           } />
           <Route path="/dashboard/provider/create-offer" element={
             <ProtectedRoute>
               <ProtectedPage>
-                <CreateOffer />
-              </ProtectedPage>
-            </ProtectedRoute>
-          } />
-          <Route path="/dashboard/client/create-need" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <CreateNeed />
+                <PrestationCreate />
               </ProtectedPage>
             </ProtectedRoute>
           } />
@@ -415,30 +404,6 @@ function App() {
                 <Services />
               </ProtectedPage>
             </ProtectedRoute>
-          } />
-          <Route path="/offers" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <Offers />
-              </ProtectedPage>
-            </ProtectedRoute>
-          } />
-          <Route path="/offers/list" element={
-            <PublicPage>
-              <OffersList />
-            </PublicPage>
-          } />
-          <Route path="/needs" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <Needs />
-              </ProtectedPage>
-            </ProtectedRoute>
-          } />
-          <Route path="/needs/list" element={
-            <PublicPage>
-              <NeedsList />
-            </PublicPage>
           } />
         </Routes>
       </Router>

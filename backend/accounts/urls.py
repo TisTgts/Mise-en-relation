@@ -21,6 +21,6 @@ urlpatterns = [
     # Dashboards spécifiques
     path('dashboard/', dashboard_views.dashboard_router, name='dashboard_router'),
     path('dashboard/provider/', dashboard_views.ProviderDashboardView.as_view(), name='provider_dashboard'),
-    path('dashboard/client-provider/', dashboard_views.ClientProviderDashboardView.as_view(), name='client_provider_dashboard'),
+    path('dashboard/client-provider/', dashboard_views.ClientDashboardView.as_view(), name='client_dashboard'),
     path('capabilities/', dashboard_views.user_capabilities, name='user_capabilities'),
 ]

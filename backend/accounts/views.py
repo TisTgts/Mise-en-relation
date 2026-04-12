@@ -5,13 +5,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from accounts.permissions import IsAdministrator
-from .models import ProfilePrestataire, ProfileFournisseur
+from .models import ProfileClient, ProfileFournisseur
 from .serializers import (
-    UserRegistrationSerializer, 
+    UserRegistrationSerializer,
     UserLoginSerializer,
     UserProfileSerializer,
-    ProfilePrestataireSerializer,
-    ProfileFournisseurSerializer
+    UserUpdateSerializer,
+    ProfileFournisseurSerializer,
+    ProfileClientSerializer,
+    ProfileFournisseurUpdateSerializer,
+    ProfileClientUpdateSerializer,
 )
 
 User = get_user_model()
@@ -23,20 +26,20 @@ class UserListView(generics.ListAPIView):
     serializer_class = UserProfileSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['type_utilisateur', 'is_active']
-    search_fields = ['first_name', 'last_name', 'email', 'raison_sociale']
+    search_fields = ['first_name', 'last_name', 'email', 'username']
     ordering_fields = ['date_joined', 'last_login']
     ordering = ['-date_joined']
 
 class ProviderListView(generics.ListAPIView):
-    """Vue pour lister tous les prestataires de services"""
-    queryset = ProfilePrestataire.objects.select_related('user').all()
-    serializer_class = ProfilePrestataireSerializer
+    """Vue pour lister tous les fournisseurs de services (offreurs)."""
+    queryset = ProfileFournisseur.objects.select_related('user').all()
+    serializer_class = ProfileFournisseurSerializer
     permission_classes = [permissions.AllowAny]
 
 class ClientProviderListView(generics.ListAPIView):
-    """Vue pour lister tous les fournisseurs de services"""
-    queryset = ProfileFournisseur.objects.select_related('user').all()
-    serializer_class = ProfileFournisseurSerializer
+    """Vue pour lister tous les clients (demandeurs de services)."""
+    queryset = ProfileClient.objects.select_related('user').all()
+    serializer_class = ProfileClientSerializer
     permission_classes = [permissions.AllowAny]
 
 class RegisterView(generics.CreateAPIView):
@@ -91,26 +94,31 @@ def logout_view(request):
         )
 
 class ProfileView(generics.RetrieveUpdateAPIView):
-    """Vue pour afficher et mettre à jour le profil utilisateur"""
+    """Profil métier (client ou fournisseur) : lecture et mise à jour des champs du modèle lié."""
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_object(self):
-        return self.request.user
-    
+        user = self.request.user
+        if user.type_utilisateur == 'fournisseur':
+            profile, _ = ProfileFournisseur.objects.get_or_create(user=user)
+            return profile
+        if user.type_utilisateur == 'client':
+            profile, _ = ProfileClient.objects.get_or_create(user=user)
+            return profile
+        return user
+
     def get_serializer_class(self):
-        user = self.get_object()
-        if user.type_utilisateur == 'prestataire':
-            try:
-                return ProfilePrestataireSerializer
-            except ProfilePrestataire.DoesNotExist:
-                ProfilePrestataire.objects.create(user=user)
-                return ProfilePrestataireSerializer
-        elif user.type_utilisateur == 'fournisseur':
-            try:
-                return ProfileFournisseurSerializer
-            except ProfileFournisseur.DoesNotExist:
-                ProfileFournisseur.objects.create(user=user)
-                return ProfileFournisseurSerializer
+        user = self.request.user
+        if self.request.method in ('PUT', 'PATCH'):
+            if user.type_utilisateur == 'fournisseur':
+                return ProfileFournisseurUpdateSerializer
+            if user.type_utilisateur == 'client':
+                return ProfileClientUpdateSerializer
+            return UserUpdateSerializer
+        if user.type_utilisateur == 'fournisseur':
+            return ProfileFournisseurSerializer
+        if user.type_utilisateur == 'client':
+            return ProfileClientSerializer
         return UserProfileSerializer
 
 @api_view(['GET'])
@@ -120,10 +128,14 @@ def user_profile_view(request):
     serializer = UserProfileSerializer(request.user)
     return Response(serializer.data)
 
-class CurrentUserView(generics.RetrieveAPIView):
-    """Vue pour obtenir l'utilisateur courant authentifié"""
+class CurrentUserView(generics.RetrieveUpdateAPIView):
+    """Utilisateur courant : lecture et mise à jour (nom, téléphone, photo)."""
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = UserProfileSerializer
-    
+
     def get_object(self):
         return self.request.user
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            return UserUpdateSerializer
+        return UserProfileSerializer

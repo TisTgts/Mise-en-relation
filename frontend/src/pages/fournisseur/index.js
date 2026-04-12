@@ -1,12 +1,15 @@
-export { default as PrestataireDashboard } from './PrestataireDashboard';
-export { default as CreerPrestation } from './CreerPrestation';
-export { default as PrestationDetail } from './PrestationDetail';
-export { default as ModifierPrestation } from './ModifierPrestation';
-export { default as MesPrestations } from './MesPrestations';
-export { default as DemandesDisponibles } from './DemandesDisponibles';
-export { default as MesTransactions } from './MesTransactions';
-export { default as MonProfil } from './MonProfil';
-export { default as MesMessages } from './MesMessages';
-export { default as ToutesLesDemandes } from './ToutesLesDemandes';
-export { default as MesCollaborations } from './MesCollaborations';
 export { default as FournisseurDashboard } from './FournisseurDashboard';
+export { default as PrestationCreate } from './prestation/PrestationCreate';
+/** @deprecated utiliser PrestationCreate */
+export { default as CreerPrestation } from './prestation/PrestationCreate';
+export { default as PrestationDetail } from './prestation/PrestationDetail';
+export { default as PrestationEdit } from './prestation/PrestationEdit';
+/** @deprecated utiliser PrestationEdit */
+export { default as ModifierPrestation } from './prestation/PrestationEdit';
+export { default as MesPrestations } from './prestation/MesPrestations';
+export { default as MesTransactions } from './transactions/MesTransactions';
+/** Détail transaction côté fournisseur (distinct du composant client homonyme) */
+export { default as FournisseurTransactionDetail } from './transactions/TransactionDetail';
+export { default as MonProfil } from './profil/MonProfil';
+export { default as MesMessages } from './messages/MesMessages';
+export { default as MesCollaborations } from './collaborations/MesCollaborations';

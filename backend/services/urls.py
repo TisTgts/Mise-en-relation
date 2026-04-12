@@ -23,19 +23,17 @@ urlpatterns = [
     path('prestations/<int:offer_id>/update_status/', specific_views.update_offer_status, name='update-prestation-status'),
     path('prestations/<int:offer_id>/delete/', specific_views.delete_offer, name='delete-prestation'),
     
-    # Demandes de services - Vues publiques
-    path('demandes/', views.ServiceNeedListCreateView.as_view(), name='demande-list-create'),
-    path('demandes/public/', specific_views.PublicNeedListView.as_view(), name='demande-public-list'),
-    path('demandes/<int:pk>/', views.ServiceNeedDetailView.as_view(), name='demande-detail'),
-    path('demandes/<int:pk>/edit/', views.ServiceNeedDetailView.as_view(), name='demande-edit'),
-    path('demandes/<int:need_id>/respond/', specific_views.respond_to_need, name='demande-respond'),
+    # Besoins de services - Vues publiques
+    path('besoins/', views.ServiceNeedListCreateView.as_view(), name='besoin-list-create'),
+    path('besoins/public/', specific_views.PublicNeedListView.as_view(), name='besoin-public-list'),
+    path('besoins/<int:pk>/', views.ServiceNeedDetailView.as_view(), name='besoin-detail'),
+    path('besoins/<int:pk>/edit/', views.ServiceNeedDetailView.as_view(), name='besoin-edit'),
+    path('besoins/<int:need_id>/respond/', specific_views.respond_to_need, name='besoin-respond'),
     
-    # Demandes spécifiques au fournisseur
-    path('demandes/my/', specific_views.my_needs, name='my-demandes'),
-    path('demandes/client/', specific_views.ClientNeedListView.as_view(), name='client-demandes'),
-    path('prestations/matching/', specific_views.matching_needs, name='matching-demandes'),
-    path('prestations/<int:offer_id>/update_status/', specific_views.update_offer_status, name='update-prestation-status'),
-    path('prestations/<int:offer_id>/delete/', specific_views.delete_offer, name='delete-prestation'),
+    # Besoins spécifiques au client / fournisseur
+    path('besoins/my/', specific_views.my_needs, name='my-besoins'),
+    path('besoins/client/', specific_views.ClientNeedListView.as_view(), name='client-besoins'),
+    path('prestations/matching/', specific_views.matching_needs, name='matching-besoins'),
     
     # Transactions
     path('transactions/', views.ServiceTransactionListView.as_view(), name='transaction-list'),
@@ -49,7 +47,7 @@ urlpatterns = [
     path('admin/users/', admin_views.AdminUserListView.as_view(), name='admin-users'),
     path('admin/users/<int:pk>/', admin_views.AdminUserDetailView.as_view(), name='admin-user-detail'),
     path('admin/prestations/', admin_views.AdminPrestationListView.as_view(), name='admin-prestations'),
-    path('admin/demandes/', admin_views.AdminDemandeListView.as_view(), name='admin-demandes'),
+    path('admin/besoins/', admin_views.AdminBesoinListView.as_view(), name='admin-besoins'),
     path('admin/transactions/', admin_views.AdminTransactionListView.as_view(), name='admin-transactions'),
     path('admin/statistics/', admin_views.admin_statistics, name='admin-statistics-detailed'),
     path('admin/users/<int:user_id>/toggle-status/', admin_views.toggle_user_status, name='admin-toggle-user'),

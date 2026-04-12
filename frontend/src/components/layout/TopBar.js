@@ -61,12 +61,26 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
     switch (user.type_utilisateur) {
       case 'administrateur':
         return '/admin/dashboard';
-      case 'prestataire':
-        return '/fournisseur/dashboard';
       case 'fournisseur':
-        return '/client_dashboard';
+        return '/fournisseur/dashboard';
+      case 'client':
+        return '/client/dashboard';
       default:
         return '/';
+    }
+  };
+
+  const getProfileLink = () => {
+    if (!user) return '/login';
+    switch (user.type_utilisateur) {
+      case 'fournisseur':
+        return '/fournisseur/profil';
+      case 'client':
+        return '/client/profil';
+      case 'administrateur':
+        return '/admin/dashboard';
+      default:
+        return '/login';
     }
   };
 
@@ -247,7 +261,7 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
                       Tableau de bord
                     </Link>
                     <Link
-                      to="/profile"
+                      to={getProfileLink()}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       onClick={() => setShowProfileMenu(false)}
                     >

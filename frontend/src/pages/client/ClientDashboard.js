@@ -1,409 +1,662 @@
-import React, { useState, useEffect } from 'react';
-import { FiSearch, FiBriefcase, FiDollarSign, FiClock, FiAlertCircle, FiPlus, FiFilter, FiMapPin, FiCalendar, FiTrendingUp, FiUsers, FiEye } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  FiSearch,
+  FiBriefcase,
+  FiDollarSign,
+  FiClock,
+  FiAlertCircle,
+  FiPlus,
+  FiFilter,
+  FiMapPin,
+  FiUsers,
+  FiEye,
+  FiRefreshCw,
+  FiChevronRight,
+  FiLayers,
+  FiUser,
+} from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { API_ENDPOINTS } from '../../config/api';
+
+const TABS = [
+  { id: 'accueil', label: 'Accueil' },
+  { id: 'besoins', label: 'Mes besoins' },
+  { id: 'collaborations', label: 'Collaborations' },
+  { id: 'prestations', label: 'Prestations' },
+];
+
+const BESOIN_FILTRES = [
+  { id: 'tous', label: 'Tous' },
+  { id: 'ouverte', label: 'Ouverts' },
+  { id: 'en_cours', label: 'En cours' },
+  { id: 'pourvue', label: 'Pourvus' },
+  { id: 'annulee', label: 'Annulés' },
+];
+
+const COLLAB_FILTRES = [
+  { id: 'actives', label: 'En cours' },
+  { id: 'terminees', label: 'Terminées' },
+  { id: 'annulees', label: 'Annulées' },
+];
+
+const STATUTS_BESOIN_LABEL = {
+  ouverte: 'Ouvert',
+  en_cours: 'En cours',
+  pourvue: 'Pourvu',
+  annulee: 'Annulé',
+};
+
+const URGENCE_LABEL = {
+  basse: 'Basse',
+  normale: 'Normale',
+  haute: 'Haute',
+  urgente: 'Urgente',
+};
+
+const STATUT_TRANSACTION_LABEL = {
+  en_attente: 'En attente',
+  acceptee: 'Acceptée',
+  en_cours: 'En cours',
+  terminee: 'Terminée',
+  annulee: 'Annulée',
+};
+
+const authHeaders = () => {
+  const token = localStorage.getItem('access_token');
+  const h = { 'Content-Type': 'application/json' };
+  if (token) {
+    h.Authorization = `Bearer ${token}`;
+  }
+  return h;
+};
+
+const parseList = (data) => {
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.results)) return data.results;
+  return [];
+};
+
+const getStatusBesoinClass = (statut) => {
+  switch (statut) {
+    case 'ouverte':
+      return 'text-emerald-700 bg-emerald-100';
+    case 'en_cours':
+      return 'text-blue-700 bg-blue-100';
+    case 'pourvue':
+      return 'text-violet-700 bg-violet-100';
+    case 'annulee':
+      return 'text-gray-600 bg-gray-100';
+    default:
+      return 'text-gray-600 bg-gray-100';
+  }
+};
+
+const getUrgenceClass = (urgence) => {
+  switch (urgence) {
+    case 'urgente':
+      return 'text-red-700 bg-red-100';
+    case 'haute':
+      return 'text-orange-700 bg-orange-100';
+    case 'normale':
+      return 'text-amber-700 bg-amber-100';
+    case 'basse':
+      return 'text-green-700 bg-green-100';
+    default:
+      return 'text-gray-600 bg-gray-100';
+  }
+};
+
+const getTransactionStatutClass = (statut) => {
+  switch (statut) {
+    case 'en_attente':
+      return 'text-amber-700 bg-amber-100';
+    case 'acceptee':
+    case 'en_cours':
+      return 'text-blue-700 bg-blue-100';
+    case 'terminee':
+      return 'text-emerald-700 bg-emerald-100';
+    case 'annulee':
+      return 'text-gray-600 bg-gray-100';
+    default:
+      return 'text-gray-600 bg-gray-100';
+  }
+};
+
+const formatZones = (zones) => {
+  if (!zones) return '—';
+  if (Array.isArray(zones)) return zones.length ? zones.slice(0, 3).join(', ') : '—';
+  return '—';
+};
 
 const ClientDashboard = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalNeeds: 0,
-    activeNeeds: 0,
-    completedNeeds: 0,
-    totalSpent: 0,
-    averageMonthlyRequests: 0,
-    pendingContracts: 0
-  });
-  const [recentNeeds, setRecentNeeds] = useState([]);
-  const [matchingOffers, setMatchingOffers] = useState([]);
+  const navigate = useNavigate();
+
+  const [tab, setTab] = useState('accueil');
+  const [besoinFiltre, setBesoinFiltre] = useState('tous');
+  const [collabFiltre, setCollabFiltre] = useState('actives');
+
+  const [besoins, setBesoins] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [prestations, setPrestations] = useState([]);
+
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  const loadData = useCallback(async () => {
+    setError(null);
+    const headers = authHeaders();
+    if (!headers.Authorization) {
+      setError('Session expirée. Reconnectez-vous.');
+      setLoading(false);
+      return;
+    }
 
-  const fetchDashboardData = async () => {
     try {
-      const token = localStorage.getItem('token');
-      
-      // Récupérer les statistiques
-      const statsResponse = await fetch('/api/services/statistics/client/', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData);
+      const [besoinsRes, transRes, prestRes] = await Promise.all([
+        fetch(`${API_ENDPOINTS.SERVICES.BESOINS}my/`, { headers }),
+        fetch(`${API_ENDPOINTS.SERVICES.TRANSACTIONS}`, { headers }),
+        fetch(`${API_ENDPOINTS.SERVICES.PRESTATIONS}public/`, { headers }),
+      ]);
+
+      if (besoinsRes.ok) {
+        const data = await besoinsRes.json();
+        setBesoins(parseList(data));
+      } else {
+        setBesoins([]);
       }
 
-      // Récupérer les besoins récents
-      const needsResponse = await fetch('/api/services/needs/my-needs/', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (needsResponse.ok) {
-        const needsData = await needsResponse.json();
-        setRecentNeeds(needsData.results || needsData.slice(0, 5));
+      if (transRes.ok) {
+        const data = await transRes.json();
+        setTransactions(parseList(data));
+      } else {
+        setTransactions([]);
       }
 
-      // Récupérer les offres correspondantes
-      const offersResponse = await fetch('/api/services/offers/matching/', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (offersResponse.ok) {
-        const offersData = await offersResponse.json();
-        setMatchingOffers(offersData.results || offersData.slice(0, 5));
+      if (prestRes.ok) {
+        const data = await prestRes.json();
+        setPrestations(parseList(data).slice(0, 24));
+      } else {
+        setPrestations([]);
       }
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
+    } catch (e) {
+      console.error(e);
+      setError('Impossible de charger les données.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadData();
   };
 
-  const handleStatusChange = async (needId, newStatus) => {
+  const stats = useMemo(() => {
+    const actifs = besoins.filter((b) => b.statut === 'ouverte' || b.statut === 'en_cours').length;
+    const pourvus = besoins.filter((b) => b.statut === 'pourvue').length;
+    const txActives = transactions.filter((t) =>
+      ['en_attente', 'acceptee', 'en_cours'].includes(t.statut)
+    ).length;
+    const totalDepense = transactions
+      .filter((t) => t.statut === 'terminee' && t.prix_final != null)
+      .reduce((sum, t) => sum + Number(t.prix_final || 0), 0);
+    return {
+      besoinsActifs: actifs,
+      besoinsPourvus: pourvus,
+      collaborationsEnCours: txActives,
+      totalDepense,
+      totalBesoins: besoins.length,
+    };
+  }, [besoins, transactions]);
+
+  const besoinsFiltres = useMemo(() => {
+    if (besoinFiltre === 'tous') return besoins;
+    return besoins.filter((b) => b.statut === besoinFiltre);
+  }, [besoins, besoinFiltre]);
+
+  const transactionsFiltrees = useMemo(() => {
+    if (collabFiltre === 'actives') {
+      return transactions.filter((t) => ['en_attente', 'acceptee', 'en_cours'].includes(t.statut));
+    }
+    if (collabFiltre === 'terminees') return transactions.filter((t) => t.statut === 'terminee');
+    if (collabFiltre === 'annulees') return transactions.filter((t) => t.statut === 'annulee');
+    return transactions;
+  }, [transactions, collabFiltre]);
+
+  const handleBesoinStatut = async (besoinId, statutActuel) => {
+    const prochain = statutActuel === 'ouverte' ? 'annulee' : 'ouverte';
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/services/needs/${needId}/update_status/`, {
+      const res = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}${besoinId}/`, {
         method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ status: newStatus })
+        headers: authHeaders(),
+        body: JSON.stringify({ statut: prochain }),
       });
-
-      if (response.ok) {
-        // Mettre à jour le besoin localement
-        setRecentNeeds(prev => 
-          prev.map(need => 
-            need.id === needId ? { ...need, status: newStatus } : need
-          )
-        );
+      if (res.ok) {
+        const updated = await res.json();
+        setBesoins((prev) => prev.map((b) => (b.id === besoinId ? { ...b, ...updated } : b)));
       }
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
+    } catch (e) {
+      console.error(e);
     }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'open': return 'text-green-600 bg-green-100';
-      case 'closed': return 'text-gray-600 bg-gray-100';
-      case 'in_progress': return 'text-blue-600 bg-blue-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status) {
-      case 'open': return 'Ouvert';
-      case 'closed': return 'Fermé';
-      case 'in_progress': return 'En cours';
-      default: return status;
-    }
-  };
-
-  const getUrgencyColor = (urgency) => {
-    switch (urgency) {
-      case 'urgent': return 'text-red-600 bg-red-100';
-      case 'high': return 'text-orange-600 bg-orange-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'low': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getRatingStars = (rating) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
-    
-    for (let i = 0; i < fullStars; i++) {
-      stars.push('⭐');
-    }
-    
-    if (hasHalfStar) {
-      stars.push('⭐');
-    }
-    
-    return stars.join('');
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement du tableau de bord...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4" />
+          <p className="text-gray-600">Chargement du tableau de bord…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Tableau de bord Client</h1>
-          <p className="text-gray-600 mt-1">Bienvenue {user?.first_name}, voici un aperçu de vos activités</p>
+    <div className="min-h-screen bg-gray-50 pb-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Tableau de bord</h1>
+            <p className="text-gray-600 mt-1">
+              Bienvenue{user?.first_name ? `, ${user.first_name}` : ''} — suivez vos besoins et vos collaborations.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 self-start">
+            <button
+              type="button"
+              onClick={() => navigate('/client/profil')}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-medium hover:bg-primary-700"
+            >
+              <FiUser className="w-4 h-4" />
+              Mon profil
+            </button>
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              <FiRefreshCw className={refreshing ? 'animate-spin' : ''} />
+              Actualiser
+            </button>
+          </div>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {error}
+          </div>
+        )}
 
         {/* Statistiques */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Besoins actifs</p>
-                <p className="text-2xl font-bold text-blue-600">{stats.activeNeeds}</p>
-                <p className="text-xs text-green-600 mt-1">+{stats.averageMonthlyRequests}% ce mois</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <FiBriefcase className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm text-gray-500">Besoins actifs</p>
+            <p className="text-2xl font-bold text-blue-600 mt-1">{stats.besoinsActifs}</p>
+            <p className="text-xs text-gray-400 mt-2">{stats.totalBesoins} besoin(s) au total</p>
           </div>
-
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Contrats en attente</p>
-                <p className="text-2xl font-bold text-orange-600">{stats.pendingContracts}</p>
-                <p className="text-xs text-green-600 mt-1">+2 cette semaine</p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <FiAlertCircle className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm text-gray-500">Collaborations en cours</p>
+            <p className="text-2xl font-bold text-orange-600 mt-1">{stats.collaborationsEnCours}</p>
+            <p className="text-xs text-gray-400 mt-2">Transactions non terminées</p>
           </div>
-
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Total dépensé</p>
-                <p className="text-2xl font-bold text-green-600">{stats.totalSpent.toLocaleString()} XOF</p>
-                <p className="text-xs text-green-600 mt-1">+{stats.averageMonthlyRequests}% ce mois</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <FiDollarSign className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm text-gray-500">Total dépensé (terminé)</p>
+            <p className="text-2xl font-bold text-emerald-600 mt-1">
+              {Math.round(stats.totalDepense).toLocaleString('fr-FR')} FCFA
+            </p>
           </div>
-
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-500">Besoins complétés</p>
-                <p className="text-2xl font-bold text-purple-600">{stats.completedNeeds}</p>
-                <p className="text-xs text-green-600 mt-1">+{stats.averageMonthlyRequests}% ce mois</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <FiTrendingUp className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
+          <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+            <p className="text-sm text-gray-500">Besoins pourvus</p>
+            <p className="text-2xl font-bold text-violet-600 mt-1">{stats.besoinsPourvus}</p>
           </div>
         </div>
 
-        {/* Actions rapides */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <button 
-            onClick={() => window.location.href = '/dashboard/client/create-need'}
-            className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-200 transition-colors">
-                <FiPlus className="h-6 w-6 text-blue-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Nouveau besoin</h3>
-              <p className="text-sm text-gray-600">Publier un besoin de service</p>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => window.location.href = '/needs'}
-            className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-green-200 transition-colors">
-                <FiFilter className="h-6 w-6 text-green-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Mes besoins</h3>
-              <p className="text-sm text-gray-600">Gérer tous mes besoins</p>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => window.location.href = '/offers'}
-            className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-200 transition-colors">
-                <FiEye className="h-6 w-6 text-purple-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Offres</h3>
-              <p className="text-sm text-gray-600">Voir les offres disponibles</p>
-            </div>
-          </button>
-
-          <button 
-            onClick={() => window.location.href = '/dashboard/client/messages'}
-            className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300 group"
-          >
-            <div className="text-center">
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-orange-200 transition-colors">
-                <FiUsers className="h-6 w-6 text-orange-600" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Messages</h3>
-              <p className="text-sm text-gray-600">Voir les messages reçus</p>
-            </div>
-          </button>
-        </div>
-
-        {/* Besoins récents */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Besoins récents</h2>
-              <button 
-                onClick={() => window.location.href = '/dashboard/client/needs'}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+        {/* Onglets */}
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+          <div className="flex flex-wrap border-b border-gray-100">
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className={`px-4 py-3 text-sm font-medium transition-colors relative ${
+                  tab === t.id
+                    ? 'text-primary-700 bg-primary-50/80'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                }`}
               >
-                Voir tout
+                {t.label}
+                {tab === t.id && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600" />
+                )}
               </button>
-            </div>
-            
-            <div className="space-y-4">
-              {Array.isArray(recentNeeds) && recentNeeds.length > 0 ? (
-                recentNeeds.map(need => (
-                  <div key={need.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{need.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{need.description}</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(need.status)}`}>
-                          {getStatusText(need.status)}
-                        </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getUrgencyColor(need.urgency)}`}>
-                          {need.urgency_display || need.urgency}
-                        </span>
-                      </div>
+            ))}
+          </div>
+
+          <div className="p-5 sm:p-6">
+            {tab === 'accueil' && (
+              <div className="space-y-6">
+                <p className="text-gray-600 text-sm">
+                  Accédez rapidement aux actions les plus courantes. Les onglets <strong>Mes besoins</strong> et{' '}
+                  <strong>Collaborations</strong> regroupent le détail filtrable.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/client/creer-demande')}
+                    className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-blue-100 flex items-center justify-center mb-3">
+                      <FiPlus className="w-5 h-5 text-blue-600" />
                     </div>
-                    
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <FiMapPin className="h-4 w-4 mr-1" />
-                          <span>{need.service_area || 'Non spécifié'}</span>
-                        </div>
-                        <div className="flex items-center">
-                          <FiDollarSign className="h-4 w-4 mr-1" />
-                          <span>{need.budget?.toLocaleString() || 'N/A'} XOF</span>
-                        </div>
-                        <div className="flex items-center">
-                          <FiClock className="h-4 w-4 mr-1" />
-                          <span>{need.days_remaining > 0 ? `${need.days_remaining} jours` : 'Expiré'}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleStatusChange(need.id, need.status === 'open' ? 'closed' : 'open')}
-                          className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                        >
-                          {need.status === 'open' ? 'Fermer' : 'Rouvrir'}
-                        </button>
-                        <button className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
-                          Modifier
-                        </button>
-                      </div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">Nouveau besoin</h3>
+                    <p className="text-sm text-gray-500 mt-1">Publier un besoin de service</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTab('besoins'); setBesoinFiltre('tous'); }}
+                    className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-emerald-100 flex items-center justify-center mb-3">
+                      <FiFilter className="w-5 h-5 text-emerald-600" />
                     </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FiBriefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p>Aucun besoin récent</p>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">Mes besoins</h3>
+                    <p className="text-sm text-gray-500 mt-1">Voir et filtrer tous vos besoins</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTab('collaborations'); setCollabFiltre('actives'); }}
+                    className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-orange-100 flex items-center justify-center mb-3">
+                      <FiLayers className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">Collaborations</h3>
+                    <p className="text-sm text-gray-500 mt-1">Suivre vos transactions avec les fournisseurs</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/services')}
+                    className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
+                  >
+                    <div className="w-11 h-11 rounded-lg bg-violet-100 flex items-center justify-center mb-3">
+                      <FiSearch className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 group-hover:text-primary-700">Prestations</h3>
+                    <p className="text-sm text-gray-500 mt-1">Parcourir les prestations disponibles</p>
+                  </button>
                 </div>
-              )}
-            </div>
-          </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/client/messages')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 text-white text-sm hover:bg-gray-800"
+                  >
+                    <FiUsers className="w-4 h-4" />
+                    Messages
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/client/transactions')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    <FiBriefcase className="w-4 h-4" />
+                    Toutes les transactions
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/client/mes-collaborations')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Page collaborations détaillée
+                    <FiChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
 
-          {/* Offres correspondantes */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Offres correspondantes</h2>
-              <button 
-                onClick={() => window.location.href = '/offers'}
-                className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-              >
-                Voir tout
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              {Array.isArray(matchingOffers) && matchingOffers.length > 0 ? (
-                matchingOffers.map(offer => (
-                  <div key={offer.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{offer.title}</h3>
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{offer.description}</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${offer.status === 'active' ? 'text-green-600 bg-green-100' : 'text-gray-600 bg-gray-100'}`}>
-                          {offer.status === 'active' ? 'Actif' : 'Inactif'}
-                        </span>
-                        {offer.is_featured && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
-                            ⭐ Mis en avant
+            {tab === 'besoins' && (
+              <div>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {BESOIN_FILTRES.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setBesoinFiltre(f.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        besoinFiltre === f.id
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                {besoinsFiltres.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <FiBriefcase className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>Aucun besoin dans cette catégorie.</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/client/creer-demande')}
+                      className="mt-4 text-primary-600 font-medium text-sm hover:underline"
+                    >
+                      Créer un besoin
+                    </button>
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {besoinsFiltres.map((b) => (
+                      <li
+                        key={b.id}
+                        className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50/80 transition-colors"
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-gray-900 truncate">{b.intitule}</h3>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBesoinClass(b.statut)}`}>
+                                {STATUTS_BESOIN_LABEL[b.statut] || b.statut}
+                              </span>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${getUrgenceClass(b.urgence)}`}>
+                                {URGENCE_LABEL[b.urgence] || b.urgence}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600 line-clamp-2">{b.description}</p>
+                            <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                              <span className="inline-flex items-center gap-1">
+                                <FiMapPin className="w-3.5 h-3.5" />
+                                {b.lieu_intervention || '—'}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <FiDollarSign className="w-3.5 h-3.5" />
+                                {b.budget != null ? `${Number(b.budget).toLocaleString('fr-FR')} FCFA` : '—'}
+                              </span>
+                              {b.date_limite && (
+                                <span className="inline-flex items-center gap-1">
+                                  <FiClock className="w-3.5 h-3.5" />
+                                  limite : {new Date(b.date_limite).toLocaleDateString('fr-FR')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/client/besoins/${b.id}`)}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                            >
+                              Détail
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/client/besoins/${b.id}/edit`)}
+                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700"
+                            >
+                              Modifier
+                            </button>
+                            {(b.statut === 'ouverte' || b.statut === 'annulee') && (
+                              <button
+                                type="button"
+                                onClick={() => handleBesoinStatut(b.id, b.statut)}
+                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
+                              >
+                                {b.statut === 'ouverte' ? 'Annuler' : 'Rouvrir'}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {tab === 'collaborations' && (
+              <div>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {COLLAB_FILTRES.map((f) => (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setCollabFiltre(f.id)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        collabFiltre === f.id
+                          ? 'bg-primary-600 text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                {transactionsFiltrees.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <FiAlertCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>Aucune collaboration dans cette catégorie.</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/services')}
+                      className="mt-4 text-primary-600 font-medium text-sm hover:underline"
+                    >
+                      Découvrir des prestations
+                    </button>
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {transactionsFiltrees.map((tx) => (
+                      <li
+                        key={tx.id}
+                        className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50/80 transition-colors"
+                      >
+                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${getTransactionStatutClass(tx.statut)}`}>
+                                {STATUT_TRANSACTION_LABEL[tx.statut] || tx.statut}
+                              </span>
+                            </div>
+                            <p className="font-medium text-gray-900">
+                              {tx.prestation_intitule || `Prestation #${tx.prestation}`}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Besoin : {tx.besoin_intitule || `Besoin #${tx.besoin}`}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1">
+                              Fournisseur : <span className="text-gray-800">{tx.fournisseur_nom || '—'}</span>
+                            </p>
+                            {tx.prix_final != null && (
+                              <p className="text-sm font-medium text-gray-900 mt-1">
+                                {Number(tx.prix_final).toLocaleString('fr-FR')} FCFA
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/client/transactions/${tx.id}`)}
+                            className="self-start lg:self-center inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700"
+                          >
+                            Voir la transaction
+                            <FiChevronRight className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {tab === 'prestations' && (
+              <div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Aperçu des prestations publiées sur la plateforme. Ouvrez la liste complète pour filtrer et comparer.
+                </p>
+                {prestations.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <FiSearch className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>Aucune prestation à afficher pour le moment.</p>
+                  </div>
+                ) : (
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {prestations.map((p) => (
+                      <li
+                        key={p.id}
+                        className="border border-gray-100 rounded-xl p-4 hover:border-primary-100 transition-colors"
+                      >
+                        <h3 className="font-semibold text-gray-900 line-clamp-1">{p.intitule}</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">{p.categorie_nom || 'Catégorie'}</p>
+                        <p className="text-sm text-gray-600 line-clamp-2 mt-2">{p.description}</p>
+                        <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
+                          <span>{p.fournisseur_nom || 'Fournisseur'}</span>
+                          <span>
+                            {p.tarif_min != null && p.tarif_max != null
+                              ? `${Number(p.tarif_min).toLocaleString('fr-FR')} – ${Number(p.tarif_max).toLocaleString('fr-FR')} FCFA`
+                              : '—'}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <FiMapPin className="h-4 w-4 mr-1" />
-                          <span>{offer.service_areas?.slice(0, 2).join(', ') || 'Non spécifié'}</span>
                         </div>
-                        <div className="flex items-center">
-                          <FiDollarSign className="h-4 w-4 mr-1" />
-                          <span>{offer.price_range_min} - {offer.price_range_max} XOF</span>
+                        <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                          <FiMapPin className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{formatZones(p.zones_intervention)}</span>
                         </div>
-                        <div className="flex items-center">
-                          <span className="mr-1">⭐</span>
-                          <span>{offer.provider_rating?.toFixed(1) || 'N/A'}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center space-x-2">
-                        <button className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors">
-                          Contacter
+                        <button
+                          type="button"
+                          onClick={() => navigate('/services')}
+                          className="mt-3 text-sm font-medium text-primary-600 hover:underline inline-flex items-center gap-1"
+                        >
+                          <FiEye className="w-4 h-4" />
+                          Voir toutes les prestations
                         </button>
-                        <button className="px-3 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors">
-                          Voir détails
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <FiSearch className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p>Aucune offre correspondante</p>
-                </div>
-              )}
-            </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
+        </div>
+
+        {/* Raccourci bas de page */}
+        <div className="flex flex-wrap justify-between items-center gap-3 text-sm text-gray-500">
+          <span>Besoin d&apos;aide ? Consultez vos messages ou votre profil.</span>
+          <button
+            type="button"
+            onClick={() => navigate('/client/profil')}
+            className="text-primary-600 font-medium hover:underline"
+          >
+            Mon profil
+          </button>
         </div>
       </div>
     </div>

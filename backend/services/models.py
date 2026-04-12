@@ -23,7 +23,7 @@ class CategorieService(models.Model):
 ServiceCategory = CategorieService
 
 class Prestation(models.Model):
-    """Prestation de service proposée par un prestataire"""
+    """Prestation de service proposée par un fournisseur (offreur de services)."""
     
     STATUT_CHOICES = [
         ('active', 'Active'),
@@ -40,11 +40,11 @@ class Prestation(models.Model):
         ('devis', 'Sur devis'),
     ]
     
-    prestataire = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
+    fournisseur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
         related_name='prestations',
-        verbose_name="Prestataire"
+        verbose_name="Fournisseur"
     )
     categorie = models.ForeignKey(
         CategorieService, 
@@ -95,7 +95,7 @@ class Prestation(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.intitule} - {self.prestataire.username}"
+        return f"{self.intitule} - {self.fournisseur.username}"
     
     # Propriétés pour compatibilité
     @property
@@ -104,7 +104,7 @@ class Prestation(models.Model):
     
     @property
     def provider(self):
-        return self.prestataire
+        return self.fournisseur
     
     @property
     def category(self):
@@ -149,8 +149,8 @@ class Prestation(models.Model):
 # Alias pour compatibilité
 ServiceOffer = Prestation
 
-class Demande(models.Model):
-    """Demande de service émise par un fournisseur"""
+class Besoin(models.Model):
+    """Besoin de service exprimé par un client."""
     
     URGENCE_CHOICES = [
         ('basse', 'Basse'),
@@ -166,20 +166,20 @@ class Demande(models.Model):
         ('annulee', 'Annulée'),
     ]
     
-    fournisseur = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='demandes',
-        verbose_name="Fournisseur"
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='besoins',
+        verbose_name="Client"
     )
     categorie = models.ForeignKey(
         CategorieService, 
         on_delete=models.SET_NULL, 
         null=True,
-        related_name='demandes',
+        related_name='besoins',
         verbose_name="Catégorie"
     )
-    intitule = models.CharField(max_length=200, verbose_name="Intitulé de la demande")
+    intitule = models.CharField(max_length=200, verbose_name="Intitulé du besoin")
     description = models.TextField(verbose_name="Description du besoin")
     type_service = models.CharField(max_length=100, verbose_name="Type de service recherché")
     exigences = models.JSONField(default=dict, verbose_name="Exigences spécifiques")
@@ -210,21 +210,17 @@ class Demande(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        verbose_name = "Demande de service"
-        verbose_name_plural = "Demandes de services"
+        verbose_name = "Besoin de service"
+        verbose_name_plural = "Besoins de services"
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.intitule} - {self.fournisseur.username}"
+        return f"{self.intitule} - {self.client.username}"
     
     # Propriétés pour compatibilité
     @property
     def title(self):
         return self.intitule
-    
-    @property
-    def client(self):
-        return self.fournisseur
     
     @property
     def category(self):
@@ -259,10 +255,11 @@ class Demande(models.Model):
         return self.statut
 
 # Alias pour compatibilité
-ServiceNeed = Demande
+ServiceNeed = Besoin
+Demande = Besoin
 
 class TransactionService(models.Model):
-    """Transaction entre une prestation et une demande"""
+    """Transaction entre une prestation et un besoin"""
     
     STATUT_CHOICES = [
         ('en_attente', 'En attente'),
@@ -278,23 +275,23 @@ class TransactionService(models.Model):
         related_name='transactions',
         verbose_name="Prestation"
     )
-    demande = models.ForeignKey(
-        Demande, 
-        on_delete=models.CASCADE, 
+    besoin = models.ForeignKey(
+        Besoin,
+        on_delete=models.CASCADE,
         related_name='transactions',
-        verbose_name="Demande"
-    )
-    prestataire = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='prestataire_transactions',
-        verbose_name="Prestataire"
+        verbose_name="Besoin"
     )
     fournisseur = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='fournisseur_transactions',
+        User,
+        on_delete=models.CASCADE,
+        related_name='transactions_comme_fournisseur',
         verbose_name="Fournisseur"
+    )
+    client = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='transactions_comme_client',
+        verbose_name="Client"
     )
     prix_final = models.DecimalField(
         max_digits=10, 
@@ -324,23 +321,6 @@ class TransactionService(models.Model):
     
     def __str__(self):
         return f"Transaction {self.id} - {self.statut}"
-    
-    # Propriétés pour compatibilité
-    @property
-    def offer(self):
-        return self.prestation
-    
-    @property
-    def need(self):
-        return self.demande
-    
-    @property
-    def provider(self):
-        return self.prestataire
-    
-    @property
-    def client(self):
-        return self.fournisseur
     
     @property
     def final_price(self):
@@ -407,7 +387,9 @@ class Message(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"Message de {self.expediteur.username} à {self.destinataire.username}"
+        exp = self.expediteur.username if self.expediteur else '?'
+        dest = self.destinataire.username if self.destinataire else '?'
+        return f"Message de {exp} à {dest}"
     
     # Propriétés pour compatibilité
     @property

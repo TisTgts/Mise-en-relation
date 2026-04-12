@@ -63,8 +63,8 @@ const ManageUsers = () => {
       user.raison_sociale?.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (filter === 'all') return matchesSearch;
-    if (filter === 'prestataire') return user.type_utilisateur === 'prestataire' && matchesSearch;
     if (filter === 'fournisseur') return user.type_utilisateur === 'fournisseur' && matchesSearch;
+    if (filter === 'client') return user.type_utilisateur === 'client' && matchesSearch;
     if (filter === 'administrateur') return user.type_utilisateur === 'administrateur' && matchesSearch;
     if (filter === 'active') return user.is_active && matchesSearch;
     if (filter === 'inactive') return !user.is_active && matchesSearch;
@@ -114,8 +114,8 @@ const ManageUsers = () => {
 
   const getUserTypeColor = (type) => {
     switch (type) {
-      case 'prestataire': return 'bg-green-100 text-green-800';
-      case 'fournisseur': return 'bg-blue-100 text-blue-800';
+      case 'fournisseur': return 'bg-green-100 text-green-800';
+      case 'client': return 'bg-blue-100 text-blue-800';
       case 'administrateur': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -123,8 +123,8 @@ const ManageUsers = () => {
 
   const getUserTypeIcon = (type) => {
     switch (type) {
-      case 'prestataire': return FiBriefcase;
-      case 'fournisseur': return FiUsers;
+      case 'fournisseur': return FiBriefcase;
+      case 'client': return FiUsers;
       case 'administrateur': return FiShield;
       default: return FiUsers;
     }
@@ -132,8 +132,8 @@ const ManageUsers = () => {
 
   const stats = {
     total: users.length,
-    prestataires: users.filter(u => u.type_utilisateur === 'prestataire').length,
     fournisseurs: users.filter(u => u.type_utilisateur === 'fournisseur').length,
+    clients: users.filter(u => u.type_utilisateur === 'client').length,
     administrateurs: users.filter(u => u.type_utilisateur === 'administrateur').length,
     actifs: users.filter(u => u.is_active).length
   };
@@ -183,8 +183,8 @@ const ManageUsers = () => {
               <FiBriefcase className="h-5 w-5 text-green-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Prestataires</p>
-              <p className="text-xl font-semibold text-gray-900">{stats.prestataires}</p>
+              <p className="text-sm font-medium text-gray-600">Fournisseurs</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.fournisseurs}</p>
             </div>
           </div>
         </div>
@@ -195,8 +195,8 @@ const ManageUsers = () => {
               <FiUsers className="h-5 w-5 text-blue-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Fournisseurs</p>
-              <p className="text-xl font-semibold text-gray-900">{stats.fournisseurs}</p>
+              <p className="text-sm font-medium text-gray-600">Clients</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.clients}</p>
             </div>
           </div>
         </div>
@@ -255,8 +255,8 @@ const ManageUsers = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="all">Tous les utilisateurs</option>
-              <option value="prestataire">Prestataires</option>
-              <option value="fournisseur">Fournisseurs</option>
+              <option value="fournisseur">Fournisseurs (offreurs)</option>
+              <option value="client">Clients</option>
               <option value="administrateur">Administrateurs</option>
               <option value="active">Actifs</option>
               <option value="inactive">Inactifs</option>

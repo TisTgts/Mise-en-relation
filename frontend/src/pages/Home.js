@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FiSearch, FiBriefcase, FiUsers, FiTrendingUp, FiMapPin, FiDollarSign, FiStar, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Home = () => {
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
   const [stats, setStats] = useState({
     totalOffers: 0,
@@ -52,18 +53,9 @@ const Home = () => {
 
   const fetchCategories = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-      
-      // Ajouter le token seulement s'il existe
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
+      // Endpoint public : ne pas envoyer de Bearer (évite 401 si vieux jeton dans le stockage)
       const response = await fetch('/api/services/categories/', {
-        headers: headers
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (response.ok) {
@@ -79,7 +71,7 @@ const Home = () => {
   const handleSearch = (e) => {
     e.preventDefault();
     const searchTerm = e.target.search.value;
-    window.location.href = `/offers/list?search=${encodeURIComponent(searchTerm)}`;
+    navigate(`/services${searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : ''}`);
   };
 
   const getExperienceColor = (level) => {
@@ -196,7 +188,7 @@ const Home = () => {
                     </div>
                   </Link>
                   <Link
-                    to="/dashboard/client/create-need"
+                    to="/client/creer-demande"
                     className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors"
                   >
                     <div className="flex items-center">
@@ -265,7 +257,7 @@ const Home = () => {
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Offres en vedette</h2>
             <Link
-              to="/offers/list"
+              to="/services"
               className="text-primary-600 hover:text-primary-700 font-semibold flex items-center"
             >
               Voir toutes les offres
@@ -305,7 +297,7 @@ const Home = () => {
                 </div>
                 
                 <Link
-                  to={`/offers/list`}
+                  to="/services"
                   className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-center"
                 >
                   Voir détails
@@ -322,7 +314,7 @@ const Home = () => {
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Besoins urgents</h2>
             <Link
-              to="/needs/list"
+              to="/login"
               className="text-primary-600 hover:text-primary-700 font-semibold flex items-center"
             >
               Voir tous les besoins
@@ -355,7 +347,7 @@ const Home = () => {
                 </div>
                 
                 <Link
-                  to="/needs/list"
+                  to="/login"
                   className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-center"
                 >
                   Répondre au besoin
@@ -384,7 +376,7 @@ const Home = () => {
               S'inscrire gratuitement
             </Link>
             <Link
-              to="/offers/list"
+              to="/services"
               className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors"
             >
               Explorer les offres

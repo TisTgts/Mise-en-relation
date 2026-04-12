@@ -13,12 +13,12 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     users: {},
     prestations: {},
-    demandes: {},
+    besoins: {},
     transactions: {},
     categories: {},
     recent_activity: {},
     monthly_revenue: [],
-    top_prestataires: [],
+    top_fournisseurs: [],
     top_categories: []
   });
   
@@ -96,14 +96,14 @@ const AdminDashboard = () => {
 
   // Données pour les graphiques
   const userDistributionData = [
-    { name: 'Prestataires', value: stats.users?.prestataires || 0, color: '#3B82F6' },
-    { name: 'Fournisseurs', value: stats.users?.fournisseurs || 0, color: '#10B981' },
+    { name: 'Fournisseurs', value: stats.users?.fournisseurs || 0, color: '#3B82F6' },
+    { name: 'Clients', value: stats.users?.clients || 0, color: '#10B981' },
     { name: 'Administrateurs', value: stats.users?.administrateurs || 0, color: '#8B5CF6' }
   ];
 
   const servicesData = [
     { name: 'Prestations', value: stats.prestations?.total_prestations || 0, color: '#3B82F6' },
-    { name: 'Demandes', value: stats.demandes?.total_demandes || 0, color: '#10B981' }
+    { name: 'Besoins', value: stats.besoins?.total_besoins || 0, color: '#10B981' }
   ];
 
   const revenueData = stats.monthly_revenue?.map(item => ({
@@ -187,11 +187,11 @@ const AdminDashboard = () => {
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Demandes</p>
-              <p className="text-3xl font-bold mt-2">{stats.demandes?.total_demandes || 0}</p>
+              <p className="text-purple-100 text-sm">Besoins</p>
+              <p className="text-3xl font-bold mt-2">{stats.besoins?.total_besoins || 0}</p>
               <div className="flex items-center mt-2 text-sm">
                 <FiArrowUp className="mr-1" />
-                <span>{stats.demandes?.ouvertes_demandes || 0} ouvertes</span>
+                <span>{stats.besoins?.ouvertes_besoins || 0} ouvertes</span>
               </div>
             </div>
             <div className="bg-white bg-opacity-20 p-3 rounded-lg">
@@ -272,25 +272,25 @@ const AdminDashboard = () => {
         </ResponsiveContainer>
       </div>
 
-      {/* Top prestataires et catégories */}
+      {/* Top fournisseurs et catégories */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top prestataires */}
+        {/* Top fournisseurs (offreurs) */}
         <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Prestataires</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Top fournisseurs</h3>
           <div className="space-y-3">
-            {stats.top_prestataires?.slice(0, 5).map((prestataire, index) => (
-              <div key={prestataire.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            {stats.top_fournisseurs?.slice(0, 5).map((fournisseur, index) => (
+              <div key={fournisseur.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center">
                   <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
                     <span className="text-blue-600 font-semibold text-sm">{index + 1}</span>
                   </div>
                   <div>
-                    <p className="font-medium text-gray-900">{prestataire.name}</p>
-                    <p className="text-sm text-gray-500">{prestataire.raison_sociale}</p>
+                    <p className="font-medium text-gray-900">{fournisseur.name}</p>
+                    <p className="text-sm text-gray-500">{fournisseur.raison_sociale}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold text-gray-900">{prestataire.prestation_count}</p>
+                  <p className="font-semibold text-gray-900">{fournisseur.prestation_count}</p>
                   <p className="text-sm text-gray-500">prestations</p>
                 </div>
               </div>
@@ -344,7 +344,7 @@ const AdminDashboard = () => {
             <FiBriefcase className="w-8 h-8 text-green-600 mr-3" />
             <div>
               <p className="font-medium text-gray-900">Gérer les Services</p>
-              <p className="text-sm text-gray-500">Prestations et demandes</p>
+              <p className="text-sm text-gray-500">Prestations et besoins</p>
             </div>
           </Link>
           

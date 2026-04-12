@@ -1,12 +1,12 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
-from .models import User, ProfilePrestataire, ProfileFournisseur
+from .models import User, ProfileClient, ProfileFournisseur
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """Serializer pour l'inscription des utilisateurs"""
     password = serializers.CharField(
-        write_only=True, 
+        write_only=True,
         validators=[validate_password]
     )
     password_confirm = serializers.CharField(write_only=True)
@@ -14,7 +14,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'username', 'email', 'first_name', 'last_name', 
+            'username', 'email', 'first_name', 'last_name',
             'telephone', 'type_utilisateur', 'password', 'password_confirm'
         ]
     
@@ -29,11 +29,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(**validated_data)
         
-        # Créer le profil approprié selon le type d'utilisateur
-        if user.type_utilisateur == 'prestataire':
-            ProfilePrestataire.objects.create(user=user)
-        elif user.type_utilisateur == 'fournisseur':
+        if user.type_utilisateur == 'fournisseur':
             ProfileFournisseur.objects.create(user=user)
+        elif user.type_utilisateur == 'client':
+            ProfileClient.objects.create(user=user)
             
         return user
 
@@ -47,14 +46,12 @@ class UserLoginSerializer(serializers.Serializer):
         password = attrs.get('password')
         
         if email and password:
-            # Essayer d'abord avec l'email comme username
             user = authenticate(
                 request=self.context.get('request'),
                 username=email,
                 password=password
             )
             
-            # Si ça ne marche pas, essayer de trouver l'utilisateur par email et utiliser son username
             if not user:
                 try:
                     user_obj = User.objects.get(email=email)
@@ -95,52 +92,54 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'username', 'type_utilisateur', 'created_at']
 
-class ProfilePrestataireSerializer(serializers.ModelSerializer):
-    """Serializer pour le profil prestataire de services"""
-    utilisateur = UserProfileSerializer(read_only=True)
-    
-    class Meta:
-        model = ProfilePrestataire
-        fields = [
-            'utilisateur', 'raison_sociale', 'types_prestations', 'zones_couverture',
-            'annees_experience', 'certifications', 'assurance_valide',
-            'note', 'prestations_effectuees', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['created_at', 'updated_at']
-
 class ProfileFournisseurSerializer(serializers.ModelSerializer):
-    """Serializer pour le profil fournisseur de services"""
-    utilisateur = UserProfileSerializer(read_only=True)
+    """Profil détaillé du fournisseur de services (offreur)."""
+    user = UserProfileSerializer(read_only=True)
     
     class Meta:
         model = ProfileFournisseur
         fields = [
-            'utilisateur', 'raison_sociale', 'secteur_activite', 
-            'taille_entreprise', 'demandes_services', 'prestataires_preferes',
-            'plage_budget', 'frequence_services', 'contact_principal',
-            'mode_paiement_preferes', 'created_at', 'updated_at'
+            'user', 'raison_sociale', 'types_services_offerts', 'zones_couverture',
+            'annees_experience', 'certifications', 'assurance_valide',
+            'note_moyenne', 'services_effectues', 'disponibilites', 'tarif_horaire',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'note_moyenne', 'services_effectues']
 
-class ProfilePrestataireUpdateSerializer(serializers.ModelSerializer):
-    """Serializer pour la mise à jour du profil prestataire"""
+class ProfileClientSerializer(serializers.ModelSerializer):
+    """Profil détaillé du client (demandeur de services)."""
+    user = UserProfileSerializer(read_only=True)
     
     class Meta:
-        model = ProfilePrestataire
+        model = ProfileClient
         fields = [
-            'raison_sociale', 'types_prestations', 'zones_couverture',
-            'annees_experience', 'certifications', 'assurance_valide'
+            'user', 'raison_sociale', 'secteur_activite', 'taille_entreprise',
+            'besoins_services', 'fournisseurs_preferes', 'plage_budget',
+            'frequence_besoins', 'contact_principal', 'mode_paiement_preferes',
+            'created_at', 'updated_at'
         ]
+        read_only_fields = ['created_at', 'updated_at']
 
 class ProfileFournisseurUpdateSerializer(serializers.ModelSerializer):
-    """Serializer pour la mise à jour du profil fournisseur"""
+    """Mise à jour du profil fournisseur."""
     
     class Meta:
         model = ProfileFournisseur
         fields = [
+            'raison_sociale', 'types_services_offerts', 'zones_couverture',
+            'annees_experience', 'certifications', 'assurance_valide',
+            'disponibilites', 'tarif_horaire'
+        ]
+
+class ProfileClientUpdateSerializer(serializers.ModelSerializer):
+    """Mise à jour du profil client."""
+    
+    class Meta:
+        model = ProfileClient
+        fields = [
             'raison_sociale', 'secteur_activite', 'taille_entreprise',
-            'demandes_services', 'prestataires_preferes', 'plage_budget',
-            'frequence_services', 'contact_principal', 'mode_paiement_preferes'
+            'besoins_services', 'fournisseurs_preferes', 'plage_budget',
+            'frequence_besoins', 'contact_principal', 'mode_paiement_preferes'
         ]
 
 class UserUpdateSerializer(serializers.ModelSerializer):
@@ -150,8 +149,10 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['first_name', 'last_name', 'telephone', 'photo_profil']
 
-# Alias pour compatibilité
-ProviderProfileSerializer = ProfilePrestataireSerializer
-ClientProviderProfileSerializer = ProfileFournisseurSerializer
-ProviderProfileUpdateSerializer = ProfilePrestataireUpdateSerializer
-ClientProviderProfileUpdateSerializer = ProfileFournisseurUpdateSerializer
+# Alias pour compatibilité (ancien vocabulaire « prestataire » = fournisseur de services)
+ProviderProfileSerializer = ProfileFournisseurSerializer
+ClientProviderProfileSerializer = ProfileClientSerializer
+ProviderProfileUpdateSerializer = ProfileFournisseurUpdateSerializer
+ClientProviderProfileUpdateSerializer = ProfileClientUpdateSerializer
+ProfilePrestataireSerializer = ProfileFournisseurSerializer
+ProfilePrestataireUpdateSerializer = ProfileFournisseurUpdateSerializer

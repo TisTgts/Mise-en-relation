@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CategorieService, Prestation, Demande, TransactionService, Message
+from .models import CategorieService, Prestation, Besoin, TransactionService, Message
 
 class CategorieServiceSerializer(serializers.ModelSerializer):
     """Serializer pour les catégories de services"""
@@ -11,11 +11,11 @@ class CategorieServiceSerializer(serializers.ModelSerializer):
 
 class PrestationSerializer(serializers.ModelSerializer):
     """Serializer pour les prestations de services"""
-    prestataire_nom = serializers.CharField(source='prestataire.username', read_only=True)
-    prestataire_note = serializers.DecimalField(
-        source='prestataire.profile_prestataire.note_moyenne', 
-        max_digits=3, 
-        decimal_places=2, 
+    fournisseur_nom = serializers.CharField(source='fournisseur.username', read_only=True)
+    fournisseur_note = serializers.DecimalField(
+        source='fournisseur.profile_fournisseur.note_moyenne',
+        max_digits=3,
+        decimal_places=2,
         read_only=True
     )
     categorie_nom = serializers.CharField(source='categorie.nom', read_only=True)
@@ -23,8 +23,8 @@ class PrestationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prestation
         fields = [
-            'id', 'prestataire', 'prestataire_nom', 'prestataire_note',
-            'categorie', 'categorie_nom', 'intitule', 'description', 
+            'id', 'fournisseur', 'fournisseur_nom', 'fournisseur_note',
+            'categorie', 'categorie_nom', 'intitule', 'description',
             'type_prestation', 'caracteristiques', 'zones_intervention',
             'disponibilite_debut', 'disponibilite_fin', 'mode_tarification',
             'tarif_min', 'tarif_max', 'statut', 'created_at', 'updated_at'
@@ -43,7 +43,7 @@ class PrestationCreateSerializer(serializers.ModelSerializer):
         ]
     
     def create(self, validated_data):
-        validated_data['prestataire'] = self.context['request'].user
+        validated_data['fournisseur'] = self.context['request'].user
         return super().create(validated_data)
 
 class PrestationUpdateSerializer(serializers.ModelSerializer):
@@ -57,39 +57,39 @@ class PrestationUpdateSerializer(serializers.ModelSerializer):
             'disponibilite_fin', 'mode_tarification', 'tarif_min', 'tarif_max', 'statut'
         ]
 
-class DemandeSerializer(serializers.ModelSerializer):
-    """Serializer pour les demandes de services"""
-    fournisseur_nom = serializers.CharField(source='fournisseur.username', read_only=True)
-    fournisseur_id = serializers.IntegerField(source='fournisseur.id', read_only=True)
-    fournisseur_email = serializers.CharField(source='fournisseur.email', read_only=True)
+class BesoinSerializer(serializers.ModelSerializer):
+    """Serializer pour les besoins de services"""
+    client_nom = serializers.CharField(source='client.username', read_only=True)
+    client_id = serializers.IntegerField(source='client.id', read_only=True)
+    client_email = serializers.CharField(source='client.email', read_only=True)
     categorie_nom = serializers.CharField(source='categorie.nom', read_only=True)
     
     class Meta:
-        model = Demande
+        model = Besoin
         fields = [
-            'id', 'fournisseur', 'fournisseur_nom', 'fournisseur_id', 'fournisseur_email',
+            'id', 'client', 'client_nom', 'client_id', 'client_email',
             'categorie', 'categorie_nom', 'intitule', 'description', 'type_service', 'exigences',
             'lieu_intervention', 'date_souhaitee', 'date_limite', 'urgence',
             'budget', 'flexible', 'statut', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-class DemandeUpdateSerializer(serializers.ModelSerializer):
-    """Serializer pour la mise à jour des demandes"""
+class BesoinUpdateSerializer(serializers.ModelSerializer):
+    """Serializer pour la mise à jour des besoins"""
     
     class Meta:
-        model = Demande
+        model = Besoin
         fields = [
             'categorie', 'intitule', 'description', 'type_service',
             'exigences', 'lieu_intervention', 'date_souhaitee', 'date_limite',
             'urgence', 'budget', 'flexible', 'statut'
         ]
 
-class DemandeCreateSerializer(serializers.ModelSerializer):
-    """Serializer pour la création de demandes"""
+class BesoinCreateSerializer(serializers.ModelSerializer):
+    """Serializer pour la création de besoins"""
     
     class Meta:
-        model = Demande
+        model = Besoin
         fields = [
             'categorie', 'intitule', 'description', 'type_service',
             'exigences', 'lieu_intervention', 'date_souhaitee', 'date_limite',
@@ -97,21 +97,21 @@ class DemandeCreateSerializer(serializers.ModelSerializer):
         ]
     
     def create(self, validated_data):
-        validated_data['fournisseur'] = self.context['request'].user
+        validated_data['client'] = self.context['request'].user
         return super().create(validated_data)
 
 class TransactionServiceSerializer(serializers.ModelSerializer):
     """Serializer pour les transactions de services"""
-    prestataire_nom = serializers.CharField(source='prestataire.username', read_only=True)
     fournisseur_nom = serializers.CharField(source='fournisseur.username', read_only=True)
+    client_nom = serializers.CharField(source='client.username', read_only=True)
     prestation_intitule = serializers.CharField(source='prestation.intitule', read_only=True)
-    demande_intitule = serializers.CharField(source='demande.intitule', read_only=True)
+    besoin_intitule = serializers.CharField(source='besoin.intitule', read_only=True)
     
     class Meta:
         model = TransactionService
         fields = [
-            'id', 'prestation', 'demande', 'prestataire', 'fournisseur',
-            'prestataire_nom', 'fournisseur_nom', 'prestation_intitule', 'demande_intitule',
+            'id', 'prestation', 'besoin', 'fournisseur', 'client',
+            'fournisseur_nom', 'client_nom', 'prestation_intitule', 'besoin_intitule',
             'prix_final', 'statut', 'debut_confirme', 'fin_confirmee',
             'heure_debut', 'heure_fin', 'notes', 'created_at', 'updated_at'
         ]
@@ -129,12 +129,16 @@ class MessageSerializer(serializers.ModelSerializer):
             'expediteur_nom', 'destinataire_nom', 'sujet', 'contenu',
             'lu', 'created_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'expediteur', 'lu', 'created_at']
 
 # Alias pour compatibilité
 ServiceCategorySerializer = CategorieServiceSerializer
 ServiceOfferSerializer = PrestationSerializer
 ServiceOfferCreateSerializer = PrestationCreateSerializer
-ServiceNeedSerializer = DemandeSerializer
-ServiceNeedCreateSerializer = DemandeCreateSerializer
+ServiceNeedSerializer = BesoinSerializer
+ServiceNeedCreateSerializer = BesoinCreateSerializer
+ServiceNeedUpdateSerializer = BesoinUpdateSerializer
+DemandeSerializer = BesoinSerializer
+DemandeUpdateSerializer = BesoinUpdateSerializer
+DemandeCreateSerializer = BesoinCreateSerializer
 ServiceTransactionSerializer = TransactionServiceSerializer

@@ -104,7 +104,7 @@ const ManageServices = () => {
     const matchesSearch = 
       prestation.intitule?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       prestation.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prestation.prestataire_nom?.toLowerCase().includes(searchTerm.toLowerCase());
+      prestation.fournisseur_nom?.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (filter === 'all') return matchesSearch;
     if (filter === 'active') return prestation.statut === 'active' && matchesSearch;
@@ -319,13 +319,13 @@ const ManageServices = () => {
                         </div>
                         <div className="flex items-center text-gray-500">
                           <FiUser className="h-4 w-4 mr-2" />
-                          {prestation.prestataire_nom || 'Non spécifié'}
+                          {prestation.fournisseur_nom || 'Non spécifié'}
                         </div>
                       </div>
                       
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
                         <Link
-                          to={`/prestataire/prestation/${prestation.id}`}
+                          to={`/fournisseur/prestation/${prestation.id}`}
                           className="text-primary-600 hover:text-primary-800 text-sm font-medium"
                         >
                           Voir détails
@@ -387,10 +387,10 @@ const ManageServices = () => {
                       
                       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
                         <Link
-                          to={`/fournisseur/demandes/${demande.id}`}
+                          to="/admin/besoins"
                           className="text-primary-600 hover:text-primary-800 text-sm font-medium"
                         >
-                          Voir détails
+                          Liste publique des besoins
                         </Link>
                         <div className="flex items-center space-x-2">
                           <button

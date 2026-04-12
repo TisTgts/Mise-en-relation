@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Count, Q
 from django.contrib.auth import get_user_model
-from .models import CategorieService, Prestation, Demande, TransactionService
+from .models import CategorieService, Prestation, Besoin, TransactionService
 from .serializers import CategorieServiceSerializer
 
 User = get_user_model()
@@ -48,20 +48,20 @@ def admin_statistics(request):
     try:
         # Statistiques des utilisateurs
         total_users = User.objects.count()
-        prestataires_count = User.objects.filter(type_utilisateur='prestataire').count()
         fournisseurs_count = User.objects.filter(type_utilisateur='fournisseur').count()
+        clients_count = User.objects.filter(type_utilisateur='client').count()
         administrateurs_count = User.objects.filter(type_utilisateur='administrateur').count()
         
         # Statistiques des services
         total_categories = CategorieService.objects.count()
         active_categories = CategorieService.objects.filter(est_active=True).count()
         total_prestations = Prestation.objects.count()
-        total_demandes = Demande.objects.count()
+        total_besoins = Besoin.objects.count()
         total_transactions = TransactionService.objects.count()
         
         # Statuts des prestations
         prestations_by_status = Prestation.objects.values('statut').annotate(count=Count('id'))
-        demandes_by_status = Demande.objects.values('statut').annotate(count=Count('id'))
+        besoins_by_status = Besoin.objects.values('statut').annotate(count=Count('id'))
         
         # Transactions par statut
         transactions_by_status = TransactionService.objects.values('statut').annotate(count=Count('id'))
@@ -71,9 +71,9 @@ def admin_statistics(request):
             'data': {
                 'users': {
                     'total': total_users,
-                    'prestataires': prestataires_count,
                     'fournisseurs': fournisseurs_count,
-                    'administrateurs': administrateurs_count
+                    'clients': clients_count,
+                    'administrateurs': administrateurs_count,
                 },
                 'services': {
                     'categories': {
@@ -84,9 +84,9 @@ def admin_statistics(request):
                         'total': total_prestations,
                         'by_status': list(prestations_by_status)
                     },
-                    'demandes': {
-                        'total': total_demandes,
-                        'by_status': list(demandes_by_status)
+                    'besoins': {
+                        'total': total_besoins,
+                        'by_status': list(besoins_by_status)
                     },
                     'transactions': {
                         'total': total_transactions,

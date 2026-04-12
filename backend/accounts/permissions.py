@@ -12,18 +12,18 @@ class IsServiceProvider(permissions.BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        return request.user.type_utilisateur == 'prestataire'
+        return request.user.type_utilisateur == 'fournisseur'
 
 class IsClientProvider(permissions.BasePermission):
     """
-    Permission pour les fournisseurs clients uniquement
+    Permission pour les clients (demandeurs de services) uniquement.
     """
     
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
         
-        return request.user.type_utilisateur == 'fournisseur'
+        return request.user.type_utilisateur == 'client'
 
 class IsAdministrator(permissions.BasePermission):
     """
@@ -69,7 +69,7 @@ class IsServiceProviderOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         
-        return request.user.type_utilisateur == 'prestataire'
+        return request.user.type_utilisateur == 'fournisseur'
 
 class IsClientProviderOrReadOnly(permissions.BasePermission):
     """
@@ -84,7 +84,7 @@ class IsClientProviderOrReadOnly(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         
-        return request.user.type_utilisateur == 'fournisseur'
+        return request.user.type_utilisateur == 'client'
 
 def get_user_permissions(user):
     """
@@ -95,7 +95,7 @@ def get_user_permissions(user):
     
     permissions = []
     
-    if user.type_utilisateur == 'prestataire':
+    if user.type_utilisateur == 'fournisseur':
         permissions = [
             'can_create_offer',
             'can_manage_own_offers',
@@ -104,7 +104,7 @@ def get_user_permissions(user):
             'can_manage_profile',
             'can_view_statistics',
         ]
-    elif user.type_utilisateur == 'fournisseur':
+    elif user.type_utilisateur == 'client':
         permissions = [
             'can_create_need',
             'can_manage_own_needs',

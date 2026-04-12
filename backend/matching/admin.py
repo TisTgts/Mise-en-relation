@@ -12,6 +12,6 @@ class MatchingRuleAdmin(admin.ModelAdmin):
 class MatchingScoreAdmin(admin.ModelAdmin):
     list_display = ['offer', 'need', 'score', 'calculated_at']
     list_filter = ['score', 'calculated_at']
-    search_fields = ['offer__title', 'need__title']
+    search_fields = ['offer__intitule', 'need__intitule']
     readonly_fields = ['calculated_at']
     date_hierarchy = 'calculated_at'

@@ -130,10 +130,10 @@ class AdminService {
     return true;
   }
 
-  // Gestion des demandes
+  // Gestion des besoins
   async getAllDemandes() {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES.replace('demandes/', '')}admin/demandes/`, {
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/besoins/`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -141,7 +141,7 @@ class AdminService {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to fetch demandes');
+      throw new Error('Failed to fetch besoins');
     }
     
     return response.json();
@@ -149,7 +149,7 @@ class AdminService {
 
   async deleteDemande(demandeId) {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.DEMANDES}${demandeId}/`, {
+    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS}${demandeId}/`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -252,7 +252,7 @@ class AdminService {
       errors.push('L\'email n\'est pas valide');
     }
     
-    if (!userData.type_utilisateur || !['prestataire', 'fournisseur', 'administrateur'].includes(userData.type_utilisateur)) {
+    if (!userData.type_utilisateur || !['client', 'fournisseur', 'administrateur'].includes(userData.type_utilisateur)) {
       errors.push('Le type d\'utilisateur n\'est pas valide');
     }
     
@@ -312,8 +312,8 @@ class AdminService {
   // Utilitaires
   formatUserType(type) {
     const types = {
-      'prestataire': 'Prestataire',
       'fournisseur': 'Fournisseur',
+      'client': 'Client',
       'administrateur': 'Administrateur'
     };
     return types[type] || type;
@@ -352,4 +352,5 @@ class AdminService {
   }
 }
 
-export default new AdminService();
+const adminService = new AdminService();
+export default adminService;

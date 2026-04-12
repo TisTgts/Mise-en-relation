@@ -12,26 +12,26 @@ from rest_framework import serializers
 
 from accounts.permissions import IsAdministrator
 from accounts.models import User
-from .models import CategorieService, Prestation, Demande, TransactionService
+from .models import CategorieService, Prestation, Besoin, TransactionService
 from .serializers import (
-    PrestationSerializer, 
-    DemandeSerializer,
+    PrestationSerializer,
+    BesoinSerializer,
     CategorieServiceSerializer
 )
 
 # Serializer pour les transactions
 class TransactionServiceSerializer(serializers.ModelSerializer):
     """Serializer pour les transactions"""
-    prestataire_nom = serializers.CharField(source='prestataire.username', read_only=True)
     fournisseur_nom = serializers.CharField(source='fournisseur.username', read_only=True)
+    client_nom = serializers.CharField(source='client.username', read_only=True)
     prestation_intitule = serializers.CharField(source='prestation.intitule', read_only=True)
-    demande_intitule = serializers.CharField(source='demande.intitule', read_only=True)
+    besoin_intitule = serializers.CharField(source='besoin.intitule', read_only=True)
     
     class Meta:
         model = TransactionService
         fields = [
-            'id', 'prestation', 'demande', 'prestataire', 'fournisseur',
-            'prestataire_nom', 'fournisseur_nom', 'prestation_intitule', 'demande_intitule',
+            'id', 'prestation', 'besoin', 'fournisseur', 'client',
+            'fournisseur_nom', 'client_nom', 'prestation_intitule', 'besoin_intitule',
             'prix_final', 'statut', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -64,7 +64,7 @@ class AdminUserListView(generics.ListAPIView):
     ordering = ['-date_joined']
     
     def get_queryset(self):
-        return User.objects.all().select_related('profile_prestataire', 'profile_fournisseur')
+        return User.objects.all().select_related('profile_client', 'profile_fournisseur')
 
 class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Vue pour gérer un utilisateur spécifique (admin uniquement)"""
@@ -88,12 +88,12 @@ class AdminPrestationListView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Prestation.objects.select_related('prestataire', 'categorie')
+        return Prestation.objects.select_related('fournisseur', 'categorie')
 
-class AdminDemandeListView(generics.ListAPIView):
-    """Vue pour lister toutes les demandes (admin uniquement)"""
+class AdminBesoinListView(generics.ListAPIView):
+    """Vue pour lister tous les besoins (admin uniquement)"""
     permission_classes = [permissions.IsAuthenticated, IsAdministrator]
-    serializer_class = DemandeSerializer
+    serializer_class = BesoinSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['categorie', 'statut', 'urgence', 'type_service']
     search_fields = ['intitule', 'description', 'lieu_intervention']
@@ -101,7 +101,7 @@ class AdminDemandeListView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        return Demande.objects.select_related('fournisseur', 'categorie')
+        return Besoin.objects.select_related('client', 'categorie')
 
 class AdminTransactionListView(generics.ListAPIView):
     """Vue pour lister toutes les transactions (admin uniquement)"""
@@ -114,7 +114,7 @@ class AdminTransactionListView(generics.ListAPIView):
     
     def get_queryset(self):
         return TransactionService.objects.select_related(
-            'prestation', 'demande', 'prestataire', 'fournisseur'
+            'prestation', 'besoin', 'fournisseur', 'client'
         )
 
 @api_view(['GET'])
@@ -128,8 +128,8 @@ def admin_statistics(request):
         user_stats = User.objects.aggregate(
             total_users=Count('id'),
             active_users=Count('id', filter=Q(is_active=True)),
-            prestataires=Count('id', filter=Q(type_utilisateur='prestataire')),
             fournisseurs=Count('id', filter=Q(type_utilisateur='fournisseur')),
+            clients=Count('id', filter=Q(type_utilisateur='client')),
             administrateurs=Count('id', filter=Q(type_utilisateur='administrateur'))
         )
         
@@ -141,10 +141,10 @@ def admin_statistics(request):
             total_revenu_potentiel=Sum('tarif_max')
         )
         
-        # Statistiques demandes
-        demande_stats = Demande.objects.aggregate(
-            total_demandes=Count('id'),
-            ouvertes_demandes=Count('id', filter=Q(statut='ouverte')),
+        # Statistiques besoins
+        besoin_stats = Besoin.objects.aggregate(
+            total_besoins=Count('id'),
+            ouvertes_besoins=Count('id', filter=Q(statut='ouverte')),
             avg_budget=Avg('budget')
         )
         
@@ -167,7 +167,7 @@ def admin_statistics(request):
         recent_activity = {
             'new_users': User.objects.filter(date_joined__gte=thirty_days_ago).count(),
             'new_prestations': Prestation.objects.filter(created_at__gte=thirty_days_ago).count(),
-            'new_demandes': Demande.objects.filter(created_at__gte=thirty_days_ago).count(),
+            'new_besoins': Besoin.objects.filter(created_at__gte=thirty_days_ago).count(),
             'new_transactions': TransactionService.objects.filter(created_at__gte=thirty_days_ago).count()
         }
         
@@ -188,9 +188,9 @@ def admin_statistics(request):
                 'revenue': revenue
             })
         
-        # Top prestataires (par nombre de prestations)
-        top_prestataires = User.objects.filter(
-            type_utilisateur='prestataire'
+        # Top fournisseurs (par nombre de prestations)
+        top_fournisseurs = User.objects.filter(
+            type_utilisateur='fournisseur'
         ).annotate(
             prestation_count=Count('prestations')
         ).order_by('-prestation_count')[:5]
@@ -203,19 +203,19 @@ def admin_statistics(request):
         return Response({
             'users': user_stats,
             'prestations': prestation_stats,
-            'demandes': demande_stats,
+            'besoins': besoin_stats,
             'transactions': transaction_stats,
             'categories': categorie_stats,
             'recent_activity': recent_activity,
             'monthly_revenue': monthly_revenue,
-            'top_prestataires': [
+            'top_fournisseurs': [
                 {
                     'id': p.id,
                     'name': f"{p.first_name} {p.last_name}",
-                    'raison_sociale': getattr(p.profile_prestataire, 'raison_sociale', ''),
+                    'raison_sociale': getattr(p.profile_fournisseur, 'raison_sociale', ''),
                     'prestation_count': p.prestation_count
                 }
-                for p in top_prestataires
+                for p in top_fournisseurs
             ],
             'top_categories': [
                 {
@@ -263,13 +263,13 @@ def toggle_user_status(request, user_id):
 @permission_classes([permissions.IsAuthenticated, IsAdministrator])
 def bulk_delete_services(request):
     """
-    Suppression en masse de services (prestations ou demandes)
+    Suppression en masse de services (prestations ou besoins)
     """
     try:
-        service_type = request.data.get('type')  # 'prestation' ou 'demande'
+        service_type = request.data.get('type')  # 'prestation' ou 'besoin'
         service_ids = request.data.get('ids', [])
         
-        if not service_ids or service_type not in ['prestation', 'demande']:
+        if not service_ids or service_type not in ['prestation', 'besoin']:
             return Response(
                 {'error': 'Paramètres invalides'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -278,7 +278,7 @@ def bulk_delete_services(request):
         if service_type == 'prestation':
             deleted_count = Prestation.objects.filter(id__in=service_ids).delete()[0]
         else:
-            deleted_count = Demande.objects.filter(id__in=service_ids).delete()[0]
+            deleted_count = Besoin.objects.filter(id__in=service_ids).delete()[0]
         
         return Response({
             'message': f'{deleted_count} {service_type}s supprimées avec succès',
@@ -298,7 +298,7 @@ def export_data(request):
     Exporter les données au format CSV/JSON
     """
     try:
-        export_type = request.GET.get('type', 'users')  # users, prestations, demandes, transactions
+        export_type = request.GET.get('type', 'users')  # users, prestations, besoins, transactions
         format_type = request.GET.get('format', 'json')  # json, csv
         
         if export_type == 'users':
@@ -307,12 +307,12 @@ def export_data(request):
                 'is_active', 'date_joined', 'last_login'
             )
         elif export_type == 'prestations':
-            data = Prestation.objects.select_related('prestataire', 'categorie').all()
-        elif export_type == 'demandes':
-            data = Demande.objects.select_related('fournisseur', 'categorie').all()
+            data = Prestation.objects.select_related('fournisseur', 'categorie').all()
+        elif export_type == 'besoins':
+            data = Besoin.objects.select_related('client', 'categorie').all()
         elif export_type == 'transactions':
             data = TransactionService.objects.select_related(
-                'prestation', 'demande', 'prestataire', 'fournisseur'
+                'prestation', 'besoin', 'fournisseur', 'client'
             ).all()
         else:
             return Response(

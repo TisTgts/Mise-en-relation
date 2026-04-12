@@ -29,8 +29,8 @@ class MatchingScore(models.Model):
         related_name='matching_scores'
     )
     need = models.ForeignKey(
-        'services.Demande', 
-        on_delete=models.CASCADE, 
+        'services.Besoin',
+        on_delete=models.CASCADE,
         related_name='matching_scores'
     )
     score = models.DecimalField(max_digits=5, decimal_places=2)
@@ -45,4 +45,4 @@ class MatchingScore(models.Model):
         ]
     
     def __str__(self):
-        return f"Score {self.score} - Prestation {self.offer.id} / Demande {self.need.id}"
+        return f"Score {self.score} - Prestation {self.offer.id} / Besoin {self.need.id}"

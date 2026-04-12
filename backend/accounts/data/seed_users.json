@@ -1,0 +1,41 @@
+{
+  "_readme": "Types d'utilisateur = valeurs de accounts.User.TYPES_UTILISATEUR (aligné sur le cahier / PDF). Modifier ce fichier si le PDF impose d'autres identifiants ou e-mails. Mot de passe par défaut : demo1234 (champ password ci-dessous).",
+  "password": "demo1234",
+  "users": [
+    {
+      "type_utilisateur": "administrateur",
+      "username": "admin",
+      "email": "admin@demo.local",
+      "first_name": "Super",
+      "last_name": "Admin"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_demo",
+      "email": "client@demo.local",
+      "first_name": "Ibrahima",
+      "last_name": "Fall"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client2_demo",
+      "email": "client2@demo.local",
+      "first_name": "Aïssatou",
+      "last_name": "Sarr"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_demo",
+      "email": "fournisseur@demo.local",
+      "first_name": "Amadou",
+      "last_name": "Diallo"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "presta_sarl",
+      "email": "contact@presta-sarl.demo",
+      "first_name": "Fatou",
+      "last_name": "Ndiaye"
+    }
+  ]
+}

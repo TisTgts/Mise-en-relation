@@ -42,8 +42,8 @@ class ServiceOfferListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'prestataire':
-            return Prestation.objects.filter(prestataire=user)
+        if user.type_utilisateur == 'fournisseur':
+            return Prestation.objects.filter(fournisseur=user)
         return Prestation.objects.filter(statut='active')
     
     def get_serializer_class(self):
@@ -62,8 +62,8 @@ class ServiceOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'prestataire':
-            return Prestation.objects.filter(prestataire=user)
+        if user.type_utilisateur == 'fournisseur':
+            return Prestation.objects.filter(fournisseur=user)
         return Prestation.objects.filter(statut='active')
     
     def perform_destroy(self, instance):
@@ -71,7 +71,7 @@ class ServiceOfferDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         
         # Vérifier que l'utilisateur est bien le propriétaire
-        if instance.prestataire != user:
+        if instance.fournisseur != user:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Vous n'êtes pas le propriétaire de cette prestation")
         
@@ -92,8 +92,8 @@ class ServiceNeedListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'fournisseur':
-            return Demande.objects.filter(fournisseur=user)
+        if user.type_utilisateur == 'client':
+            return Demande.objects.filter(client=user)
         return Demande.objects.filter(statut='ouverte')
     
     def get_serializer_class(self):
@@ -112,8 +112,8 @@ class ServiceNeedDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'fournisseur':
-            return Demande.objects.filter(fournisseur=user)
+        if user.type_utilisateur == 'client':
+            return Demande.objects.filter(client=user)
         return Demande.objects.filter(statut='ouverte')
     
     def perform_destroy(self, instance):
@@ -121,12 +121,12 @@ class ServiceNeedDetailView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.user
         
         # Vérifier que l'utilisateur est bien le propriétaire
-        if instance.fournisseur != user:
+        if instance.client != user:
             from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Vous n'êtes pas le propriétaire de cette demande")
+            raise PermissionDenied("Vous n'êtes pas le propriétaire de ce besoin")
         
         # Log de la suppression
-        print(f"Suppression de la demande {instance.id} par l'utilisateur {user.username}")
+        print(f"Suppression du besoin {instance.id} par l'utilisateur {user.username}")
         
         # Supprimer l'instance
         instance.delete()
@@ -143,7 +143,7 @@ class ServiceTransactionListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return TransactionService.objects.filter(
-            models.Q(prestataire=user) | models.Q(fournisseur=user)
+            models.Q(fournisseur=user) | models.Q(client=user)
         )
 
 @api_view(['POST'])
@@ -159,12 +159,12 @@ def create_transaction(request):
         need = Demande.objects.get(id=need_id, statut='ouverte')
         
         # Vérifier que l'utilisateur est autorisé
-        if request.user.type_utilisateur == 'prestataire' and offer.prestataire != request.user:
+        if request.user.type_utilisateur == 'fournisseur' and offer.fournisseur != request.user:
             return Response(
                 {'error': 'Vous n\'êtes pas autorisé à utiliser cette offre'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        elif request.user.type_utilisateur == 'fournisseur' and need.fournisseur != request.user:
+        elif request.user.type_utilisateur == 'client' and need.client != request.user:
             return Response(
                 {'error': 'Vous n\'êtes pas autorisé à utiliser ce besoin'},
                 status=status.HTTP_403_FORBIDDEN
@@ -173,9 +173,9 @@ def create_transaction(request):
         # Créer la transaction
         transaction = TransactionService.objects.create(
             prestation=offer,
-            demande=need,
-            prestataire=offer.prestataire,
-            fournisseur=need.fournisseur,
+            besoin=need,
+            fournisseur=offer.fournisseur,
+            client=need.client,
             prix_final=final_price
         )
         
@@ -204,14 +204,17 @@ class MessageListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = MessageSerializer
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['transaction', 'is_read']
+    filterset_fields = ['transaction', 'lu']
     ordering = ['-created_at']
     
     def get_queryset(self):
         user = self.request.user
         return Message.objects.filter(
-            models.Q(sender=user) | models.Q(recipient=user)
+            models.Q(expediteur=user) | models.Q(destinataire=user)
         ).distinct()
+
+    def perform_create(self, serializer):
+        serializer.save(expediteur=self.request.user, lu=False)
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -221,9 +224,9 @@ def mark_messages_read(request):
     
     updated = Message.objects.filter(
         id__in=message_ids,
-        recipient=request.user,
-        is_read=False
-    ).update(is_read=True)
+        destinataire=request.user,
+        lu=False
+    ).update(lu=True)
     
     return Response({
         'message': f'{updated} message(s) marqué(s) comme lu(s)'

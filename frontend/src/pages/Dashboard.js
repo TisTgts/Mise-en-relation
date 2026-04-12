@@ -22,13 +22,13 @@ const Dashboard = () => {
       console.log('User authenticated, redirecting based on type:', user.type_utilisateur);
       // Rediriger selon le type d'utilisateur avec les nouvelles routes
       switch (user.type_utilisateur) {
-        case 'prestataire':
+        case 'fournisseur':
           console.log('Redirecting to fournisseur dashboard');
           navigate('/fournisseur/dashboard');
           break;
-        case 'fournisseur':
+        case 'client':
           console.log('Redirecting to client dashboard');
-          navigate('/client_dashboard');
+          navigate('/client/dashboard');
           break;
         case 'administrateur':
           console.log('Redirecting to admin dashboard');

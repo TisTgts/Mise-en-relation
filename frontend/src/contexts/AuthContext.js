@@ -138,8 +138,9 @@ export const AuthProvider = ({ children }) => {
       console.log('AuthContext - restoreUser - token:', token);
       console.log('AuthContext - restoreUser - typeUtilisateur:', typeUtilisateur);
       
-      // Si on a un token mais pas d'utilisateur
-      if (token && typeUtilisateur && !state.user) {
+      // Si on a un token mais pas d'utilisateur (ne pas exiger type_utilisateur :
+      // il peut être absent ou chaîne vide alors que le JWT est encore valide)
+      if (token && !state.user) {
         try {
           console.log('AuthContext - Attempting to restore user...');
           // Tenter de restaurer les données utilisateur
