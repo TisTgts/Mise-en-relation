@@ -1,0 +1,12 @@
+export { default as PrestataireDashboard } from './PrestataireDashboard';
+export { default as CreerPrestation } from './CreerPrestation';
+export { default as PrestationDetail } from './PrestationDetail';
+export { default as ModifierPrestation } from './ModifierPrestation';
+export { default as MesPrestations } from './MesPrestations';
+export { default as DemandesDisponibles } from './DemandesDisponibles';
+export { default as MesTransactions } from './MesTransactions';
+export { default as MonProfil } from './MonProfil';
+export { default as MesMessages } from './MesMessages';
+export { default as ToutesLesDemandes } from './ToutesLesDemandes';
+export { default as MesCollaborations } from './MesCollaborations';
+export { default as FournisseurDashboard } from './FournisseurDashboard';

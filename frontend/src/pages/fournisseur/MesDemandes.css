@@ -1,0 +1,198 @@
+.mes-demandes {
+  padding: 1rem;
+}
+
+.mes-demandes .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.mes-demandes .header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.mes-demandes .new-demand-button {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.mes-demandes .new-demand-button:hover {
+  background-color: #2563eb;
+}
+
+.mes-demandes .empty-state {
+  text-align: center;
+  padding: 2rem;
+}
+
+.mes-demandes .empty-state p {
+  color: #6b7280;
+  font-size: 1.125rem;
+  margin-bottom: 1rem;
+}
+
+.mes-demandes .empty-state button {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.mes-demandes .empty-state button:hover {
+  background-color: #2563eb;
+}
+
+.mes-demandes .demandes-table {
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.mes-demandes .demandes-table th {
+  background-color: #f9fafb;
+  padding: 0.75rem 1.5rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mes-demandes .demandes-table td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.mes-demandes .demandes-table tr:hover {
+  background-color: #f9fafb;
+}
+
+.mes-demandes .demande-title {
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.mes-demandes .demande-location {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.mes-demandes .demande-date {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.mes-demandes .demande-budget {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.mes-demandes .status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.mes-demandes .status-open {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.mes-demandes .status-in-progress {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.mes-demandes .status-filled {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.mes-demandes .status-cancelled {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.mes-demandes .urgency-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mes-demandes .urgency-low {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.mes-demandes .urgency-normal {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.mes-demandes .urgency-high {
+  background-color: #fed7aa;
+  color: #92400e;
+}
+
+.mes-demandes .urgency-urgent {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.mes-demandes .action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mes-demandes .action-button {
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.mes-demandes .view-button {
+  color: #3b82f6;
+}
+
+.mes-demandes .view-button:hover {
+  color: #2563eb;
+}
+
+.mes-demandes .edit-button {
+  color: #6366f1;
+}
+
+.mes-demandes .edit-button:hover {
+  color: #4f46e5;
+}
+
+.mes-demandes .delete-button {
+  color: #ef4444;
+}
+
+.mes-demandes .delete-button:hover {
+  color: #dc2626;
+}

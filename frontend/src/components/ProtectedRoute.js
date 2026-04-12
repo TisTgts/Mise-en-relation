@@ -1,0 +1,61 @@
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+
+// Composant pour protéger les routes selon le type d'utilisateur
+const ProtectedRoute = ({ children, allowedTypes }) => {
+  const { user, isAuthenticated, loading } = useAuth();
+
+  // Si le chargement est en cours, afficher un loader
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  // Si l'utilisateur n'est pas authentifié, rediriger vers login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Si des types spécifiques sont requis et que l'utilisateur n'est pas autorisé
+  if (allowedTypes && !allowedTypes.includes(user?.type_utilisateur)) {
+    // Rediriger vers le dashboard approprié
+    switch (user?.type_utilisateur) {
+      case 'fournisseur':
+        return <Navigate to="/fournisseur/dashboard" replace />;
+      case 'client':
+        return <Navigate to="/client/dashboard" replace />;
+      case 'administrateur':
+        return <Navigate to="/admin/dashboard" replace />;
+      default:
+        return <Navigate to="/login" replace />;
+    }
+  }
+
+  // Si tout est bon, afficher le composant enfant
+  return children;
+};
+
+// Composants spécialisés pour chaque type
+export const FournisseurRoute = ({ children }) => (
+  <ProtectedRoute allowedTypes={['fournisseur']}>
+    {children}
+  </ProtectedRoute>
+);
+
+export const ClientRoute = ({ children }) => (
+  <ProtectedRoute allowedTypes={['client']}>
+    {children}
+  </ProtectedRoute>
+);
+
+export const AdministrateurRoute = ({ children }) => (
+  <ProtectedRoute allowedTypes={['administrateur']}>
+    {children}
+  </ProtectedRoute>
+);
+
+export default ProtectedRoute;
