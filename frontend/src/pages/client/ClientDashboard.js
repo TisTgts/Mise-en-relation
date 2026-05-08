@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FiSearch,
   FiBriefcase,
-  FiDollarSign,
   FiClock,
   FiAlertCircle,
   FiPlus,
@@ -15,9 +14,20 @@ import {
   FiLayers,
   FiUser,
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../config/api';
+import {
+  truncateText,
+  besoinStatutLabel,
+  besoinStatutPillClass,
+  urgenceLabel,
+  urgencePillClass,
+  transactionStatutLabel,
+  transactionStatutPillClass,
+  formatMoneyFcfa,
+  formatDateShort,
+} from './clientUi';
 
 const TABS = [
   { id: 'accueil', label: 'Accueil' },
@@ -40,28 +50,6 @@ const COLLAB_FILTRES = [
   { id: 'annulees', label: 'Annulées' },
 ];
 
-const STATUTS_BESOIN_LABEL = {
-  ouverte: 'Ouvert',
-  en_cours: 'En cours',
-  pourvue: 'Pourvu',
-  annulee: 'Annulé',
-};
-
-const URGENCE_LABEL = {
-  basse: 'Basse',
-  normale: 'Normale',
-  haute: 'Haute',
-  urgente: 'Urgente',
-};
-
-const STATUT_TRANSACTION_LABEL = {
-  en_attente: 'En attente',
-  acceptee: 'Acceptée',
-  en_cours: 'En cours',
-  terminee: 'Terminée',
-  annulee: 'Annulée',
-};
-
 const authHeaders = () => {
   const token = localStorage.getItem('access_token');
   const h = { 'Content-Type': 'application/json' };
@@ -77,52 +65,6 @@ const parseList = (data) => {
   return [];
 };
 
-const getStatusBesoinClass = (statut) => {
-  switch (statut) {
-    case 'ouverte':
-      return 'text-emerald-700 bg-emerald-100';
-    case 'en_cours':
-      return 'text-blue-700 bg-blue-100';
-    case 'pourvue':
-      return 'text-violet-700 bg-violet-100';
-    case 'annulee':
-      return 'text-gray-600 bg-gray-100';
-    default:
-      return 'text-gray-600 bg-gray-100';
-  }
-};
-
-const getUrgenceClass = (urgence) => {
-  switch (urgence) {
-    case 'urgente':
-      return 'text-red-700 bg-red-100';
-    case 'haute':
-      return 'text-orange-700 bg-orange-100';
-    case 'normale':
-      return 'text-amber-700 bg-amber-100';
-    case 'basse':
-      return 'text-green-700 bg-green-100';
-    default:
-      return 'text-gray-600 bg-gray-100';
-  }
-};
-
-const getTransactionStatutClass = (statut) => {
-  switch (statut) {
-    case 'en_attente':
-      return 'text-amber-700 bg-amber-100';
-    case 'acceptee':
-    case 'en_cours':
-      return 'text-blue-700 bg-blue-100';
-    case 'terminee':
-      return 'text-emerald-700 bg-emerald-100';
-    case 'annulee':
-      return 'text-gray-600 bg-gray-100';
-    default:
-      return 'text-gray-600 bg-gray-100';
-  }
-};
-
 const formatZones = (zones) => {
   if (!zones) return '—';
   if (Array.isArray(zones)) return zones.length ? zones.slice(0, 3).join(', ') : '—';
@@ -132,6 +74,7 @@ const formatZones = (zones) => {
 const ClientDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [tab, setTab] = useState('accueil');
   const [besoinFiltre, setBesoinFiltre] = useState('tous');
@@ -194,6 +137,24 @@ const ClientDashboard = () => {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && TABS.some((x) => x.id === t)) {
+      setTab(t);
+    } else if (!t) {
+      setTab('accueil');
+    }
+  }, [searchParams]);
+
+  const goTab = (id) => {
+    setTab(id);
+    if (id === 'accueil') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab: id }, { replace: true });
+    }
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -230,6 +191,48 @@ const ClientDashboard = () => {
     if (collabFiltre === 'annulees') return transactions.filter((t) => t.statut === 'annulee');
     return transactions;
   }, [transactions, collabFiltre]);
+
+  const journeyHint = useMemo(() => {
+    const openCount = besoins.filter((b) => b.statut === 'ouverte').length;
+    if (besoins.length === 0) {
+      return {
+        title: 'Par où commencer ?',
+        description: 'Publiez un besoin pour être mis en relation avec des prestataires.',
+        primaryLabel: 'Créer mon premier besoin',
+        onPrimary: () => navigate('/client/creer-besoin'),
+      };
+    }
+    if (openCount > 0) {
+      return {
+        title: 'Étape suivante',
+        description: `Vous avez ${openCount} besoin(s) ouvert(s). Consultez les correspondances ou complétez vos fiches depuis Mes besoins.`,
+        primaryLabel: 'Voir les correspondances',
+        onPrimary: () => navigate('/client/matchings'),
+        secondaryLabel: 'Mes besoins',
+        onSecondary: () => {
+          setBesoinFiltre('ouverte');
+          setTab('besoins');
+          setSearchParams({ tab: 'besoins' }, { replace: true });
+        },
+      };
+    }
+    if (stats.collaborationsEnCours > 0) {
+      return {
+        title: 'Collaborations en cours',
+        description:
+          'Suivez l’avancement (messages, validation, paiement) depuis l’onglet Collaborations ou vos transactions.',
+        primaryLabel: 'Ouvrir collaborations',
+        onPrimary: () => {
+          setCollabFiltre('actives');
+          setTab('collaborations');
+          setSearchParams({ tab: 'collaborations' }, { replace: true });
+        },
+        secondaryLabel: 'Mes transactions',
+        onSecondary: () => navigate('/client/transactions'),
+      };
+    }
+    return null;
+  }, [besoins, stats.collaborationsEnCours, navigate, setSearchParams]);
 
   const handleBesoinStatut = async (besoinId, statutActuel) => {
     const prochain = statutActuel === 'ouverte' ? 'annulee' : 'ouverte';
@@ -296,6 +299,33 @@ const ClientDashboard = () => {
           </div>
         )}
 
+        {journeyHint && (
+          <div className="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-slate-50 p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-6">
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-indigo-900">{journeyHint.title}</h2>
+              <p className="mt-1 text-sm text-slate-600">{journeyHint.description}</p>
+            </div>
+            <div className="mt-4 flex shrink-0 flex-wrap gap-2 sm:mt-0">
+              <button
+                type="button"
+                onClick={journeyHint.onPrimary}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+              >
+                {journeyHint.primaryLabel}
+              </button>
+              {journeyHint.secondaryLabel && journeyHint.onSecondary && (
+                <button
+                  type="button"
+                  onClick={journeyHint.onSecondary}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  {journeyHint.secondaryLabel}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Statistiques */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
@@ -327,7 +357,7 @@ const ClientDashboard = () => {
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setTab(t.id)}
+                onClick={() => goTab(t.id)}
                 className={`px-4 py-3 text-sm font-medium transition-colors relative ${
                   tab === t.id
                     ? 'text-primary-700 bg-primary-50/80'
@@ -352,7 +382,7 @@ const ClientDashboard = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <button
                     type="button"
-                    onClick={() => navigate('/client/creer-demande')}
+                    onClick={() => navigate('/client/creer-besoin')}
                     className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
                   >
                     <div className="w-11 h-11 rounded-lg bg-blue-100 flex items-center justify-center mb-3">
@@ -363,7 +393,10 @@ const ClientDashboard = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setTab('besoins'); setBesoinFiltre('tous'); }}
+                    onClick={() => {
+                      setBesoinFiltre('tous');
+                      goTab('besoins');
+                    }}
                     className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
                   >
                     <div className="w-11 h-11 rounded-lg bg-emerald-100 flex items-center justify-center mb-3">
@@ -374,7 +407,10 @@ const ClientDashboard = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setTab('collaborations'); setCollabFiltre('actives'); }}
+                    onClick={() => {
+                      setCollabFiltre('actives');
+                      goTab('collaborations');
+                    }}
                     className="text-left rounded-xl border border-gray-100 p-5 hover:border-primary-200 hover:shadow-md transition-all group"
                   >
                     <div className="w-11 h-11 rounded-lg bg-orange-100 flex items-center justify-center mb-3">
@@ -420,6 +456,14 @@ const ClientDashboard = () => {
                     Page collaborations détaillée
                     <FiChevronRight className="w-4 h-4" />
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/client/matchings')}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-200 text-sm text-indigo-700 hover:bg-indigo-50"
+                  >
+                    Mes besoins matchés
+                    <FiChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             )}
@@ -448,77 +492,88 @@ const ClientDashboard = () => {
                     <p>Aucun besoin dans cette catégorie.</p>
                     <button
                       type="button"
-                      onClick={() => navigate('/client/creer-demande')}
+                      onClick={() => navigate('/client/creer-besoin')}
                       className="mt-4 text-primary-600 font-medium text-sm hover:underline"
                     >
                       Créer un besoin
                     </button>
                   </div>
                 ) : (
-                  <ul className="space-y-3">
-                    {besoinsFiltres.map((b) => (
-                      <li
-                        key={b.id}
-                        className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50/80 transition-colors"
-                      >
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <h3 className="font-semibold text-gray-900 truncate">{b.intitule}</h3>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusBesoinClass(b.statut)}`}>
-                                {STATUTS_BESOIN_LABEL[b.statut] || b.statut}
+                  <div className="overflow-x-auto rounded-xl border border-gray-100">
+                    <table className="min-w-full divide-y divide-gray-100 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Intitulé</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Statut</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Urgence</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Budget</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Limite</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {besoinsFiltres.map((b) => (
+                          <tr key={b.id} className="hover:bg-gray-50/80">
+                            <td className="max-w-[14rem] px-3 py-2 align-top">
+                              <span className="font-medium text-gray-900" title={b.intitule}>
+                                {truncateText(b.intitule, 48)}
                               </span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${getUrgenceClass(b.urgence)}`}>
-                                {URGENCE_LABEL[b.urgence] || b.urgence}
+                              <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+                                <FiMapPin className="h-3 w-3 shrink-0" />
+                                <span className="truncate">{b.lieu_intervention || '—'}</span>
+                              </p>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${besoinStatutPillClass(b.statut)}`}>
+                                {besoinStatutLabel(b.statut)}
                               </span>
-                            </div>
-                            <p className="text-sm text-gray-600 line-clamp-2">{b.description}</p>
-                            <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${urgencePillClass(b.urgence)}`}>
+                                {urgenceLabel(b.urgence)}
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top tabular-nums text-gray-800">
+                              {formatMoneyFcfa(b.budget)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top text-gray-600">
                               <span className="inline-flex items-center gap-1">
-                                <FiMapPin className="w-3.5 h-3.5" />
-                                {b.lieu_intervention || '—'}
+                                <FiClock className="h-3 w-3 text-gray-400" />
+                                {formatDateShort(b.date_limite)}
                               </span>
-                              <span className="inline-flex items-center gap-1">
-                                <FiDollarSign className="w-3.5 h-3.5" />
-                                {b.budget != null ? `${Number(b.budget).toLocaleString('fr-FR')} FCFA` : '—'}
-                              </span>
-                              {b.date_limite && (
-                                <span className="inline-flex items-center gap-1">
-                                  <FiClock className="w-3.5 h-3.5" />
-                                  limite : {new Date(b.date_limite).toLocaleDateString('fr-FR')}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/client/besoins/${b.id}`)}
-                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                            >
-                              Détail
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/client/besoins/${b.id}/edit`)}
-                              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700"
-                            >
-                              Modifier
-                            </button>
-                            {(b.statut === 'ouverte' || b.statut === 'annulee') && (
-                              <button
-                                type="button"
-                                onClick={() => handleBesoinStatut(b.id, b.statut)}
-                                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100"
-                              >
-                                {b.statut === 'ouverte' ? 'Annuler' : 'Rouvrir'}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top text-right">
+                              <div className="flex flex-wrap justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/client/besoins/${b.id}`)}
+                                  className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                >
+                                  Détail
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/client/besoins/${b.id}/edit`)}
+                                  className="rounded-lg bg-primary-600 px-2 py-1 text-xs font-medium text-white hover:bg-primary-700"
+                                >
+                                  Modifier
+                                </button>
+                                {(b.statut === 'ouverte' || b.statut === 'annulee') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleBesoinStatut(b.id, b.statut)}
+                                    className="rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                                  >
+                                    {b.statut === 'ouverte' ? 'Annuler' : 'Rouvrir'}
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}
@@ -554,46 +609,55 @@ const ClientDashboard = () => {
                     </button>
                   </div>
                 ) : (
-                  <ul className="space-y-3">
-                    {transactionsFiltrees.map((tx) => (
-                      <li
-                        key={tx.id}
-                        className="border border-gray-100 rounded-xl p-4 hover:bg-gray-50/80 transition-colors"
-                      >
-                        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2 mb-1">
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${getTransactionStatutClass(tx.statut)}`}>
-                                {STATUT_TRANSACTION_LABEL[tx.statut] || tx.statut}
+                  <div className="overflow-x-auto rounded-xl border border-gray-100">
+                    <table className="min-w-full divide-y divide-gray-100 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Statut</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Prestation</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Besoin</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Fournisseur</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Montant</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {transactionsFiltrees.map((tx) => (
+                          <tr key={tx.id} className="hover:bg-gray-50/80">
+                            <td className="whitespace-nowrap px-3 py-2 align-middle">
+                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${transactionStatutPillClass(tx.statut)}`}>
+                                {transactionStatutLabel(tx.statut)}
                               </span>
-                            </div>
-                            <p className="font-medium text-gray-900">
-                              {tx.prestation_intitule || `Prestation #${tx.prestation}`}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              Besoin : {tx.besoin_intitule || `Besoin #${tx.besoin}`}
-                            </p>
-                            <p className="text-sm text-gray-500 mt-1">
-                              Fournisseur : <span className="text-gray-800">{tx.fournisseur_nom || '—'}</span>
-                            </p>
-                            {tx.prix_final != null && (
-                              <p className="text-sm font-medium text-gray-900 mt-1">
-                                {Number(tx.prix_final).toLocaleString('fr-FR')} FCFA
-                              </p>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/client/transactions/${tx.id}`)}
-                            className="self-start lg:self-center inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-primary-600 text-white text-sm hover:bg-primary-700"
-                          >
-                            Voir la transaction
-                            <FiChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                            </td>
+                            <td className="max-w-[11rem] px-3 py-2 align-middle">
+                              <span className="font-medium text-gray-900" title={tx.prestation_intitule}>
+                                {truncateText(tx.prestation_intitule || `Prestation #${tx.prestation}`, 36)}
+                              </span>
+                            </td>
+                            <td className="max-w-[11rem] px-3 py-2 align-middle text-gray-700">
+                              {truncateText(tx.besoin_intitule || `Besoin #${tx.besoin}`, 36)}
+                            </td>
+                            <td className="max-w-[9rem] px-3 py-2 align-middle text-gray-800">
+                              {truncateText(tx.fournisseur_nom || '—', 28)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-middle text-right tabular-nums text-gray-900">
+                              {formatMoneyFcfa(tx.prix_final)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-middle text-right">
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/client/transactions/${tx.id}`)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+                              >
+                                Détail
+                                <FiChevronRight className="h-3.5 w-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}
@@ -609,38 +673,59 @@ const ClientDashboard = () => {
                     <p>Aucune prestation à afficher pour le moment.</p>
                   </div>
                 ) : (
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {prestations.map((p) => (
-                      <li
-                        key={p.id}
-                        className="border border-gray-100 rounded-xl p-4 hover:border-primary-100 transition-colors"
-                      >
-                        <h3 className="font-semibold text-gray-900 line-clamp-1">{p.intitule}</h3>
-                        <p className="text-xs text-gray-500 mt-0.5">{p.categorie_nom || 'Catégorie'}</p>
-                        <p className="text-sm text-gray-600 line-clamp-2 mt-2">{p.description}</p>
-                        <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
-                          <span>{p.fournisseur_nom || 'Fournisseur'}</span>
-                          <span>
-                            {p.tarif_min != null && p.tarif_max != null
-                              ? `${Number(p.tarif_min).toLocaleString('fr-FR')} – ${Number(p.tarif_max).toLocaleString('fr-FR')} FCFA`
-                              : '—'}
-                          </span>
-                        </div>
-                        <div className="mt-2 text-xs text-gray-400 flex items-center gap-1">
-                          <FiMapPin className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">{formatZones(p.zones_intervention)}</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/services')}
-                          className="mt-3 text-sm font-medium text-primary-600 hover:underline inline-flex items-center gap-1"
-                        >
-                          <FiEye className="w-4 h-4" />
-                          Voir toutes les prestations
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="overflow-x-auto rounded-xl border border-gray-100">
+                    <table className="min-w-full divide-y divide-gray-100 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Prestation</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Catégorie</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Fournisseur</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Tarif</th>
+                          <th className="px-3 py-2 text-left font-semibold text-gray-700">Zones</th>
+                          <th className="px-3 py-2 text-right font-semibold text-gray-700">Voir</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 bg-white">
+                        {prestations.map((p) => (
+                          <tr key={p.id} className="hover:bg-gray-50/80">
+                            <td className="max-w-[13rem] px-3 py-2 align-top">
+                              <span className="font-medium text-gray-900" title={p.intitule}>
+                                {truncateText(p.intitule, 42)}
+                              </span>
+                              <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{p.description}</p>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top text-gray-700">
+                              {p.categorie_nom || '—'}
+                            </td>
+                            <td className="max-w-[9rem] px-3 py-2 align-top text-gray-800">
+                              {truncateText(p.fournisseur_nom || '—', 24)}
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top text-right tabular-nums text-gray-900">
+                              {p.tarif_min != null || p.tarif_max != null
+                                ? `${p.tarif_min != null ? Number(p.tarif_min).toLocaleString('fr-FR') : '—'} – ${p.tarif_max != null ? Number(p.tarif_max).toLocaleString('fr-FR') : '—'}`
+                                : '—'}
+                            </td>
+                            <td className="max-w-[8rem] px-3 py-2 align-top text-xs text-gray-500">
+                              <span className="inline-flex items-start gap-1">
+                                <FiMapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                                <span className="truncate">{formatZones(p.zones_intervention)}</span>
+                              </span>
+                            </td>
+                            <td className="whitespace-nowrap px-3 py-2 align-top text-right">
+                              <button
+                                type="button"
+                                onClick={() => navigate('/services')}
+                                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-gray-50"
+                              >
+                                <FiEye className="h-3.5 w-3.5" />
+                                Catalogue
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
             )}

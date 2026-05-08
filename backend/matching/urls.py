@@ -1,8 +1,77 @@
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
-    path('find-matches/need/<int:need_id>/', views.find_matches_for_need, name='find-matches-need'),
-    path('find-matches/offer/<int:offer_id>/', views.find_matches_for_offer, name='find-matches-offer'),
-    path('scores/', views.get_matching_scores, name='matching-scores'),
+    path(
+        "trouver-correspondances/besoin/<int:besoin_id>/",
+        views.trouver_correspondances_pour_besoin,
+        name="trouver-correspondances-besoin",
+    ),
+    path(
+        "trouver-correspondances/prestation/<int:prestation_id>/",
+        views.trouver_correspondances_pour_prestation,
+        name="trouver-correspondances-prestation",
+    ),
+    path("scores/", views.get_matching_scores, name="matching-scores"),
+    path(
+        "score-debug/besoin/<int:besoin_id>/prestation/<int:prestation_id>/",
+        views.debug_matching_score,
+        name="matching-score-debug",
+    ),
+    path(
+        "admin/lancer-besoins-sans-matching/",
+        views.lancer_matching_besoins_sans_matching,
+        name="admin-lancer-matching-besoins-sans-matching",
+    ),
+    path(
+        "admin/lancer-besoins/",
+        views.lancer_matching_besoins_admin,
+        name="admin-lancer-matching-besoins",
+    ),
+    path(
+        "admin/correspondances/",
+        views.admin_lister_correspondances,
+        name="admin-correspondances-list",
+    ),
+    path(
+        "admin/correspondances/plates/",
+        views.admin_lister_correspondances_plates,
+        name="admin-correspondances-plates",
+    ),
+    path(
+        "admin/matching-runs/",
+        views.admin_lister_matching_runs,
+        name="admin-matching-runs-list",
+    ),
+    path(
+        "admin/correspondances/ref/<str:corr_ref>/",
+        views.admin_detail_correspondance,
+        name="admin-correspondances-detail",
+    ),
+    path(
+        "admin/correspondances/ref/<str:corr_ref>/delete/",
+        views.admin_supprimer_correspondance,
+        name="admin-correspondances-delete",
+    ),
+    path(
+        "admin/correspondances/besoin/<int:besoin_id>/",
+        views.admin_correspondances_pour_besoin,
+        name="admin-correspondances-besoin",
+    ),
+    path(
+        "admin/fournisseurs/<int:fournisseur_id>/profil/",
+        views.admin_profil_fournisseur,
+        name="admin-profil-fournisseur",
+    ),
+    path(
+        "client/fournisseurs/<int:fournisseur_id>/profil/",
+        views.client_profil_fournisseur_matche,
+        name="client-profil-fournisseur-matche",
+    ),
+    path(
+        "client/confirmer-match/",
+        views.client_confirmer_match,
+        name="client-confirmer-match",
+    ),
 ]

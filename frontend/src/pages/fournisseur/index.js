@@ -13,3 +13,4 @@ export { default as FournisseurTransactionDetail } from './transactions/Transact
 export { default as MonProfil } from './profil/MonProfil';
 export { default as MesMessages } from './messages/MesMessages';
 export { default as MesCollaborations } from './collaborations/MesCollaborations';
+export { default as FournisseurCollaborationWorkspace } from './collaborations/CollaborationWorkspace';

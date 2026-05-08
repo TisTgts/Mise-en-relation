@@ -14,6 +14,7 @@ const PrestationEdit = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [toast, setToast] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
 
   // Formulaire
   const [formData, setFormData] = useState({
@@ -46,7 +47,7 @@ const PrestationEdit = () => {
         
         // Initialiser le formulaire
         setFormData({
-          categorie: prestationData.categorie?.id || '',
+          categorie: prestationData.categorie?.id || prestationData.categorie || '',
           intitule: prestationData.intitule || '',
           description: prestationData.description || '',
           type_prestation: prestationData.type_prestation || '',
@@ -78,10 +79,46 @@ const PrestationEdit = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      const next = {
+        ...prev,
+        [name]: value
+      };
+      if (name === 'mode_tarification' && value === 'devis') {
+        next.tarif_min = '';
+        next.tarif_max = '';
+      }
+      return next;
+    });
+    if (formErrors[name]) {
+      setFormErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const validateTarification = () => {
+    const nextErrors = {};
+    const isDevisMode = formData.mode_tarification === 'devis';
+
+    if (!isDevisMode && !formData.tarif_min && !formData.tarif_max) {
+      nextErrors.tarif_min = 'Indiquez au moins un tarif (minimum ou maximum)';
+    }
+
+    if (formData.tarif_min && parseFloat(formData.tarif_min) <= 0) {
+      nextErrors.tarif_min = 'Le tarif minimum est invalide';
+    }
+    if (formData.tarif_max && parseFloat(formData.tarif_max) <= 0) {
+      nextErrors.tarif_max = 'Le tarif maximum est invalide';
+    }
+    if (
+      formData.tarif_min &&
+      formData.tarif_max &&
+      parseFloat(formData.tarif_min) > parseFloat(formData.tarif_max)
+    ) {
+      nextErrors.tarif_max = 'Le tarif maximum doit être supérieur au tarif minimum';
+    }
+
+    setFormErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleCaracteristiqueChange = (key, value) => {
@@ -125,6 +162,7 @@ const PrestationEdit = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validateTarification()) return;
     
     try {
       setSaving(true);
@@ -153,7 +191,7 @@ const PrestationEdit = () => {
     } catch (err) {
       console.error('Erreur lors de la mise à jour:', err);
       setToast({
-        message: 'Erreur lors de la mise à jour de la prestation',
+        message: err?.message || 'Erreur lors de la mise à jour de la prestation',
         type: 'error'
       });
     } finally {
@@ -417,37 +455,51 @@ const PrestationEdit = () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tarif minimum (FCFA)
-                </label>
-                <input
-                  type="number"
-                  name="tarif_min"
-                  value={formData.tarif_min}
-                  onChange={handleChange}
-                  placeholder="Ex: 50000"
-                  min="0"
-                  step="1000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
+              {formData.mode_tarification === 'devis' ? (
+                <div className="md:col-span-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-800">
+                  Mode devis actif: les tarifs minimum/maximum sont optionnels.
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tarif minimum (FCFA)
+                    </label>
+                    <input
+                      type="number"
+                      name="tarif_min"
+                      value={formData.tarif_min}
+                      onChange={handleChange}
+                      placeholder="Ex: 50000"
+                      min="0"
+                      step="1000"
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-primary-500 focus:border-primary-500 ${formErrors.tarif_min ? 'border-red-300' : 'border-gray-300'}`}
+                    />
+                    {formErrors.tarif_min && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.tarif_min}</p>
+                    )}
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tarif maximum (FCFA)
-                </label>
-                <input
-                  type="number"
-                  name="tarif_max"
-                  value={formData.tarif_max}
-                  onChange={handleChange}
-                  placeholder="Ex: 100000"
-                  min="0"
-                  step="1000"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tarif maximum (FCFA)
+                    </label>
+                    <input
+                      type="number"
+                      name="tarif_max"
+                      value={formData.tarif_max}
+                      onChange={handleChange}
+                      placeholder="Ex: 100000"
+                      min="0"
+                      step="1000"
+                      className={`w-full px-3 py-2 border rounded-md focus:ring-primary-500 focus:border-primary-500 ${formErrors.tarif_max ? 'border-red-300' : 'border-gray-300'}`}
+                    />
+                    {formErrors.tarif_max && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.tarif_max}</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Statut */}

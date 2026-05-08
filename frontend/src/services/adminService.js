@@ -1,33 +1,125 @@
 import { API_ENDPOINTS } from '../config/api';
+import { fetchAllPaginated as apiFetchAllPaginated } from './apiClient';
 
 class AdminService {
+  async fetchAllPaginated(url, headers) {
+    return apiFetchAllPaginated(url, { headers });
+  }
+
   // Gestion des utilisateurs
   async getAllUsers() {
     const token = localStorage.getItem('access_token');
-    console.log('adminService.getAllUsers - token:', token ? 'exists' : 'missing');
-    
-    // URL correcte pour les utilisateurs
     const url = '/api/accounts/users/';
-    console.log('adminService.getAllUsers - URL:', url);
-    
-    const response = await fetch(url, {
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    };
+    const data = await this.fetchAllPaginated(url, headers);
+    return data;
+  }
+
+  async getAllMatchingScores() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_CORRESPONDANCES_PLATES, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
-    
-    console.log('adminService.getAllUsers - response status:', response.status);
-    
+
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('adminService.getAllUsers - error response:', errorText);
-      throw new Error('Failed to fetch users');
+      throw new Error('Failed to fetch matching scores');
     }
-    
+
     const data = await response.json();
-    console.log('adminService.getAllUsers - success data:', data);
-    return data;
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getMatchingRuns() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_MATCHING_RUNS, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch matching runs');
+    }
+    const data = await response.json();
+    return data.results || [];
+  }
+
+  async getMatchingByNeed() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_CORRESPONDANCES, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch grouped matching data');
+    }
+    const data = await response.json();
+    return data.results || [];
+  }
+
+  async getMatchingScoreDetail(scoreId) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_CORRESPONDANCE_DETAIL(scoreId), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch matching score detail');
+    }
+    return response.json();
+  }
+
+  async deleteMatchingScore(scoreId) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_CORRESPONDANCE_DELETE(scoreId), {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete matching score');
+    }
+    return response.json();
+  }
+
+  async getMatchingForNeed(besoinId) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_CORRESPONDANCES_BESOIN(besoinId), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch matching list for need');
+    }
+    return response.json();
+  }
+
+  async getProviderProfileForAdmin(fournisseurId) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.ADMIN_FOURNISSEUR_PROFIL(fournisseurId), {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch provider profile');
+    }
+    return response.json();
   }
 
   async getUser(userId) {
@@ -164,19 +256,177 @@ class AdminService {
   }
 
   // Gestion des transactions
+  async getAdminMessages() {
+    const token = localStorage.getItem('access_token');
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    const data = await this.fetchAllPaginated(API_ENDPOINTS.SERVICES.ADMIN_MESSAGES, headers);
+    return Array.isArray(data) ? data : [];
+  }
+
+  async getAllCategoriesAll() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_CATEGORIES || `${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/categories/`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Failed to fetch categories');
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data.results || []);
+  }
+
+  async createCategory(payload) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_CATEGORIES || `${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/categories/`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || err.nom?.[0] || 'Impossible de créer la catégorie');
+    }
+    return response.json();
+  }
+
+  async updateCategory(categoryId, payload) {
+    const token = localStorage.getItem('access_token');
+    const url = API_ENDPOINTS.SERVICES.ADMIN_CATEGORY_DETAIL
+      ? API_ENDPOINTS.SERVICES.ADMIN_CATEGORY_DETAIL(categoryId)
+      : `${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/categories/${categoryId}/`;
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || err.nom?.[0] || 'Impossible de modifier la catégorie');
+    }
+    return response.json();
+  }
+
+  async deleteCategory(categoryId) {
+    const token = localStorage.getItem('access_token');
+    const url = API_ENDPOINTS.SERVICES.ADMIN_CATEGORY_DETAIL
+      ? API_ENDPOINTS.SERVICES.ADMIN_CATEGORY_DETAIL(categoryId)
+      : `${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/categories/${categoryId}/`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'Impossible de supprimer la catégorie');
+    }
+    return true;
+  }
+
+  async getAllSubCategories() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_SUBCATEGORIES, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok) {
+      throw new Error('Impossible de charger les sous-catégories');
+    }
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data.results || []);
+  }
+
+  async createSubCategory(payload) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_SUBCATEGORIES, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || err.nom?.[0] || 'Impossible de créer la sous-catégorie');
+    }
+    return response.json();
+  }
+
+  async updateSubCategory(subCategoryId, payload) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_SUBCATEGORY_DETAIL(subCategoryId), {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || err.nom?.[0] || 'Impossible de modifier la sous-catégorie');
+    }
+    return response.json();
+  }
+
+  async deleteSubCategory(subCategoryId) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_SUBCATEGORY_DETAIL(subCategoryId), {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'Impossible de supprimer la sous-catégorie');
+    }
+    return true;
+  }
+
   async getAllTransactions() {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.TRANSACTIONS.replace('transactions/', '')}admin/transactions/`, {
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    const data = await this.fetchAllPaginated(API_ENDPOINTS.SERVICES.ADMIN_TRANSACTIONS, headers);
+    return Array.isArray(data) ? data : [];
+  }
+
+  async validateCollaborationFromMatching(besoinId, prestationId) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_CREATE, {
+      method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        offer_id: prestationId,
+        need_id: besoinId,
+      }),
     });
-    
     if (!response.ok) {
-      throw new Error('Failed to fetch transactions');
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || payload.detail || 'Impossible de valider cette collaboration');
     }
-    
     return response.json();
   }
 
@@ -194,6 +444,63 @@ class AdminService {
       throw new Error('Failed to fetch statistics');
     }
     
+    return response.json();
+  }
+
+  async runMatchingForUnmatchedNeeds(limit = 50) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.RUN_UNMATCHED_BESOINS, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ limit })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to run unmatched needs matching');
+    }
+
+    return response.json();
+  }
+
+  async runMatchingForSelectedNeeds(besoinIds = []) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.RUN_BESOINS_ADMIN, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ all_open: false, besoin_ids: besoinIds })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to run selected matching');
+    }
+
+    return response.json();
+  }
+
+  async runMatchingForAllOpenNeeds() {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.MATCHING.RUN_BESOINS_ADMIN, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ all_open: true })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to run all-open matching');
+    }
+
     return response.json();
   }
 

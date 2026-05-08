@@ -1,177 +1,249 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { FiArrowLeft, FiCalendar, FiMessageSquare, FiUser } from 'react-icons/fi';
 import transactionsService from '../../../services/transactionsService';
+import Toast from '../../../components/Toast';
+import { formatMoneyFcfa, transactionStatutLabel, transactionStatutPillClass } from '../fournisseurUi';
 
 const TransactionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [quoteAmount, setQuoteAmount] = useState('');
+  const [quoteDescription, setQuoteDescription] = useState('');
 
-  useEffect(() => {
-    const fetchTransaction = async () => {
-      try {
-        const data = await transactionsService.getTransactionById(id);
-        setTransaction(data);
-        setError(null);
-      } catch (err) {
-        setError(err.message);
-        setLoading(false);
-      }
-    };
-
-    fetchTransaction();
-    setLoading(false);
+  const loadTransaction = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await transactionsService.getTransactionById(id);
+      setTransaction(data);
+    } catch (error) {
+      setToast({ message: error.message || 'Impossible de charger la transaction.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  const handleStatusUpdate = async (newStatus) => {
+  useEffect(() => {
+    if (id) loadTransaction();
+  }, [id, loadTransaction]);
+
+  const handleWorkDone = async () => {
     try {
-      await transactionsService.updateTransactionStatus(id, newStatus);
-      setTransaction(prev => ({ ...prev, statut: newStatus }));
+      await transactionsService.fournisseurWorkDone(id);
+      await loadTransaction();
+      setToast({ message: 'Travail déclaré comme effectué.', type: 'success' });
     } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut:', error);
+      setToast({ message: error.message || 'Erreur de déclaration.', type: 'error' });
     }
   };
 
+  const handleAskAdmin = async () => {
+    try {
+      await transactionsService.requestAdminApproval(id);
+      await loadTransaction();
+      setToast({ message: 'Demande envoyée à l’administrateur.', type: 'success' });
+    } catch (error) {
+      setToast({ message: error.message || 'Erreur de demande admin.', type: 'error' });
+    }
+  };
+
+  const handleSubmitQuote = async () => {
+    try {
+      await transactionsService.fournisseurProposeDevis(id, quoteAmount, quoteDescription);
+      await loadTransaction();
+      setToast({ message: 'Devis envoyé au client.', type: 'success' });
+    } catch (error) {
+      setToast({ message: error.message || 'Erreur lors de la proposition de devis.', type: 'error' });
+    }
+  };
+
+  const steps = useMemo(() => {
+    if (!transaction) return [];
+    const hasAdmin = transaction.demande_validation_admin || transaction.validation_admin_statut !== 'non_requise';
+    const items = [
+      { key: 'created', label: 'Besoin publié', done: true },
+      { key: 'matched', label: 'Match confirmé', done: true },
+      { key: 'work', label: 'Travail fournisseur', done: !!transaction.travail_fournisseur_termine },
+      { key: 'check', label: 'Vérification client', done: !!transaction.verification_client_validee },
+    ];
+    if (hasAdmin) {
+      items.push({
+        key: 'admin',
+        label: 'Validation admin',
+        done: transaction.validation_admin_statut === 'acceptee',
+        blocked: transaction.validation_admin_statut === 'rejetee',
+      });
+    }
+    items.push({ key: 'closed', label: 'Clôture', done: transaction.statut === 'terminee' });
+    return items;
+  }, [transaction]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <strong>Erreur:</strong> {error}
-        </div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
       </div>
     );
   }
 
   if (!transaction) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
-          <strong>Transaction non trouvée</strong>
-        </div>
-      </div>
-    );
+    return <div className="p-8 text-sm text-slate-600">Transaction introuvable.</div>;
   }
 
+  const isQuoteFlow = transaction.besoin_mode_budget === 'sur_devis' || transaction.devis_statut !== 'non_requis';
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="bg-white shadow-lg rounded-lg">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Détails de la transaction</h1>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              transaction.statut === 'terminee' ? 'bg-green-100 text-green-800' :
-              transaction.statut === 'en_cours' ? 'bg-blue-100 text-blue-800' :
-              transaction.statut === 'acceptee' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-gray-100 text-gray-800'
-            }`}>
-              {transaction.statut}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div className="mx-auto max-w-6xl space-y-6 pb-10">
+      <header className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/fournisseur/transactions')}
+              className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <FiArrowLeft className="mr-2 h-4 w-4" />
+              Retour
+            </button>
             <div>
-              <h3 className="text-lg font-semibold mb-2">Prestation</h3>
-              <div className="bg-gray-50 p-4 rounded">
-                <p><strong>Intitulé:</strong> {transaction.prestation?.intitule}</p>
-                <p><strong>Fournisseur:</strong> {transaction.fournisseur?.username}</p>
-                <p><strong>Description:</strong> {transaction.prestation?.description}</p>
-              </div>
+              <h1 className="text-2xl font-bold text-slate-900">Transaction #{transaction.id}</h1>
+              <p className="text-sm text-slate-600">{transaction.prestation_intitule || 'Prestation'} · {transaction.besoin_intitule || 'Besoin'}</p>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Besoin</h3>
-              <div className="bg-gray-50 p-4 rounded">
-                <p><strong>Intitulé:</strong> {transaction.besoin?.intitule}</p>
-                <p><strong>Client:</strong> {transaction.client?.username}</p>
-                <p><strong>Lieu:</strong> {transaction.besoin?.lieu_intervention}</p>
+          </div>
+          <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${transactionStatutPillClass(transaction.statut)}`}>
+            {transactionStatutLabel(transaction.statut)}
+          </span>
+        </div>
+      </header>
+
+      <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Ligne de cheminement</p>
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max items-start">
+            {steps.map((step, idx) => {
+              const isDone = step.done;
+              const isBlocked = step.blocked;
+              const isCurrent = !isDone && !isBlocked && steps.findIndex((s) => !s.done && !s.blocked) === idx;
+              return (
+                <React.Fragment key={step.key}>
+                  <div className="flex w-32 flex-col items-center text-center">
+                    <span className={`h-3 w-3 rounded-full ${isBlocked ? 'bg-rose-500' : isDone ? 'bg-emerald-500' : isCurrent ? 'bg-indigo-500' : 'bg-slate-300'}`} />
+                    <span className={`mt-2 text-[11px] font-medium ${isBlocked ? 'text-rose-700' : isDone ? 'text-emerald-700' : isCurrent ? 'text-indigo-700' : 'text-slate-600'}`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {idx < steps.length - 1 ? <div className={`mt-1 h-0.5 w-10 ${isDone ? 'bg-emerald-400' : 'bg-slate-300'}`} /> : null}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Participants et service</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Client</p>
+                <p className="mt-1 flex items-center gap-2 text-sm font-medium text-slate-900"><FiUser className="h-4 w-4 text-slate-400" />{transaction.client_nom || '—'}</p>
+                <p className="mt-2 text-sm text-slate-600">{transaction.besoin_intitule || '—'}</p>
+              </div>
+              <div className="rounded-lg bg-slate-50 p-4">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Prestation</p>
+                <p className="mt-1 text-sm font-medium text-slate-900">{transaction.prestation_intitule || '—'}</p>
+                <p className="mt-2 flex items-center gap-2 text-sm text-slate-600">
+                  <FiCalendar className="h-4 w-4 text-slate-400" />
+                  {transaction.created_at ? new Date(transaction.created_at).toLocaleString('fr-FR') : '—'}
+                </p>
               </div>
             </div>
           </div>
-
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">Informations générales</h3>
-            <div className="bg-gray-50 p-4 rounded">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <p><strong>Prix final:</strong> {transaction.prix_final ? `${transaction.prix_final} FCFA` : 'Non défini'}</p>
-                <p><strong>Date de création:</strong> {new Date(transaction.created_at).toLocaleDateString()}</p>
-                <p><strong>Début confirmé:</strong> {transaction.debut_confirme ? 'Oui' : 'Non'}</p>
-                <p><strong>Fin confirmée:</strong> {transaction.fin_confirmee ? 'Oui' : 'Non'}</p>
-                {transaction.heure_debut && (
-                  <p><strong>Heure de début:</strong> {new Date(transaction.heure_debut).toLocaleString()}</p>
-                )}
-                {transaction.heure_fin && (
-                  <p><strong>Heure de fin:</strong> {new Date(transaction.heure_fin).toLocaleString()}</p>
-                )}
-              </div>
-            </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Notes</h2>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{transaction.notes || 'Aucune note.'}</p>
           </div>
-
-          {transaction.notes && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2">Notes</h3>
-              <div className="bg-gray-50 p-4 rounded">
-                <p className="text-gray-700">{transaction.notes}</p>
+        </div>
+        <aside className="space-y-6">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Montant</h2>
+            <p className="mt-2 text-2xl font-bold text-emerald-700">{formatMoneyFcfa(transaction.prix_final)}</p>
+            <p className="mt-2 text-xs text-slate-500">Validation admin: {transaction.validation_admin_statut || 'non_requise'}</p>
+            {isQuoteFlow && (
+              <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+                <p>Statut devis: <span className="font-semibold">{transaction.devis_statut || 'a_proposer'}</span></p>
+                <p>
+                  Montant proposé: <span className="font-semibold">{formatMoneyFcfa(transaction.devis_montant_propose)}</span>
+                </p>
+              </div>
+            )}
+          </div>
+          {isQuoteFlow && (
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Devis fournisseur</h2>
+              <div className="mt-4 space-y-3">
+                <input
+                  type="number"
+                  min="1"
+                  value={quoteAmount}
+                  onChange={(e) => setQuoteAmount(e.target.value)}
+                  placeholder="Montant du devis (FCFA)"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <textarea
+                  rows={3}
+                  value={quoteDescription}
+                  onChange={(e) => setQuoteDescription(e.target.value)}
+                  placeholder="Détails du devis (optionnel)"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleSubmitQuote}
+                  disabled={!quoteAmount}
+                  className="w-full rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 disabled:opacity-50"
+                >
+                  Envoyer le devis
+                </button>
               </div>
             </div>
           )}
-
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4">Actions</h3>
-            <div className="flex flex-wrap gap-2">
-              {transaction.statut === 'en_attente' && (
-                <button
-                  onClick={() => handleStatusUpdate('acceptee')}
-                  className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                >
-                  Accepter
-                </button>
-              )}
-              {transaction.statut === 'acceptee' && (
-                <button
-                  onClick={() => handleStatusUpdate('en_cours')}
-                  className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                >
-                  Démarrer
-                </button>
-              )}
-              {transaction.statut === 'en_cours' && (
-                <>
-                  <button
-                    onClick={() => handleStatusUpdate('terminee')}
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                  >
-                    Terminer
-                  </button>
-                  <button
-                    onClick={() => handleStatusUpdate('annulee')}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                  >
-                    Annuler
-                  </button>
-                </>
-              )}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Actions fournisseur</h2>
+            <div className="mt-4 space-y-2">
+              <button
+                type="button"
+                onClick={handleWorkDone}
+                disabled={transaction.travail_fournisseur_termine}
+                className="w-full rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 disabled:opacity-50"
+              >
+                Déclarer travail effectué
+              </button>
+              <button
+                type="button"
+                onClick={handleAskAdmin}
+                disabled={transaction.validation_admin_statut === 'en_attente'}
+                className="w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-amber-700 disabled:opacity-50"
+              >
+                Demander validation admin
+              </button>
+              <Link
+                to={`/fournisseur/messages?transaction=${transaction.id}`}
+                className="inline-flex w-full items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <FiMessageSquare className="mr-2 h-4 w-4" />
+                Ouvrir les messages
+              </Link>
             </div>
           </div>
-
-          <div className="flex space-x-4">
-            <button
-              onClick={() => navigate('/client/transactions')}
-              className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
-            >
-              Retour aux transactions
-            </button>
-          </div>
-        </div>
+        </aside>
       </div>
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 };

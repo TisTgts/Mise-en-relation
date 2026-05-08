@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './index.css';
 
 // Import du contexte d'authentification
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Import des composants
 import Header from './components/Header';
@@ -29,21 +30,37 @@ import {
   MonProfil,
   MesMessages,
   MesCollaborations as FournisseurCollaborations,
+  FournisseurCollaborationWorkspace,
   FournisseurTransactionDetail,
 } from './pages/fournisseur';
 import { 
   ClientDashboard, 
   BesoinCreate,
   MesBesoins,
-  ClientTransactions as ClientTransactions,
-  ClientMessages as ClientMessages,
-  ClientProfil as ClientProfil,
-  ClientCollaborations as ClientCollaborations,
+  ClientTransactions,
+  ClientMessages,
+  ClientProfil,
+  ClientCollaborations,
+  ClientCollaborationWorkspace,
   BesoinDetail,
   BesoinEdit,
   TransactionDetail,
+  MesMatchings,
+  BesoinMatching,
 } from './pages/client';
-import { AdminDashboard, ManageUsers, ManageServices } from './pages/administrateur';
+import {
+  AdminDashboard,
+  ManageUsers,
+  ManageServices,
+  ManageMatchings,
+  ManageMatchingNeedDetails,
+  ManageCategories,
+  ManageTransactions,
+  ManageCollaborations,
+  AdminCollaborationWorkspace,
+  ManageAdminMessages,
+  AdminSettings,
+} from './pages/administrateur';
 
 import TestDashboard from './pages/TestDashboard';
 
@@ -71,6 +88,7 @@ function App() {
   return (
     <AuthProvider>
       <Router>
+        <NotificationProvider>
         <Routes>
           {/* Pages publiques */}
           <Route path="/" element={
@@ -79,35 +97,23 @@ function App() {
             </PublicPage>
           } />
           <Route path="/login" element={
-            <PublicPage>
-              <Login />
-            </PublicPage>
+            <Login />
           } />
           <Route path="/register" element={
-            <PublicPage>
-              <Register />
-            </PublicPage>
+            <Register />
           } />
+
+          {/* Anciennes URLs → chemins canoniques */}
+          <Route path="/dashboard/client" element={<Navigate to="/client/dashboard" replace />} />
+          <Route path="/dashboard/provider" element={<Navigate to="/fournisseur/dashboard" replace />} />
+          <Route path="/client_dashboard" element={<Navigate to="/client/dashboard" replace />} />
+          <Route path="/dashboard/provider/create-offer" element={<Navigate to="/fournisseur/creer-prestation" replace />} />
           
           {/* Pages protégées avec DashboardLayout */}
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <ProtectedPage>
                 <Dashboard />
-              </ProtectedPage>
-            </ProtectedRoute>
-          } />
-          <Route path="/dashboard/provider" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <FournisseurDashboard />
-              </ProtectedPage>
-            </ProtectedRoute>
-          } />
-          <Route path="/dashboard/client" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <ClientDashboard />
               </ProtectedPage>
             </ProtectedRoute>
           } />
@@ -162,12 +168,12 @@ function App() {
               </ProtectedPage>
             </FournisseurRoute>
           } />
-          <Route path="/client_dashboard" element={
-            <ClientRoute>
+          <Route path="/fournisseur/collaborations/:id/workspace" element={
+            <FournisseurRoute>
               <ProtectedPage>
-                <ClientDashboard />
+                <FournisseurCollaborationWorkspace />
               </ProtectedPage>
-            </ClientRoute>
+            </FournisseurRoute>
           } />
           <Route path="/client/dashboard" element={
             <ClientRoute>
@@ -253,6 +259,27 @@ function App() {
               </ProtectedPage>
             </ClientRoute>
           } />
+          <Route path="/client/collaborations/:id/workspace" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <ClientCollaborationWorkspace />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
+          <Route path="/client/matchings" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <MesMatchings />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
+          <Route path="/client/besoins/:id/matching" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <BesoinMatching />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
           <Route path="/admin/dashboard" element={
             <AdministrateurRoute>
               <ProtectedPage>
@@ -274,59 +301,67 @@ function App() {
               </ProtectedPage>
             </AdministrateurRoute>
           } />
-          <Route path="/admin/categories" element={
-            <AdministrateurRoute>
-              <ProtectedPage>
-                <AdminDashboard />
-              </ProtectedPage>
-            </AdministrateurRoute>
-          } />
-          <Route path="/admin/transactions" element={
-            <AdministrateurRoute>
-              <ProtectedPage>
-                <AdminDashboard />
-              </ProtectedPage>
-            </AdministrateurRoute>
-          } />
-          <Route path="/admin/prestations" element={
-            <AdministrateurRoute>
-              <ProtectedPage>
-                <AdminDashboard />
-              </ProtectedPage>
-            </AdministrateurRoute>
-          } />
-          <Route path="/admin/demandes" element={
-            <AdministrateurRoute>
-              <ProtectedPage>
-                <AdminDashboard />
-              </ProtectedPage>
-            </AdministrateurRoute>
-          } />
           <Route path="/admin/besoins" element={
             <AdministrateurRoute>
               <ProtectedPage>
-                <AdminDashboard />
+                <ManageServices />
+              </ProtectedPage>
+            </AdministrateurRoute>
+          } />
+          <Route path="/admin/demandes" element={<Navigate to="/admin/besoins" replace />} />
+          <Route path="/admin/categories" element={
+            <AdministrateurRoute>
+              <ProtectedPage>
+                <ManageCategories />
               </ProtectedPage>
             </AdministrateurRoute>
           } />
           <Route path="/admin/transactions" element={
             <AdministrateurRoute>
               <ProtectedPage>
-                <AdminDashboard />
+                <ManageTransactions />
+              </ProtectedPage>
+            </AdministrateurRoute>
+          } />
+          <Route path="/admin/collaborations" element={
+            <AdministrateurRoute>
+              <ProtectedPage>
+                <ManageCollaborations />
+              </ProtectedPage>
+            </AdministrateurRoute>
+          } />
+          <Route path="/admin/collaborations/:id/workspace" element={
+            <AdministrateurRoute>
+              <ProtectedPage>
+                <AdminCollaborationWorkspace />
+              </ProtectedPage>
+            </AdministrateurRoute>
+          } />
+          <Route path="/admin/correspondances" element={
+            <AdministrateurRoute>
+              <ProtectedPage>
+                <ManageMatchings />
+              </ProtectedPage>
+            </AdministrateurRoute>
+          } />
+          <Route path="/admin/correspondances/besoin/:besoinId" element={
+            <AdministrateurRoute>
+              <ProtectedPage>
+                <ManageMatchingNeedDetails />
               </ProtectedPage>
             </AdministrateurRoute>
           } />
           <Route path="/admin/messages" element={
             <AdministrateurRoute>
               <ProtectedPage>
-                <AdminDashboard />
+                <ManageAdminMessages />
               </ProtectedPage>
             </AdministrateurRoute>
           } />
           <Route path="/admin/settings" element={
             <AdministrateurRoute>
               <ProtectedPage>
-                <AdminDashboard />
+                <AdminSettings />
               </ProtectedPage>
             </AdministrateurRoute>
           } />
@@ -379,20 +414,14 @@ function App() {
               </ProtectedPage>
             </FournisseurRoute>
           } />
-          <Route path="/client/creer-demande" element={
+          <Route path="/client/creer-besoin" element={
             <ClientRoute>
               <ProtectedPage>
                 <BesoinCreate />
               </ProtectedPage>
             </ClientRoute>
           } />
-          <Route path="/dashboard/provider/create-offer" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <PrestationCreate />
-              </ProtectedPage>
-            </ProtectedRoute>
-          } />
+          <Route path="/client/creer-demande" element={<Navigate to="/client/creer-besoin" replace />} />
           <Route path="/test-dashboard" element={
             <ProtectedRoute>
               <TestDashboard />
@@ -406,6 +435,7 @@ function App() {
             </ProtectedRoute>
           } />
         </Routes>
+        </NotificationProvider>
       </Router>
     </AuthProvider>
   );

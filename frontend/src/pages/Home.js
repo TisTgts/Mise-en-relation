@@ -1,385 +1,211 @@
-import React, { useState, useEffect } from 'react';
-import { FiSearch, FiBriefcase, FiUsers, FiTrendingUp, FiMapPin, FiDollarSign, FiStar, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
+import React from 'react';
+import { FiArrowRight, FiBriefcase, FiCheckCircle, FiCompass, FiMapPin, FiMessageCircle, FiSearch, FiUsers } from 'react-icons/fi';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Home = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
-  const [stats, setStats] = useState({
-    totalOffers: 0,
-    totalNeeds: 0,
-    activeProviders: 0,
-    satisfiedClients: 0
-  });
-  const [featuredOffers, setFeaturedOffers] = useState([]);
-  const [urgentNeeds, setUrgentNeeds] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchHomeData();
-    fetchCategories();
-  }, []);
-
-  const fetchHomeData = async () => {
-    try {
-      // Récupérer les statistiques
-      const statsResponse = await fetch('/api/services/statistics/public/');
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData);
-      }
-
-      // Récupérer les offres en vedette
-      const offersResponse = await fetch('/api/services/offers/featured/');
-      if (offersResponse.ok) {
-        const offersData = await offersResponse.json();
-        setFeaturedOffers(offersData.results || offersData.slice(0, 6));
-      }
-
-      // Récupérer les besoins urgents
-      const needsResponse = await fetch('/api/services/needs/urgent/');
-      if (needsResponse.ok) {
-        const needsData = await needsResponse.json();
-        setUrgentNeeds(needsData.results || needsData.slice(0, 6));
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      // Endpoint public : ne pas envoyer de Bearer (évite 401 si vieux jeton dans le stockage)
-      const response = await fetch('/api/services/categories/', {
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCategories(Array.isArray(data) ? data : []);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des catégories:', error);
-      setCategories([]);
-    }
-  };
-
   const handleSearch = (e) => {
     e.preventDefault();
     const searchTerm = e.target.search.value;
     navigate(`/services${searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : ''}`);
   };
 
-  const getExperienceColor = (level) => {
-    switch (level) {
-      case 'beginner': return 'text-blue-600 bg-blue-100';
-      case 'intermediate': return 'text-green-600 bg-green-100';
-      case 'expert': return 'text-purple-600 bg-purple-100';
-      case 'master': return 'text-orange-600 bg-orange-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getExperienceText = (level) => {
-    switch (level) {
-      case 'beginner': return 'Débutant';
-      case 'intermediate': return 'Intermédiaire';
-      case 'expert': return 'Expert';
-      case 'master': return 'Maître';
-      default: return level;
-    }
-  };
-
-  const getUrgencyColor = (urgency) => {
-    switch (urgency) {
-      case 'urgent': return 'text-red-600 bg-red-100';
-      case 'high': return 'text-orange-600 bg-orange-100';
-      case 'medium': return 'text-yellow-600 bg-yellow-100';
-      case 'low': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
-
-  const getUrgencyText = (urgency) => {
-    switch (urgency) {
-      case 'urgent': return 'Urgent';
-      case 'high': return 'Élevée';
-      case 'medium': return 'Moyenne';
-      case 'low': return 'Faible';
-      default: return urgency;
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary-600 to-primary-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              La plateforme de mise en relation
-              <br />
-              <span className="text-primary-200">de services au Burkina Faso</span>
-            </h1>
-            <p className="text-xl mb-8 text-primary-100">
-              Connectez les meilleurs fournisseurs avec les clients qui ont besoin de vos services
+    <div className="min-h-screen bg-slate-50">
+      <section className="bg-gradient-to-r from-indigo-700 to-blue-800 text-white">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-4xl text-center">
+            <p className="mb-4 inline-flex rounded-full border border-white/30 px-3 py-1 text-xs uppercase tracking-wide text-indigo-100">
+              Plateforme de mise en relation
             </p>
-            
-            {/* Barre de recherche */}
-            <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
+            <h1 className="text-4xl font-bold md:text-5xl">
+              Démarrez vite. Trouvez le bon partenaire de service.
+            </h1>
+            <p className="mt-4 text-lg text-indigo-100">
+              Publiez un besoin, trouvez un fournisseur qualifié, et collaborez dans un espace d’échange dédié.
+            </p>
+
+            <form onSubmit={handleSearch} className="mx-auto mt-8 max-w-2xl">
               <div className="relative">
-                <FiSearch className="absolute left-4 top-4 h-5 w-5 text-gray-400" />
+                <FiSearch className="absolute left-4 top-4 h-5 w-5 text-slate-400" />
                 <input
                   type="text"
                   name="search"
-                  placeholder="Rechercher un service, un fournisseur..."
-                  className="w-full pl-12 pr-32 py-4 text-lg rounded-lg border-0 focus:ring-4 focus:ring-primary-300"
+                  placeholder="Rechercher un service, un domaine, une prestation..."
+                  className="w-full rounded-xl border-0 py-4 pl-12 pr-36 text-slate-900 shadow-sm focus:ring-4 focus:ring-indigo-200"
                 />
                 <button
                   type="submit"
-                  className="absolute right-2 top-2 px-6 py-2 bg-white text-primary-600 rounded-md font-semibold hover:bg-primary-50 transition-colors"
+                  className="absolute right-2 top-2 rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white transition hover:bg-indigo-700"
                 >
                   Rechercher
                 </button>
               </div>
             </form>
 
-            {/* Boutons d'action */}
-            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
               {!isAuthenticated ? (
                 <>
-                  <Link
-                    to="/register"
-                    className="px-8 py-3 bg-white text-primary-600 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
-                  >
-                    S'inscrire
+                  <Link to="/register" className="rounded-xl bg-white px-7 py-3 font-semibold text-indigo-700 transition hover:bg-indigo-50">
+                    Créer un compte
                   </Link>
-                  <Link
-                    to="/login"
-                    className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors"
-                  >
+                  <Link to="/login" className="rounded-xl border-2 border-white px-7 py-3 font-semibold text-white transition hover:bg-white hover:text-indigo-700">
                     Se connecter
                   </Link>
                 </>
               ) : (
-                <>
+                <Link
+                  to={
+                    user?.type_utilisateur === 'administrateur'
+                      ? '/admin/dashboard'
+                      : user?.type_utilisateur === 'fournisseur'
+                        ? '/fournisseur/dashboard'
+                        : '/client/dashboard'
+                  }
+                  className="inline-flex items-center justify-center rounded-xl bg-white px-7 py-3 font-semibold text-indigo-700 transition hover:bg-indigo-50"
+                >
+                  Aller à mon tableau de bord
+                  <FiArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              )}
+            </div>
+
+            {!isAuthenticated && (
+              <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-white/25 bg-white/10 p-5 text-left shadow-sm backdrop-blur-sm sm:p-6">
+                <p className="text-center text-xs font-semibold uppercase tracking-wide text-indigo-100">
+                  Choisir mon parcours
+                </p>
+                <p className="mt-2 text-center text-sm text-indigo-100/95">
+                  Inscription avec le bon profil — vous pourrez le modifier avant de valider le formulaire.
+                </p>
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-center">
                   <Link
-                    to="/dashboard/provider/create-offer"
-                    className="px-8 py-3 bg-white text-primary-600 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
+                    to="/register?type=client"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-indigo-800 shadow-sm transition hover:bg-indigo-50 sm:flex-none sm:min-w-[220px]"
                   >
-                    <div className="flex items-center">
-                      <FiBriefcase className="h-5 w-5 mr-2" />
-                      Créer une offre
-                    </div>
+                    <FiUsers className="h-4 w-4 shrink-0" />
+                    Je cherche un prestataire
                   </Link>
                   <Link
-                    to="/client/creer-demande"
-                    className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors"
+                    to="/register?type=fournisseur"
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-white/80 bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/15 sm:flex-none sm:min-w-[220px]"
                   >
-                    <div className="flex items-center">
-                      <FiUsers className="h-5 w-5 mr-2" />
-                      Publier un besoin
-                    </div>
+                    <FiBriefcase className="h-4 w-4 shrink-0" />
+                    Je propose mes services
                   </Link>
-                </>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white py-14">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-10 text-center">
+            <h2 className="text-3xl font-bold text-slate-900">Ce que vous pouvez faire dès maintenant</h2>
+            <p className="mt-2 text-slate-600">Un parcours simple pour lancer vos premières collaborations.</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-3 inline-flex rounded-full bg-indigo-100 p-3">
+                <FiUsers className="h-5 w-5 text-indigo-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">Côté client</h3>
+              <p className="mt-2 flex-1 text-sm text-slate-600">
+                Publiez vos besoins et suivez vos matchings jusqu’à la collaboration.
+              </p>
+              {!isAuthenticated && (
+                <Link
+                  to="/register?type=client"
+                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-indigo-600 hover:text-indigo-800"
+                >
+                  Créer un compte client <FiArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+
+            <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-3 inline-flex rounded-full bg-emerald-100 p-3">
+                <FiBriefcase className="h-5 w-5 text-emerald-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">Côté fournisseur</h3>
+              <p className="mt-2 flex-1 text-sm text-slate-600">
+                Gérez vos prestations et recevez des demandes alignées à vos domaines.
+              </p>
+              {!isAuthenticated && (
+                <Link
+                  to="/register?type=fournisseur"
+                  className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:text-emerald-900"
+                >
+                  Créer un compte fournisseur <FiArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+
+            <div className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="mb-3 inline-flex rounded-full bg-amber-100 p-3">
+                <FiMessageCircle className="h-5 w-5 text-amber-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900">Collaboration</h3>
+              <p className="mt-2 flex-1 text-sm text-slate-600">
+                Espace de messages dédié pour fluidifier les échanges client-fournisseur.
+              </p>
+              {!isAuthenticated && (
+                <Link to="/login" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-amber-800 hover:text-amber-950">
+                  Se connecter pour échanger <FiArrowRight className="h-4 w-4" />
+                </Link>
               )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Statistiques */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              Chiffres clés
-            </h2>
-            <p className="text-lg text-gray-600">
-              Une plateforme dynamique au service de l'économie locale
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiBriefcase className="h-8 w-8 text-blue-600" />
-              </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-2">{stats.totalOffers}</h3>
-              <p className="text-gray-600">Offres actives</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiUsers className="h-8 w-8 text-green-600" />
-              </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-2">{stats.totalNeeds}</h3>
-              <p className="text-gray-600">Besoins publiés</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiTrendingUp className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-2">{stats.activeProviders}</h3>
-              <p className="text-gray-600">Fournisseurs actifs</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FiCheckCircle className="h-8 w-8 text-orange-600" />
-              </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-2">{stats.satisfiedClients}</h3>
-              <p className="text-gray-600">Clients satisfaits</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Offres en vedette */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Offres en vedette</h2>
-            <Link
-              to="/services"
-              className="text-primary-600 hover:text-primary-700 font-semibold flex items-center"
-            >
-              Voir toutes les offres
-              <FiArrowRight className="h-4 w-4 ml-2" />
+      <section className="py-14">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-slate-900">Aperçu de la plateforme</h2>
+            <Link to="/services" className="inline-flex items-center font-semibold text-indigo-600 hover:text-indigo-700">
+              Explorer les services
+              <FiArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.isArray(featuredOffers) && featuredOffers.map(offer => (
-              <div key={offer.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex-1">{offer.title}</h3>
-                  <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">
-                    ⭐ En vedette
-                  </span>
-                </div>
-                
-                <p className="text-gray-600 mb-4 line-clamp-3">{offer.description}</p>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiMapPin className="h-4 w-4 mr-2" />
-                    <span>{offer.service_areas?.slice(0, 2).join(', ') || 'Non spécifié'}</span>
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiDollarSign className="h-4 w-4 mr-2" />
-                    <span>{offer.price_range_min} - {offer.price_range_max} XOF</span>
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiStar className="h-4 w-4 mr-2" />
-                    <span className={`px-2 py-1 text-xs rounded-full ${getExperienceColor(offer.experience_level)}`}>
-                      {getExperienceText(offer.experience_level)}
-                    </span>
-                  </div>
-                </div>
-                
-                <Link
-                  to="/services"
-                  className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-center"
-                >
-                  Voir détails
-                </Link>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <FiCompass className="mb-3 h-5 w-5 text-indigo-600" />
+              <h3 className="font-semibold text-slate-900">Matching orienté domaine</h3>
+              <p className="mt-2 text-sm text-slate-600">Le score privilégie la pertinence métier entre besoin et prestation.</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <FiMapPin className="mb-3 h-5 w-5 text-indigo-600" />
+              <h3 className="font-semibold text-slate-900">Couverture locale</h3>
+              <p className="mt-2 text-sm text-slate-600">Données et scénarios ancrés sur Ouagadougou et Bobo-Dioulasso.</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <FiCheckCircle className="mb-3 h-5 w-5 text-indigo-600" />
+              <h3 className="font-semibold text-slate-900">Parcours complet</h3>
+              <p className="mt-2 text-sm text-slate-600">Du besoin initial à la transaction, avec suivi et historique.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Besoins urgents */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900">Besoins urgents</h2>
-            <Link
-              to="/login"
-              className="text-primary-600 hover:text-primary-700 font-semibold flex items-center"
-            >
-              Voir tous les besoins
-              <FiArrowRight className="h-4 w-4 ml-2" />
-            </Link>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.isArray(urgentNeeds) && urgentNeeds.map(need => (
-              <div key={need.id} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-shadow p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex-1">{need.title}</h3>
-                  <span className={`px-2 py-1 text-xs rounded-full ${getUrgencyColor(need.urgency)}`}>
-                    {getUrgencyText(need.urgency)}
-                  </span>
-                </div>
-                
-                <p className="text-gray-600 mb-4 line-clamp-3">{need.description}</p>
-                
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiMapPin className="h-4 w-4 mr-2" />
-                    <span>{need.service_area || 'Non spécifié'}</span>
-                  </div>
-                  
-                  <div className="flex items-center text-sm text-gray-600">
-                    <FiDollarSign className="h-4 w-4 mr-2" />
-                    <span>{need.budget?.toLocaleString() || 'N/A'} XOF</span>
-                  </div>
-                </div>
-                
-                <Link
-                  to="/login"
-                  className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-center"
-                >
-                  Répondre au besoin
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-16 bg-gradient-to-r from-primary-600 to-primary-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            Prêt à commencer ?
-          </h2>
-          <p className="text-xl mb-8 text-primary-100">
-            Rejoignez des milliers de fournisseurs et clients qui font confiance à notre plateforme
+      <section className="bg-gradient-to-r from-indigo-700 to-blue-800 py-14 text-white">
+        <div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold">Prêt à lancer votre première collaboration ?</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-indigo-100">
+            Créez un compte pour accéder à un parcours guidé côté client ou fournisseur.
           </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/register"
-              className="px-8 py-3 bg-white text-primary-600 rounded-lg font-semibold hover:bg-primary-50 transition-colors"
-            >
-              S'inscrire gratuitement
+
+          <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
+            <Link to="/register" className="rounded-xl bg-white px-8 py-3 font-semibold text-indigo-700 transition hover:bg-indigo-50">
+              S'inscrire
             </Link>
-            <Link
-              to="/services"
-              className="px-8 py-3 border-2 border-white text-white rounded-lg font-semibold hover:bg-white hover:text-primary-600 transition-colors"
-            >
-              Explorer les offres
+            <Link to="/login" className="rounded-xl border-2 border-white px-8 py-3 font-semibold text-white transition hover:bg-white hover:text-indigo-700">
+              Se connecter
             </Link>
           </div>
         </div>

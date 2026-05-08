@@ -17,15 +17,8 @@ class TransactionsService {
     
     const data = await response.json();
     const transactionsList = data.results || data;
-    
-    // Filtrer les transactions de l'utilisateur connecté
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return transactionsList.filter(transaction =>
-      transaction.fournisseur === user.id ||
-      transaction.client === user.id ||
-      transaction.fournisseur?.id === user.id ||
-      transaction.client?.id === user.id
-    );
+    // Le backend renvoie déjà uniquement les transactions de l'utilisateur connecté.
+    return Array.isArray(transactionsList) ? transactionsList : [];
   }
 
   // Récupérer une transaction par ID
@@ -58,7 +51,8 @@ class TransactionsService {
     });
     
     if (!response.ok) {
-      throw new Error('Failed to update transaction status');
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || payload.detail || 'Failed to update transaction status');
     }
     
     return await response.json();
@@ -125,6 +119,146 @@ class TransactionsService {
       throw new Error('Failed to add notes');
     }
     
+    return await response.json();
+  }
+
+  // Le fournisseur déclare le travail effectué
+  async fournisseurWorkDone(id) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_FOURNISSEUR_WORK_DONE(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Failed to mark provider work done');
+    }
+    return await response.json();
+  }
+
+  // Le client vérifie le travail effectué
+  async clientVerifyWork(id, approved = true) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_CLIENT_VERIFY(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ approved })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Failed to verify work');
+    }
+    return await response.json();
+  }
+
+  // Le client confirme la transaction
+  async clientConfirmTransaction(id) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_CLIENT_CONFIRM(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Failed to confirm transaction');
+    }
+    return await response.json();
+  }
+
+  // Client/Fournisseur demande validation admin
+  async requestAdminApproval(id) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_REQUEST_ADMIN_APPROVAL(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Failed to request admin approval');
+    }
+    return await response.json();
+  }
+
+  // Le fournisseur propose un devis (montant + description)
+  async fournisseurProposeDevis(id, montant, description = '') {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_FOURNISSEUR_PROPOSE_DEVIS(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ montant, description })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Impossible de proposer le devis');
+    }
+    return await response.json();
+  }
+
+  // Le client accepte ou rejette un devis fournisseur
+  async clientRespondDevis(id, decision) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_CLIENT_RESPOND_DEVIS(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ decision })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Impossible de répondre au devis');
+    }
+    return await response.json();
+  }
+
+  // L'admin accepte/rejette une demande de validation
+  async adminDecideTransaction(id, decision) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_ADMIN_DECISION(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ decision })
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Impossible de traiter la décision admin');
+    }
+    return await response.json();
+  }
+
+  // L'admin clôture la transaction quand les conditions sont remplies
+  async adminFinalizeTransaction(id) {
+    const token = localStorage.getItem('access_token');
+    const response = await fetch(API_ENDPOINTS.SERVICES.TRANSACTION_ADMIN_FINALIZE(id), {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || 'Impossible de clôturer la transaction');
+    }
     return await response.json();
   }
 }

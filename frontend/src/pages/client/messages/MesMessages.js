@@ -1,356 +1,307 @@
-import React, { useState, useEffect } from 'react';
-import { FiSend, FiInbox, FiMessageSquare, FiUser, FiCalendar, FiSearch, FiFilter } from 'react-icons/fi';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { FiInbox, FiSearch, FiSend } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
+import { API_ENDPOINTS } from '../../../config/api';
+import { fetchAllPaginated } from '../clientUi';
+import Toast from '../../../components/Toast';
+import { requestNotificationsRefresh } from '../../../contexts/NotificationContext';
+
+const authJsonHeaders = () => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${localStorage.getItem('access_token')}`,
+});
+
+const getUserId = (u) => u?.id ?? u;
+const formatDateTime = (d) => (d ? new Date(d).toLocaleString('fr-FR') : '�');
+
+const buildThreadKey = (m, myId) => {
+  const exp = getUserId(m.expediteur);
+  const dest = getUserId(m.destinataire);
+  const partnerId = exp === myId ? dest : exp;
+  const tx = getUserId(m.transaction) || 'none';
+  return `${partnerId || 'unknown'}::${tx}`;
+};
 
 const MesMessages = () => {
   const { user } = useAuth();
+  const myId = user?.id;
+
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMessage, setSelectedMessage] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState('all');
+  const [toast, setToast] = useState(null);
+
+  const [search, setSearch] = useState('');
+  const [selectedThreadKey, setSelectedThreadKey] = useState(null);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const loadMessages = useCallback(async () => {
+    try {
+      setLoading(true);
+      const list = await fetchAllPaginated(API_ENDPOINTS.SERVICES.MESSAGES, authJsonHeaders());
+      setMessages(Array.isArray(list) ? list : []);
+    } catch {
+      setMessages([]);
+      setToast({ message: 'Impossible de charger les messages.', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/services/messages/', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-            'Content-Type': 'application/json'
-          }
+    if (user?.type_utilisateur === 'client') loadMessages();
+  }, [user, loadMessages]);
+
+  const threads = useMemo(() => {
+    const map = new Map();
+    for (const m of messages) {
+      const key = buildThreadKey(m, myId);
+      const exp = getUserId(m.expediteur);
+      const dest = getUserId(m.destinataire);
+      const partnerId = exp === myId ? dest : exp;
+      const partnerName =
+        exp === myId
+          ? m.destinataire_nom || `Utilisateur #${partnerId}`
+          : m.expediteur_nom || `Utilisateur #${partnerId}`;
+      const txId = getUserId(m.transaction) || null;
+      const unreadForMe = dest === myId && !m.lu;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          partnerId,
+          partnerName,
+          transactionId: txId,
+          lastMessageAt: m.created_at,
+          lastPreview: m.contenu || m.sujet || '',
+          unreadCount: unreadForMe ? 1 : 0,
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const messagesList = data.results || data;
-          
-          // Filtrer les messages du fournisseur connecté
-          const mesMessages = messagesList.filter(message => 
-            message.destinataire?.id === user?.id || message.expediteur?.id === user?.id
-          );
-          
-          setMessages(mesMessages);
-        } else {
-          throw new Error('Erreur lors du chargement des messages');
+      } else {
+        const t = map.get(key);
+        if (new Date(m.created_at).getTime() > new Date(t.lastMessageAt).getTime()) {
+          t.lastMessageAt = m.created_at;
+          t.lastPreview = m.contenu || m.sujet || '';
         }
-      } catch (error) {
-        console.error('Erreur lors du chargement des messages:', error);
-      } finally {
-        setLoading(false);
+        if (unreadForMe) t.unreadCount += 1;
       }
-    };
-
-    if (user) {
-      fetchMessages();
     }
-  }, [user]);
+    return Array.from(map.values()).sort(
+      (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+    );
+  }, [messages, myId]);
 
-  const filteredMessages = messages.filter(message => {
-    const matchesSearch = 
-      message.sujet?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      message.contenu?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      message.expediteur?.raison_sociale?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      message.destinataire?.raison_sociale?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (filter === 'all') return matchesSearch;
-    if (filter === 'recus') return message.destinataire?.id === user?.id && matchesSearch;
-    if (filter === 'envoyes') return message.expediteur?.id === user?.id && matchesSearch;
-    if (filter === 'non_lus') return !message.lu && matchesSearch;
-    
-    return matchesSearch;
-  });
+  const filteredThreads = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return threads;
+    return threads.filter(
+      (t) =>
+        (t.partnerName || '').toLowerCase().includes(q) ||
+        (t.lastPreview || '').toLowerCase().includes(q) ||
+        String(t.transactionId || '').includes(q)
+    );
+  }, [threads, search]);
 
-  const handleMarkAsRead = async (messageId) => {
-    try {
-      const response = await fetch(`/api/services/messages/${messageId}/mark-read/`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        setMessages(messages.map(msg => 
-          msg.id === messageId ? { ...msg, lu: true } : msg
-        ));
+  useEffect(() => {
+    if (!selectedThreadKey && filteredThreads.length > 0) {
+      setSelectedThreadKey(filteredThreads[0].key);
+    }
+  }, [filteredThreads, selectedThreadKey]);
+
+  const selectedThread = useMemo(
+    () => filteredThreads.find((t) => t.key === selectedThreadKey) || null,
+    [filteredThreads, selectedThreadKey]
+  );
+
+  const threadMessages = useMemo(() => {
+    if (!selectedThreadKey) return [];
+    return messages
+      .filter((m) => buildThreadKey(m, myId) === selectedThreadKey)
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  }, [messages, myId, selectedThreadKey]);
+
+  const markThreadAsRead = useCallback(
+    async (threadKey) => {
+      const ids = messages
+        .filter((m) => buildThreadKey(m, myId) === threadKey)
+        .filter((m) => getUserId(m.destinataire) === myId && !m.lu)
+        .map((m) => m.id);
+      if (ids.length === 0) return;
+      try {
+        const res = await fetch(`${API_ENDPOINTS.SERVICES.MESSAGES}mark-read/`, {
+          method: 'POST',
+          headers: authJsonHeaders(),
+          body: JSON.stringify({ message_ids: ids }),
+        });
+        if (!res.ok) return;
+        setMessages((prev) => prev.map((m) => (ids.includes(m.id) ? { ...m, lu: true } : m)));
+      } catch {
+        // non bloquant
       }
-    } catch (error) {
-      console.error('Erreur lors du marquage comme lu:', error);
-    }
+    },
+    [messages, myId]
+  );
+
+  const handleSelectThread = async (threadKey) => {
+    setSelectedThreadKey(threadKey);
+    await markThreadAsRead(threadKey);
   };
 
-  const handleReply = (message) => {
-    setSelectedMessage(message);
-  };
-
-  const handleSendMessage = async (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
-    
+    if (!selectedThread?.partnerId) {
+      setToast({ message: 'Selectionnez une conversation.', type: 'warning' });
+      return;
+    }
+    if (!draft.trim()) {
+      setToast({ message: 'Le message est vide.', type: 'warning' });
+      return;
+    }
+    const payload = {
+      destinataire: selectedThread.partnerId,
+      sujet: selectedThread.transactionId ? `Transaction #${selectedThread.transactionId}` : 'Message',
+      contenu: draft.trim(),
+    };
+    if (selectedThread.transactionId) payload.transaction = selectedThread.transactionId;
     try {
-      const response = await fetch('/api/services/messages/', {
+      setSending(true);
+      const res = await fetch(API_ENDPOINTS.SERVICES.MESSAGES, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
-        },
-        body: formData
+        headers: authJsonHeaders(),
+        body: JSON.stringify(payload),
       });
-      
-      if (response.ok) {
-        const newMessage = await response.json();
-        setMessages([newMessage, ...messages]);
-        e.target.reset();
-        setSelectedMessage(null);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Envoi impossible');
       }
+      const created = await res.json();
+      setMessages((prev) => [...prev, created]);
+      setDraft('');
+      requestNotificationsRefresh();
     } catch (error) {
-      console.error('Erreur lors de l\'envoi du message:', error);
-      alert('Erreur lors de l\'envoi du message');
+      setToast({ message: error.message || 'Erreur lors de l envoi.', type: 'error' });
+    } finally {
+      setSending(false);
     }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Liste des messages */}
-      <div className="lg:col-span-2 space-y-4">
-        {/* Header */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
-              <p className="text-gray-600 mt-1">Communications avec les prestataires</p>
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-900">Messagerie client</h1>
+        <p className="mt-1 text-sm text-slate-600">Suivez vos conversations par besoin et transaction.</p>
+      </header>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-1">
+          <div className="border-b border-slate-200 p-4">
+            <div className="relative">
+              <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Rechercher une conversation..."
+                className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
             </div>
           </div>
-        </div>
-
-        {/* Filtres */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Recherche
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Rechercher un message..."
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                />
-                <FiSearch className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          <div className="max-h-[65vh] overflow-y-auto">
+            {filteredThreads.length === 0 ? (
+              <div className="p-8 text-center text-slate-500">
+                <FiInbox className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                Aucune conversation.
               </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Filtre
-              </label>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="all">Tous les messages</option>
-                <option value="recus">Reçus</option>
-                <option value="envoyes">Envoyés</option>
-                <option value="non_lus">Non lus</option>
-              </select>
-            </div>
+            ) : (
+              filteredThreads.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => handleSelectThread(t.key)}
+                  className={`w-full border-b border-slate-100 px-4 py-3 text-left hover:bg-slate-50 ${
+                    t.key === selectedThreadKey ? 'bg-indigo-50' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{t.partnerName}</p>
+                    {t.unreadCount > 0 ? (
+                      <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                        {t.unreadCount}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">{t.transactionId ? `Transaction #${t.transactionId}` : 'Hors transaction'}</p>
+                  <p className="mt-1 text-xs text-slate-600">{(t.lastPreview || '').slice(0, 55)}</p>
+                </button>
+              ))
+            )}
           </div>
-        </div>
+        </section>
 
-        {/* Liste des messages */}
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          {filteredMessages.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-500">
-                {messages.length === 0 ? 'Aucun message' : 'Aucun message trouvé'}
-              </div>
+        <section className="rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          {!selectedThread ? (
+            <div className="flex h-full min-h-[50vh] items-center justify-center text-slate-500">
+              Selectionnez une conversation.
             </div>
           ) : (
-            <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
-              {filteredMessages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`p-4 hover:bg-gray-50 cursor-pointer ${
-                    !message.lu ? 'bg-blue-50' : ''
-                  }`}
-                  onClick={() => {
-                    handleMarkAsRead(message.id);
-                    setSelectedMessage(message);
-                  }}
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                        <span className="text-gray-600 font-medium text-sm">
-                          {(message.expediteur?.raison_sociale || message.destinataire?.raison_sociale)?.[0]?.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {message.sujet}
+            <>
+              <div className="border-b border-slate-200 p-4">
+                <p className="text-sm font-semibold text-slate-900">{selectedThread.partnerName}</p>
+                <p className="text-xs text-slate-500">
+                  {selectedThread.transactionId ? `Transaction #${selectedThread.transactionId}` : 'Conversation libre'}
+                </p>
+              </div>
+
+              <div className="max-h-[52vh] space-y-3 overflow-y-auto bg-slate-50 p-4">
+                {threadMessages.map((m) => {
+                  const mine = getUserId(m.expediteur) === myId;
+                  return (
+                    <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`${mine ? 'bg-indigo-600 text-white' : 'border border-slate-200 bg-white text-slate-900'} max-w-[80%] rounded-lg px-3 py-2`}>
+                        <p className="mb-1 text-[11px] font-semibold">
+                          {mine ? 'Vous' : m.expediteur_nom || selectedThread.partnerName}
                         </p>
-                        <div className="flex items-center space-x-2">
-                          {!message.lu && (
-                            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                              Nouveau
-                            </span>
-                          )}
-                          <span className="text-xs text-gray-500">
-                            {new Date(message.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-sm text-gray-600 truncate">
-                        {message.contenu}
-                      </p>
-                      <div className="flex items-center mt-1">
-                        <FiUser className="mr-1 h-3 w-3 text-gray-400" />
-                        <span className="text-xs text-gray-500">
-                          {message.expediteur?.id === user?.id 
-                            ? `À: ${message.destinataire?.raison_sociale}`
-                            : `De: ${message.expediteur?.raison_sociale}`
-                          }
-                        </span>
+                        <p className="whitespace-pre-wrap text-sm">{m.contenu}</p>
+                        <p className={`mt-1 text-[10px] ${mine ? 'text-indigo-100' : 'text-slate-500'}`}>
+                          {formatDateTime(m.created_at)}
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  );
+                })}
+              </div>
+
+              <form onSubmit={handleSend} className="border-t border-slate-200 p-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Ecrire un message..."
+                    className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sending || !draft.trim()}
+                    className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    <FiSend className="h-4 w-4" />
+                  </button>
                 </div>
-              ))}
-            </div>
+              </form>
+            </>
           )}
-        </div>
+        </section>
       </div>
 
-      {/* Détails du message */}
-      <div className="space-y-4">
-        {selectedMessage ? (
-          <div className="bg-white shadow rounded-lg p-6">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Détails du message</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Sujet</h3>
-                <p className="text-sm text-gray-900">{selectedMessage.sujet}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Contenu</h3>
-                <p className="text-sm text-gray-900 whitespace-pre-wrap">{selectedMessage.contenu}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-gray-700">Informations</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm">
-                    <FiUser className="mr-2 h-4 w-4 text-gray-400" />
-                    <span>
-                      {selectedMessage.expediteur?.id === user?.id 
-                        ? `Envoyé à: ${selectedMessage.destinataire?.raison_sociale}`
-                        : `Reçu de: ${selectedMessage.expediteur?.raison_sociale}`
-                      }
-                    </span>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <FiCalendar className="mr-2 h-4 w-4 text-gray-400" />
-                    <span>{new Date(selectedMessage.created_at).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <button
-                onClick={() => handleReply(selectedMessage)}
-                className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                <FiMessageSquare className="mr-2 h-4 w-4" />
-                Répondre
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="bg-white shadow rounded-lg p-6">
-            <div className="text-center">
-              <FiInbox className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Sélectionnez un message</h3>
-              <p className="mt-2 text-sm text-gray-500">
-                Choisissez un message dans la liste pour voir les détails
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Nouveau message */}
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Nouveau message</h2>
-          
-          <form onSubmit={handleSendMessage} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Destinataire
-              </label>
-              <select
-                name="destinataire"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">Sélectionner un destinataire</option>
-                {/* Options à remplir dynamiquement avec la liste des prestataires */}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sujet
-              </label>
-              <input
-                type="text"
-                name="sujet"
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Sujet du message"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Message
-              </label>
-              <textarea
-                name="contenu"
-                required
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                placeholder="Contenu du message"
-              />
-            </div>
-            
-            <div>
-              <button
-                type="submit"
-                className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-              >
-                <FiSend className="mr-2 h-4 w-4" />
-                Envoyer
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 };

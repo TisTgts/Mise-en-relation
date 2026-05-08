@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 const TestConnection = () => {
   const [status, setStatus] = useState('Chargement...');
@@ -13,7 +14,7 @@ const TestConnection = () => {
   const testConnection = async () => {
     try {
       // Test 1: Connexion de base
-      const response = await fetch('http://127.0.0.1:8000/api/services/categories/');
+      const response = await fetch(API_ENDPOINTS.SERVICES.CATEGORIES);
       const data = await response.json();
       setCategories(data);
       
@@ -84,7 +85,7 @@ const TestConnection = () => {
           <h3 className="text-lg font-semibold text-blue-900 mb-4">URLs de test</h3>
           <div className="space-y-2 text-sm text-blue-700">
             <p>• Backend: http://127.0.0.1:8000</p>
-            <p>• API Categories: /api/services/categories/</p>
+            <p>• API Categories: endpoint configuré dans API_ENDPOINTS.SERVICES.CATEGORIES</p>
             <p>• API Offers: /api/services/offers/public/</p>
             <p>• API Needs: /api/services/needs/public/</p>
           </div>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { FiMenu, FiX, FiUser, FiLogOut, FiBell, FiSettings, FiBriefcase, FiFileText, FiShield, FiChevronDown } from 'react-icons/fi';
+import NotificationBell from './NotificationBell';
+import { FiMenu, FiX, FiUser, FiLogOut, FiSettings, FiBriefcase, FiFileText, FiShield, FiChevronDown } from 'react-icons/fi';
 
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -101,29 +102,21 @@ const Header = () => {
             <Link to="/" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
               Accueil
             </Link>
-            <Link to="/prestations" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
-              Prestations
+            <Link to="/services" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+              Services
             </Link>
-            <Link to="/demandes" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
-              Demandes
-            </Link>
-            <Link to="/about" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
-              À Propos
-            </Link>
-            <Link to="/contact" className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
-              Contact
-            </Link>
+            {isAuthenticated && (
+              <Link to={getDashboardLink()} className="text-gray-700 hover:text-primary-600 font-medium transition-colors">
+                Tableau de bord
+              </Link>
+            )}
           </nav>
           
           {/* Actions */}
           <div className="flex items-center space-x-4">
             {isAuthenticated ? (
               <>
-                {/* Notifications */}
-                <button className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors">
-                  <FiBell className="w-5 h-5" />
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
+                <NotificationBell variant="header" />
                 
                 {/* Menu Profil */}
                 <div className="relative" ref={profileMenuRef}>
@@ -220,33 +213,21 @@ const Header = () => {
                 Accueil
               </Link>
               <Link 
-                to="/prestations" 
+                to="/services" 
                 className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                Prestations
+                Services
               </Link>
-              <Link 
-                to="/demandes" 
-                className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Demandes
-              </Link>
-              <Link 
-                to="/about" 
-                className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                À Propos
-              </Link>
-              <Link 
-                to="/contact" 
-                className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Contact
-              </Link>
+              {isAuthenticated && (
+                <Link 
+                  to={getDashboardLink()} 
+                  className="text-gray-700 hover:text-primary-600 font-medium transition-colors"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Tableau de bord
+                </Link>
+              )}
               
               {!isAuthenticated && (
                 <div className="flex flex-col space-y-3 pt-4 border-t border-gray-200">

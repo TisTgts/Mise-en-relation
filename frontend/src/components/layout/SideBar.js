@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiHome, FiBriefcase, FiUsers, FiMessageSquare, FiSettings, FiBarChart, FiFileText, FiGrid, FiPlus, FiChevronDown, FiChevronUp, FiSearch, FiDollarSign, FiUser } from 'react-icons/fi';
+import { FiHome, FiBriefcase, FiUsers, FiMessageSquare, FiSettings, FiBarChart, FiFileText, FiGrid, FiChevronDown, FiChevronUp, FiSearch, FiDollarSign, FiUser } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 
 /** Indique si le lien du menu correspond à l’URL courante (y compris alias et sous-routes). */
@@ -42,22 +42,30 @@ const SideBar = ({ isOpen, toggleSidebar }) => {
             section: 'management'
           },
           {
-            name: 'Prestations',
+            name: 'Prestations & Besoins',
             icon: FiBriefcase,
             path: '/admin/prestations',
+            isActive: (p) => p === '/admin/prestations' || p === '/admin/besoins' || p === '/admin/demandes',
             section: 'services'
           },
           {
-            name: 'Besoins',
-            icon: FiFileText,
-            path: '/admin/besoins',
-            isActive: (p) => p === '/admin/besoins' || p === '/admin/demandes',
+            name: 'Collaborations',
+            icon: FiUsers,
+            path: '/admin/collaborations',
+            isActive: (p) => p === '/admin/collaborations' || p.startsWith('/admin/collaborations/'),
             section: 'services'
           },
           {
             name: 'Transactions',
             icon: FiBarChart,
             path: '/admin/transactions',
+            section: 'services'
+          },
+          {
+            name: 'Correspondances',
+            icon: FiSearch,
+            path: '/admin/correspondances',
+            isActive: (p) => p === '/admin/correspondances' || p.startsWith('/admin/correspondances/'),
             section: 'services'
           },
           {
@@ -92,20 +100,13 @@ const SideBar = ({ isOpen, toggleSidebar }) => {
             name: 'Mes collaborations',
             icon: FiUsers,
             path: '/fournisseur/mes-collaborations',
-            section: 'services',
-            badge: 'Nouveau'
-          },
-          {
-            name: 'Créer une prestation',
-            icon: FiPlus,
-            path: '/fournisseur/creer-prestation',
             section: 'services'
           },
           {
             name: 'Mes transactions',
             icon: FiDollarSign,
             path: '/fournisseur/transactions',
-            section: 'finance'
+            section: 'services'
           },
           {
             name: 'Messages',
@@ -140,16 +141,26 @@ const SideBar = ({ isOpen, toggleSidebar }) => {
             isActive: (p) =>
               p.startsWith('/client/mes-besoins') ||
               p.startsWith('/client/mes-demandes') ||
+              p === '/client/creer-besoin' ||
+              p === '/client/creer-demande' ||
               /^\/client\/besoins\/[^/]+/.test(p) ||
               /^\/client\/demandes\/[^/]+/.test(p),
+            section: 'services'
+          },
+          {
+            name: 'Mes matchings',
+            icon: FiSearch,
+            path: '/client/matchings',
+            isActive: (p) =>
+              p === '/client/matchings' ||
+              /^\/client\/besoins\/[^/]+\/matching$/.test(p),
             section: 'services'
           },
           {
             name: 'Mes collaborations',
             icon: FiUsers,
             path: '/client/mes-collaborations',
-            section: 'services',
-            badge: 'Nouveau'
+            section: 'services'
           },
           {
             name: 'Transactions',

@@ -14,6 +14,7 @@ from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
+import random
 
 from django.conf import settings
 from django.core.management import call_command
@@ -22,7 +23,60 @@ from django.db import connection
 from django.utils import timezone
 
 from accounts.models import User, ProfileClient, ProfileFournisseur
-from services.models import Besoin, CategorieService, Prestation, TransactionService
+from services.models import Besoin, CategorieService, SousCategorieService, Prestation, TransactionService
+
+
+BURKINA_CITIES = [
+    {
+        "city": "Ouagadougou",
+        "lat": 12.3714,
+        "lng": -1.5197,
+        "quartiers": ["Koulouba", "Patte d'Oie", "Dassasgho", "Gounghin", "Tampouy"],
+    },
+    {
+        "city": "Bobo-Dioulasso",
+        "lat": 11.1771,
+        "lng": -4.2979,
+        "quartiers": ["Colsama", "Sarfalao", "Belleville", "Accart-ville", "Kodeni"],
+    },
+]
+
+BURKINA_CLIENT_SECTORS = [
+    "Commerce de détail",
+    "Restauration",
+    "Agroalimentaire",
+    "Services administratifs",
+    "Santé",
+    "Education",
+]
+
+BURKINA_PAYMENT_MODES = ["Mobile Money", "Virement", "Espèces", "Chèque"]
+
+BURKINA_FIRST_NAMES = [
+    "Aissata",
+    "Moussa",
+    "Aminata",
+    "Issa",
+    "Mariam",
+    "Adama",
+    "Fatoumata",
+    "Oumar",
+    "Binta",
+    "Abdoulaye",
+]
+
+BURKINA_LAST_NAMES = [
+    "Ouedraogo",
+    "Traore",
+    "Compaore",
+    "Savadogo",
+    "Zongo",
+    "Sanou",
+    "Kone",
+    "Nikiema",
+    "Diallo",
+    "Barro",
+]
 
 
 def _seed_users_json_path() -> Path:
@@ -171,6 +225,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Migrations appliquées."))
 
     def _seed(self):
+        random.seed(226)
         now = timezone.now()
         specs, password = load_user_specs()
 
@@ -207,241 +262,330 @@ class Command(BaseCommand):
             )
 
         admin = admins[0]
-        client_a = clients[0]
-        client_b = clients[1] if len(clients) > 1 else clients[0]
-        fournisseur_a = fournis[0]
-        fournisseur_b = fournis[1] if len(fournis) > 1 else fournis[0]
 
-        cats_data = [
-            ("Informatique & numérique", "Développement, maintenance, cybersécurité."),
-            ("Bâtiment & travaux", "Rénovation, plomberie, électricité."),
-            ("Logistique & transport", "Livraison, déménagement, stockage."),
-            ("Services à la personne", "Ménage, garde, accompagnement."),
+        # Monter le volume d'utilisateurs pour une base réaliste Burkina.
+        target_clients = 12
+        target_fournisseurs = 10
+
+        for i in range(len(clients) + 1, target_clients + 1):
+            first = BURKINA_FIRST_NAMES[(i - 1) % len(BURKINA_FIRST_NAMES)]
+            last = BURKINA_LAST_NAMES[(i + 2) % len(BURKINA_LAST_NAMES)]
+            _ensure_user(
+                username=f"client_bf_{i:02d}",
+                email=f"client_bf_{i:02d}@demo.bf",
+                utype="client",
+                first_name=first,
+                last_name=last,
+                password=password,
+            )
+        for i in range(len(fournis) + 1, target_fournisseurs + 1):
+            first = BURKINA_FIRST_NAMES[(i + 3) % len(BURKINA_FIRST_NAMES)]
+            last = BURKINA_LAST_NAMES[(i + 5) % len(BURKINA_LAST_NAMES)]
+            _ensure_user(
+                username=f"fournisseur_bf_{i:02d}",
+                email=f"fournisseur_bf_{i:02d}@demo.bf",
+                utype="fournisseur",
+                first_name=first,
+                last_name=last,
+                password=password,
+            )
+
+        # Recharger les groupes après création des comptes bulk.
+        by_type = defaultdict(list)
+        for u in User.objects.filter(type_utilisateur__in=["administrateur", "client", "fournisseur"]):
+            by_type[u.type_utilisateur].append(u)
+        clients = sorted(by_type["client"], key=lambda u: u.username)
+        fournis = sorted(by_type["fournisseur"], key=lambda u: u.username)
+
+        categories_structure = {
+            "Informatique & Digital": [
+                "Développement web",
+                "Développement logiciel",
+                "Support informatique",
+                "Fourniture matériel informatique",
+            ],
+            "BTP & Travaux": [
+                "Plomberie",
+                "Électricité",
+                "Maçonnerie",
+            ],
+            "Transport & Logistique": [
+                "Livraison",
+                "Déménagement",
+            ],
+            "Maintenance & Réparation": [
+                "Climatisation",
+                "Électroménager",
+            ],
+        }
+        categories_by_name = {}
+        for parent_name, children in categories_structure.items():
+            parent_cat, _ = CategorieService.objects.get_or_create(
+                nom=parent_name,
+                defaults={"description": f"Catégorie principale: {parent_name}", "est_active": True},
+            )
+            categories_by_name[parent_name] = parent_cat
+            for child_name in children:
+                child_cat, _ = SousCategorieService.objects.get_or_create(
+                    categorie=parent_cat,
+                    nom=child_name,
+                    defaults={
+                        "description": f"Sous-catégorie de {parent_name}",
+                        "est_active": True,
+                    },
+                )
+                if not child_cat.est_active:
+                    child_cat.est_active = True
+                    child_cat.save(update_fields=["est_active"])
+                categories_by_name[child_name] = child_cat
+
+        def _city_payload(index):
+            city = BURKINA_CITIES[index % len(BURKINA_CITIES)]
+            quartier = city["quartiers"][index % len(city["quartiers"])]
+            return {
+                "city": city["city"],
+                "lat": city["lat"],
+                "lng": city["lng"],
+                "adresse": f"{city['city']} - {quartier}",
+                "quartier": quartier,
+            }
+
+        fournisseur_domains = [
+            (
+                "Informatique & Digital",
+                [
+                    "Développement web",
+                    "Développement logiciel",
+                    "Support informatique",
+                    "Fourniture matériel informatique",
+                    "Support informatique",
+                ],
+            ),
+            (
+                "BTP & Travaux",
+                [
+                    "Plomberie",
+                    "Électricité",
+                    "Maçonnerie",
+                    "Plomberie",
+                    "Électricité",
+                ],
+            ),
+            (
+                "Transport & Logistique",
+                [
+                    "Livraison",
+                    "Déménagement",
+                    "Livraison",
+                    "Déménagement",
+                    "Livraison",
+                ],
+            ),
+            (
+                "Maintenance & Réparation",
+                [
+                    "Climatisation",
+                    "Électroménager",
+                    "Climatisation",
+                    "Électroménager",
+                    "Climatisation",
+                ],
+            ),
         ]
-        categories = []
-        for nom, desc in cats_data:
-            c, _ = CategorieService.objects.get_or_create(
-                nom=nom, defaults={"description": desc, "est_active": True}
-            )
-            categories.append(c)
 
-        cat_info = categories[0]
-        cat_bat = categories[1]
-
-        ProfileFournisseur.objects.update_or_create(
-            user=fournisseur_a,
-            defaults={
-                "raison_sociale": "Diallo Tech SARL",
-                "types_services_offerts": ["web", "support"],
-                "zones_couverture": ["Dakar", "Thiès"],
-                "annees_experience": 8,
-                "certifications": ["AWS Cloud Practitioner"],
-                "assurance_valide": True,
-                "note_moyenne": Decimal("4.50"),
-                "services_effectues": 42,
-                "disponibilites": {"lun": "9h-18h", "mar": "9h-18h"},
-                "tarif_horaire": Decimal("25000.00"),
-            },
-        )
-        if fournisseur_b.id != fournisseur_a.id:
+        for idx, fournisseur in enumerate(fournis):
+            city = _city_payload(idx)
+            domain_name, offered_types = fournisseur_domains[idx % len(fournisseur_domains)]
             ProfileFournisseur.objects.update_or_create(
-                user=fournisseur_b,
+                user=fournisseur,
                 defaults={
-                    "raison_sociale": "Presta SARL Bâtiment",
-                    "types_services_offerts": ["plomberie", "électricité"],
-                    "zones_couverture": ["Dakar", "Saint-Louis"],
-                    "annees_experience": 12,
-                    "certifications": [],
+                    "raison_sociale": f"{(fournisseur.first_name or fournisseur.username).title()} Services SARL",
+                    "types_services_offerts": offered_types,
+                    "zones_couverture": ["Ouagadougou", "Bobo-Dioulasso"],
+                    "annees_experience": 3 + (idx % 12),
+                    "certifications": ["Certification métier"] if idx % 3 == 0 else [],
                     "assurance_valide": True,
-                    "note_moyenne": Decimal("4.20"),
-                    "services_effectues": 120,
-                    "disponibilites": {},
-                    "tarif_horaire": Decimal("18000.00"),
+                    "note_moyenne": Decimal("3.80") + Decimal((idx % 12) / 10),
+                    "services_effectues": 10 + (idx * 7),
+                    "disponibilites": {"lun-ven": "08h-18h"},
+                    "tarif_horaire": Decimal("15000.00") + Decimal((idx % 6) * 2500),
+                    "emplacement": {
+                        "latitude": city["lat"],
+                        "longitude": city["lng"],
+                        "adresse": city["adresse"],
+                        "ville": city["city"],
+                    },
                 },
             )
 
-        ProfileClient.objects.update_or_create(
-            user=client_a,
-            defaults={
-                "raison_sociale": "Association Jàng",
-                "secteur_activite": "ESS",
-                "taille_entreprise": "PME",
-                "besoins_services": ["site web", "maintenance"],
-                "fournisseurs_preferes": [],
-                "plage_budget": {"min": 200000, "max": 2000000},
-                "frequence_besoins": "mensuelle",
-                "contact_principal": client_a.get_full_name() or client_a.username,
-                "mode_paiement_preferes": ["virement", "mobile money"],
-            },
-        )
-        if client_b.id != client_a.id:
+            # 5 prestations par fournisseur
+            for j, service_type in enumerate(offered_types, start=1):
+                sub = categories_by_name.get(service_type)
+                if not sub:
+                    continue
+                mode_tarification = "forfait" if j % 2 else "devis"
+                tarif_min = Decimal("50000.00") + Decimal((idx + j) * 10000)
+                tarif_max = tarif_min + Decimal("250000.00")
+                Prestation.objects.update_or_create(
+                    fournisseur=fournisseur,
+                    intitule=f"{service_type} - Offre {j:02d} - {fournisseur.username}",
+                    defaults={
+                        "categorie": sub.categorie,
+                        "sous_categorie": sub,
+                        "description": f"Prestation {service_type} proposée par {fournisseur.username}.",
+                        "type_prestation": service_type,
+                        "caracteristiques": {"niveau_service": "standard", "domaine": domain_name},
+                        "zones_intervention": ["Ouagadougou", "Bobo-Dioulasso"],
+                        "disponibilite_debut": now,
+                        "disponibilite_fin": now + timedelta(days=120),
+                        "mode_tarification": mode_tarification,
+                        "tarif_min": tarif_min,
+                        "tarif_max": tarif_max,
+                        "statut": "active",
+                    },
+                )
+
+        besoins_templates = [
+            ("Refonte site web pour PME à Ouaga", "Développement web", Decimal("850000.00"), True),
+            ("Application de gestion stock pour boutique", "Développement logiciel", Decimal("1500000.00"), False),
+            ("Support informatique mensuel agence", "Support informatique", Decimal("350000.00"), True),
+            ("Fourniture PC et imprimantes de bureau", "Fourniture matériel informatique", Decimal("1800000.00"), False),
+            ("Réparation fuite ONEA sur installation interne", "Plomberie", Decimal("85000.00"), False),
+            ("Mise aux normes électriques local commercial", "Électricité", Decimal("650000.00"), False),
+            ("Rénovation mur et dalle magasin", "Maçonnerie", Decimal("500000.00"), True),
+            ("Livraison urbaine de colis e-commerce", "Livraison", Decimal("250000.00"), True),
+            ("Déménagement de bureau inter-quartiers", "Déménagement", Decimal("450000.00"), True),
+            ("Maintenance climatisation saison chaude", "Climatisation", Decimal("300000.00"), True),
+            ("Réparation congélateur boutique", "Électroménager", Decimal("220000.00"), True),
+        ]
+        urgence_cycle = ["basse", "normale", "haute", "urgente"]
+
+        # 10 besoins par client
+        for cidx, client in enumerate(clients):
+            city = _city_payload(cidx)
             ProfileClient.objects.update_or_create(
-                user=client_b,
+                user=client,
                 defaults={
-                    "raison_sociale": "Commerce Médina",
-                    "secteur_activite": "Commerce",
-                    "taille_entreprise": "TPE",
-                    "besoins_services": ["rénovation"],
+                    "raison_sociale": f"{(client.first_name or client.username).title()} & Co",
+                    "secteur_activite": BURKINA_CLIENT_SECTORS[cidx % len(BURKINA_CLIENT_SECTORS)],
+                    "taille_entreprise": "PME" if cidx % 2 == 0 else "TPE",
+                    "besoins_services": [tpl[1] for tpl in besoins_templates[:4]],
                     "fournisseurs_preferes": [],
-                    "plage_budget": {},
-                    "frequence_besoins": "ponctuelle",
-                    "contact_principal": client_b.get_full_name() or client_b.username,
-                    "mode_paiement_preferes": ["espèces"],
+                    "plage_budget": {"min": 100000, "max": 3000000},
+                    "frequence_besoins": "mensuelle" if cidx % 3 else "trimestrielle",
+                    "contact_principal": client.get_full_name() or client.username,
+                    "mode_paiement_preferes": BURKINA_PAYMENT_MODES[:2] if cidx % 2 == 0 else BURKINA_PAYMENT_MODES[1:3],
+                    "emplacement": {
+                        "latitude": city["lat"],
+                        "longitude": city["lng"],
+                        "adresse": city["adresse"],
+                        "ville": city["city"],
+                    },
                 },
             )
 
-        prestation_web, _ = Prestation.objects.get_or_create(
-            fournisseur=fournisseur_a,
-            intitule="Création de site vitrine WordPress",
-            defaults={
-                "categorie": cat_info,
-                "description": "Site jusqu'à 10 pages, formulaire contact, hébergement conseillé.",
-                "type_prestation": "Développement web",
-                "caracteristiques": {"cms": "WordPress", "responsive": True},
-                "zones_intervention": ["Dakar", "en ligne"],
-                "disponibilite_debut": now,
-                "disponibilite_fin": now + timedelta(days=90),
-                "mode_tarification": "forfait",
-                "tarif_min": Decimal("450000.00"),
-                "tarif_max": Decimal("900000.00"),
-                "statut": "active",
-            },
-        )
+            for j in range(10):
+                tpl = besoins_templates[(cidx * 3 + j) % len(besoins_templates)]
+                titre_base, service_type, budget_base, flexible_default = tpl
+                sub = categories_by_name.get(service_type)
+                if not sub:
+                    continue
+                mode_budget = "sur_devis" if (j % 3 == 0) else "budget_fixe"
+                statut = "ouverte"
+                if j in (7, 8):
+                    statut = "en_cours"
+                if j == 9:
+                    statut = "pourvue"
+                Besoin.objects.update_or_create(
+                    client=client,
+                    intitule=f"{titre_base} - {client.username} - {j+1:02d}",
+                    defaults={
+                        "categorie": sub.categorie,
+                        "sous_categorie": sub,
+                        "description": f"Besoin {service_type} pour {client.username}.",
+                        "type_service": service_type,
+                        "exigences": {
+                            "priorite_metier": "standard",
+                            "index_client": cidx,
+                            "index_besoin": j + 1,
+                            "quartier": city["quartier"],
+                        },
+                        "lieu_intervention": city["adresse"],
+                        "date_souhaitee": now + timedelta(days=2 + (j % 10)),
+                        "date_limite": now + timedelta(days=10 + (j % 20)),
+                        "urgence": urgence_cycle[(cidx + j) % len(urgence_cycle)],
+                        "mode_budget": mode_budget,
+                        "budget": None if mode_budget == "sur_devis" else (budget_base + Decimal((j % 4) * 50000)),
+                        "flexible": flexible_default,
+                        "statut": statut,
+                    },
+                )
 
-        prestation_support, _ = Prestation.objects.get_or_create(
-            fournisseur=fournisseur_a,
-            intitule="Support informatique TPE/PME",
-            defaults={
-                "categorie": cat_info,
-                "description": "Astreinte et interventions sur site ou à distance.",
-                "type_prestation": "Maintenance",
-                "caracteristiques": {},
-                "zones_intervention": ["Dakar"],
-                "mode_tarification": "horaire",
-                "tarif_min": Decimal("15000.00"),
-                "tarif_max": Decimal("25000.00"),
-                "statut": "active",
-            },
-        )
+        created_prestations = list(Prestation.objects.filter(statut="active").order_by("id"))
 
-        if fournisseur_b.id != fournisseur_a.id:
-            Prestation.objects.get_or_create(
-                fournisseur=fournisseur_b,
-                intitule="Dépannage plomberie urgent",
+        # Transactions démo sur quelques besoins non ouverts
+        besoins_non_ouverts = list(
+            Besoin.objects.filter(statut__in=["en_cours", "pourvue"]).order_by("id")[:8]
+        )
+        for idx, besoin in enumerate(besoins_non_ouverts):
+            prestation = created_prestations[idx % len(created_prestations)]
+            if besoin.mode_budget == "sur_devis":
+                if idx % 3 == 0:
+                    devis_statut = "en_attente_client"
+                elif idx % 3 == 1:
+                    devis_statut = "accepte_client"
+                else:
+                    devis_statut = "rejete_client"
+                devis_montant = prestation.tarif_min or Decimal("75000.00")
+                prix_final = devis_montant if devis_statut == "accepte_client" else None
+            else:
+                devis_statut = "non_requis"
+                devis_montant = None
+                prix_final = prestation.tarif_min
+
+            tx, created = TransactionService.objects.get_or_create(
+                prestation=prestation,
+                besoin=besoin,
+                fournisseur=prestation.fournisseur,
+                client=besoin.client,
                 defaults={
-                    "categorie": cat_bat,
-                    "description": "Fuites, remplacement robinetterie, débouchage.",
-                    "type_prestation": "Plomberie",
-                    "caracteristiques": {},
-                    "zones_intervention": ["Dakar", "Pikine"],
-                    "mode_tarification": "devis",
-                    "tarif_min": Decimal("25000.00"),
-                    "tarif_max": Decimal("150000.00"),
-                    "statut": "active",
+                    "prix_final": prix_final,
+                    "devis_montant_propose": devis_montant,
+                    "devis_description": "Devis initial proposé automatiquement pour la démo.",
+                    "devis_statut": devis_statut,
+                    "devis_date_proposition": now if besoin.mode_budget == "sur_devis" else None,
+                    "devis_date_reponse_client": now if devis_statut in ["accepte_client", "rejete_client"] else None,
+                    "devis_propose_par": prestation.fournisseur if besoin.mode_budget == "sur_devis" else None,
+                    "statut": "en_cours" if besoin.statut == "en_cours" else ("terminee" if devis_statut != "en_attente_client" else "acceptee"),
+                    "debut_confirme": True,
+                    "fin_confirmee": besoin.statut == "pourvue" and devis_statut != "en_attente_client",
+                    "notes": "Transaction générée automatiquement pour dataset de démonstration.",
                 },
             )
-
-        Besoin.objects.get_or_create(
-            client=client_a,
-            intitule="Refonte du site de l'association",
-            defaults={
-                "categorie": cat_info,
-                "description": "Design moderne, agenda des événements, espace adhérents.",
-                "type_service": "Web",
-                "exigences": {"langue": "fr", "accessibilite": "RGAA simplifié"},
-                "lieu_intervention": "Dakar",
-                "date_souhaitee": now + timedelta(days=14),
-                "date_limite": now + timedelta(days=45),
-                "urgence": "normale",
-                "budget": Decimal("750000.00"),
-                "flexible": True,
-                "statut": "ouverte",
-            },
-        )
-
-        besoin_en_cours, _ = Besoin.objects.get_or_create(
-            client=client_a,
-            intitule="Installation baie informatique (6 postes)",
-            defaults={
-                "categorie": cat_info,
-                "description": "Câblage, switch, Windows 11 pro.",
-                "type_service": "Infrastructure",
-                "exigences": {},
-                "lieu_intervention": "Dakar Plateau",
-                "date_souhaitee": now + timedelta(days=7),
-                "date_limite": now + timedelta(days=30),
-                "urgence": "haute",
-                "budget": Decimal("1200000.00"),
-                "flexible": False,
-                "statut": "en_cours",
-            },
-        )
-
-        besoin_pourvu, _ = Besoin.objects.get_or_create(
-            client=client_b,
-            intitule="Réparation fuite salle de bain",
-            defaults={
-                "categorie": cat_bat,
-                "description": "Joint et siphon à remplacer.",
-                "type_service": "Plomberie",
-                "exigences": {},
-                "lieu_intervention": "Médina, Dakar",
-                "date_souhaitee": now - timedelta(days=10),
-                "date_limite": now - timedelta(days=2),
-                "urgence": "urgente",
-                "budget": Decimal("85000.00"),
-                "flexible": False,
-                "statut": "pourvue",
-            },
-        )
-
-        Besoin.objects.get_or_create(
-            client=client_b,
-            intitule="Livraison palettes vers Saint-Louis",
-            defaults={
-                "categorie": categories[2],
-                "description": "2 palettes, environ 400 kg.",
-                "type_service": "Transport",
-                "exigences": {},
-                "lieu_intervention": "Dakar → Saint-Louis",
-                "date_souhaitee": now + timedelta(days=5),
-                "date_limite": now + timedelta(days=20),
-                "urgence": "basse",
-                "budget": Decimal("350000.00"),
-                "flexible": True,
-                "statut": "ouverte",
-            },
-        )
-
-        if not TransactionService.objects.filter(
-            prestation=prestation_web, besoin=besoin_pourvu
-        ).exists():
-            TransactionService.objects.create(
-                prestation=prestation_web,
-                besoin=besoin_pourvu,
-                fournisseur=fournisseur_a,
-                client=client_b,
-                prix_final=Decimal("82000.00"),
-                statut="terminee",
-                debut_confirme=True,
-                fin_confirmee=True,
-                notes="Transaction de démonstration — besoin pourvu.",
-            )
-
-        if not TransactionService.objects.filter(
-            prestation=prestation_support, besoin=besoin_en_cours
-        ).exists():
-            TransactionService.objects.create(
-                prestation=prestation_support,
-                besoin=besoin_en_cours,
-                fournisseur=fournisseur_a,
-                client=client_a,
-                prix_final=Decimal("400000.00"),
-                statut="en_cours",
-                debut_confirme=True,
-                fin_confirmee=False,
-                notes="Démo : chantier en cours.",
-            )
+            if not created:
+                tx.statut = "en_cours" if besoin.statut == "en_cours" else ("terminee" if devis_statut != "en_attente_client" else "acceptee")
+                tx.debut_confirme = True
+                tx.fin_confirmee = besoin.statut == "pourvue" and devis_statut != "en_attente_client"
+                if besoin.mode_budget == "sur_devis":
+                    tx.devis_montant_propose = tx.devis_montant_propose or devis_montant
+                    tx.devis_description = tx.devis_description or "Devis initial proposé automatiquement pour la démo."
+                    tx.devis_statut = devis_statut
+                    tx.devis_date_proposition = tx.devis_date_proposition or now
+                    if devis_statut in ["accepte_client", "rejete_client"]:
+                        tx.devis_date_reponse_client = tx.devis_date_reponse_client or now
+                    tx.devis_propose_par = tx.devis_propose_par or prestation.fournisseur
+                    tx.prix_final = tx.devis_montant_propose if devis_statut == "accepte_client" else None
+                else:
+                    tx.devis_statut = "non_requis"
+                    tx.prix_final = tx.prix_final or prestation.tarif_min
+                tx.save(
+                    update_fields=[
+                        "statut", "debut_confirme", "fin_confirmee",
+                        "prix_final", "devis_montant_propose", "devis_description",
+                        "devis_statut", "devis_date_proposition", "devis_date_reponse_client",
+                        "devis_propose_par", "updated_at"
+                    ]
+                )
 
         self.stdout.write(self.style.SUCCESS("Données de démonstration insérées."))
         self.stdout.write(f"Fichier utilisateurs : {_seed_users_json_path()}")

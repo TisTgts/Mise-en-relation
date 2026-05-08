@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Django : runserver (debug)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/manage.py",
+      "args": ["runserver"],
+      "cwd": "${workspaceFolder}/backend",
+      "django": true,
+      "justMyCode": true,
+      "console": "integratedTerminal",
+      "env": {}
+    },
+    {
+      "name": "Navigateur : React sur localhost (Chrome)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "preLaunchTask": "npm: démarrer le frontend (CRA)"
+    },
+    {
+      "name": "Navigateur : React sur localhost (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}/frontend/src",
+      "preLaunchTask": "npm: démarrer le frontend (CRA)"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack : Django + React (Chrome)",
+      "configurations": [
+        "Django : runserver (debug)",
+        "Navigateur : React sur localhost (Chrome)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "Full stack : Django + React (Edge)",
+      "configurations": [
+        "Django : runserver (debug)",
+        "Navigateur : React sur localhost (Edge)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

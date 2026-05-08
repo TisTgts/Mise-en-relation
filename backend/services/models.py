@@ -7,7 +7,6 @@ class CategorieService(models.Model):
     """Catégorie de services"""
     nom = models.CharField(max_length=100, verbose_name="Nom de la catégorie")
     description = models.TextField(blank=True, verbose_name="Description")
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Catégorie parente")
     est_active = models.BooleanField(default=True, verbose_name="Active")
     created_at = models.DateTimeField(auto_now_add=True)
     
@@ -21,6 +20,30 @@ class CategorieService(models.Model):
 
 # Alias pour compatibilité
 ServiceCategory = CategorieService
+
+
+class SousCategorieService(models.Model):
+    """Sous-catégorie rattachée à une catégorie principale."""
+
+    categorie = models.ForeignKey(
+        CategorieService,
+        on_delete=models.CASCADE,
+        related_name='sous_categories',
+        verbose_name="Catégorie principale"
+    )
+    nom = models.CharField(max_length=100, verbose_name="Nom de la sous-catégorie")
+    description = models.TextField(blank=True, verbose_name="Description")
+    est_active = models.BooleanField(default=True, verbose_name="Active")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Sous-catégorie de service"
+        verbose_name_plural = "Sous-catégories de services"
+        ordering = ['categorie__nom', 'nom']
+        unique_together = [('categorie', 'nom')]
+
+    def __str__(self):
+        return f"{self.categorie.nom} > {self.nom}"
 
 class Prestation(models.Model):
     """Prestation de service proposée par un fournisseur (offreur de services)."""
@@ -52,6 +75,14 @@ class Prestation(models.Model):
         null=True,
         related_name='prestations',
         verbose_name="Catégorie"
+    )
+    sous_categorie = models.ForeignKey(
+        SousCategorieService,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='prestations',
+        verbose_name="Sous-catégorie"
     )
     intitule = models.CharField(max_length=200, verbose_name="Intitulé de la prestation")
     description = models.TextField(verbose_name="Description détaillée")
@@ -108,7 +139,11 @@ class Prestation(models.Model):
     
     @property
     def category(self):
-        return self.categorie
+        if self.categorie:
+            return self.categorie
+        if self.sous_categorie:
+            return self.sous_categorie.categorie
+        return None
     
     @property
     def service_type(self):
@@ -165,6 +200,10 @@ class Besoin(models.Model):
         ('pourvue', 'Pourvue'),
         ('annulee', 'Annulée'),
     ]
+    MODE_BUDGET_CHOICES = [
+        ('budget_fixe', 'Budget fixe'),
+        ('sur_devis', 'Sur devis'),
+    ]
     
     client = models.ForeignKey(
         User,
@@ -178,6 +217,14 @@ class Besoin(models.Model):
         null=True,
         related_name='besoins',
         verbose_name="Catégorie"
+    )
+    sous_categorie = models.ForeignKey(
+        SousCategorieService,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='besoins',
+        verbose_name="Sous-catégorie"
     )
     intitule = models.CharField(max_length=200, verbose_name="Intitulé du besoin")
     description = models.TextField(verbose_name="Description du besoin")
@@ -198,6 +245,12 @@ class Besoin(models.Model):
         null=True,
         blank=True,
         verbose_name="Budget"
+    )
+    mode_budget = models.CharField(
+        max_length=20,
+        choices=MODE_BUDGET_CHOICES,
+        default='budget_fixe',
+        verbose_name="Mode budget"
     )
     flexible = models.BooleanField(default=False, verbose_name="Flexible")
     statut = models.CharField(
@@ -224,7 +277,11 @@ class Besoin(models.Model):
     
     @property
     def category(self):
-        return self.categorie
+        if self.categorie:
+            return self.categorie
+        if self.sous_categorie:
+            return self.sous_categorie.categorie
+        return None
     
     @property
     def service_type(self):
@@ -268,6 +325,13 @@ class TransactionService(models.Model):
         ('terminee', 'Terminée'),
         ('annulee', 'Annulée'),
     ]
+    DEVIS_STATUT_CHOICES = [
+        ('non_requis', 'Non requis'),
+        ('a_proposer', 'À proposer'),
+        ('en_attente_client', 'En attente client'),
+        ('accepte_client', 'Accepté par le client'),
+        ('rejete_client', 'Rejeté par le client'),
+    ]
     
     prestation = models.ForeignKey(
         Prestation, 
@@ -300,6 +364,30 @@ class TransactionService(models.Model):
         blank=True,
         verbose_name="Prix final"
     )
+    devis_montant_propose = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Montant devis proposé"
+    )
+    devis_description = models.TextField(blank=True, verbose_name="Description devis")
+    devis_statut = models.CharField(
+        max_length=20,
+        choices=DEVIS_STATUT_CHOICES,
+        default='non_requis',
+        verbose_name="Statut devis"
+    )
+    devis_date_proposition = models.DateTimeField(null=True, blank=True, verbose_name="Date proposition devis")
+    devis_date_reponse_client = models.DateTimeField(null=True, blank=True, verbose_name="Date réponse client devis")
+    devis_propose_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions_devis_proposes',
+        verbose_name="Devis proposé par",
+    )
     statut = models.CharField(
         max_length=20, 
         choices=STATUT_CHOICES, 
@@ -310,6 +398,33 @@ class TransactionService(models.Model):
     fin_confirmee = models.BooleanField(default=False, verbose_name="Fin confirmée")
     heure_debut = models.DateTimeField(null=True, blank=True, verbose_name="Heure de début")
     heure_fin = models.DateTimeField(null=True, blank=True, verbose_name="Heure de fin")
+    travail_fournisseur_termine = models.BooleanField(default=False, verbose_name="Travail fournisseur terminé")
+    travail_fournisseur_date = models.DateTimeField(null=True, blank=True, verbose_name="Date travail terminé")
+    verification_client_effectuee = models.BooleanField(default=False, verbose_name="Vérification client effectuée")
+    verification_client_validee = models.BooleanField(default=False, verbose_name="Vérification client validée")
+    verification_client_date = models.DateTimeField(null=True, blank=True, verbose_name="Date vérification client")
+    demande_validation_admin = models.BooleanField(default=False, verbose_name="Validation admin demandée")
+    demande_validation_admin_date = models.DateTimeField(null=True, blank=True, verbose_name="Date demande validation admin")
+    validation_admin_statut = models.CharField(
+        max_length=20,
+        choices=[
+            ('non_requise', 'Non requise'),
+            ('en_attente', 'En attente'),
+            ('acceptee', 'Acceptée'),
+            ('rejetee', 'Rejetée'),
+        ],
+        default='non_requise',
+        verbose_name="Statut validation admin",
+    )
+    validation_admin_date = models.DateTimeField(null=True, blank=True, verbose_name="Date validation admin")
+    validation_admin_par = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='transactions_validees_admin',
+        verbose_name="Validée par admin",
+    )
     notes = models.TextField(blank=True, verbose_name="Notes")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -378,6 +493,12 @@ class Message(models.Model):
     )
     sujet = models.CharField(max_length=200, blank=True, verbose_name="Sujet")
     contenu = models.TextField(default="", verbose_name="Contenu")
+    piece_jointe = models.FileField(
+        upload_to='workspace_files/%Y/%m/',
+        null=True,
+        blank=True,
+        verbose_name="Pièce jointe"
+    )
     lu = models.BooleanField(default=False, verbose_name="Lu")
     created_at = models.DateTimeField(auto_now_add=True)
     

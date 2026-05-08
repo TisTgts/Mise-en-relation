@@ -9,6 +9,7 @@ export { default as ClientTransactions } from './transactions/MesTransactions';
 export { default as ClientMessages } from './messages/MesMessages';
 export { default as ClientProfil } from './profil/MonProfil';
 export { default as ClientCollaborations } from './collaborations/MesCollaborations';
+export { default as ClientCollaborationWorkspace } from './collaborations/CollaborationWorkspace';
 export { default as BesoinDetail } from './besoin/BesoinDetail';
 export { default as BesoinEdit } from './besoin/BesoinEdit';
 /** @deprecated utiliser BesoinDetail */
@@ -16,3 +17,5 @@ export { default as DemandeDetail } from './besoin/BesoinDetail';
 /** @deprecated utiliser BesoinEdit */
 export { default as DemandeEdit } from './besoin/BesoinEdit';
 export { default as TransactionDetail } from './transactions/TransactionDetail';
+export { default as MesMatchings } from './matching/MesMatchings';
+export { default as BesoinMatching } from './matching/BesoinMatching';

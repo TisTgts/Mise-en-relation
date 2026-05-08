@@ -62,13 +62,13 @@ const TestDashboard = () => {
           <h2 className="text-xl font-bold text-gray-900 mb-4">Actions de test</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button 
-              onClick={() => window.location.href = '/dashboard/provider'}
+              onClick={() => window.location.href = '/fournisseur/dashboard'}
               className="p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Dashboard Fournisseur
             </button>
             <button 
-              onClick={() => window.location.href = '/dashboard/client'}
+              onClick={() => window.location.href = '/client/dashboard'}
               className="p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               Dashboard Client

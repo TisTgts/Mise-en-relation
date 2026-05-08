@@ -52,10 +52,17 @@ const PrestationCreate = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      const next = {
+        ...prev,
+        [name]: value
+      };
+      if (name === 'mode_tarification' && value === 'devis') {
+        next.tarif_min = '';
+        next.tarif_max = '';
+      }
+      return next;
+    });
     
     // Effacer l'erreur quand l'utilisateur corrige
     if (errors[name]) {
@@ -109,6 +116,7 @@ const PrestationCreate = () => {
 
   const validateForm = () => {
     const newErrors = {};
+    const isDevisMode = formData.mode_tarification === 'devis';
     
     if (!formData.intitule.trim()) {
       newErrors.intitule = "L'intitulé est obligatoire";
@@ -126,11 +134,15 @@ const PrestationCreate = () => {
       newErrors.type_prestation = 'Le type de prestation est obligatoire';
     }
     
-    if (!formData.tarif_min || formData.tarif_min <= 0) {
+    if (!isDevisMode && !formData.tarif_min && !formData.tarif_max) {
+      newErrors.tarif_min = 'Indiquez au moins un tarif (minimum ou maximum)';
+    }
+
+    if (formData.tarif_min && parseFloat(formData.tarif_min) <= 0) {
       newErrors.tarif_min = 'Le tarif minimum est invalide';
     }
     
-    if (!formData.tarif_max || formData.tarif_max <= 0) {
+    if (formData.tarif_max && parseFloat(formData.tarif_max) <= 0) {
       newErrors.tarif_max = 'Le tarif maximum est invalide';
     }
     
@@ -166,8 +178,8 @@ const PrestationCreate = () => {
     try {
       const prestationData = {
         ...formData,
-        tarif_min: parseFloat(formData.tarif_min),
-        tarif_max: parseFloat(formData.tarif_max)
+        tarif_min: formData.mode_tarification === 'devis' || !formData.tarif_min ? null : parseFloat(formData.tarif_min),
+        tarif_max: formData.mode_tarification === 'devis' || !formData.tarif_max ? null : parseFloat(formData.tarif_max)
       };
       
       await prestationsService.createPrestation(prestationData);
@@ -449,6 +461,7 @@ const PrestationCreate = () => {
                   onChange={handleChange}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                 >
+                  <option value="fixe">Tarif fixe</option>
                   <option value="forfait">Forfait</option>
                   <option value="horaire">Horaire</option>
                   <option value="devis">Devis</option>
@@ -472,45 +485,53 @@ const PrestationCreate = () => {
                 </select>
               </div>
 
-              <div>
-                <label htmlFor="tarif_min" className="block text-sm font-medium text-gray-700">
-                  Tarif minimum (FCFA) *
-                </label>
-                <input
-                  type="number"
-                  id="tarif_min"
-                  name="tarif_min"
-                  value={formData.tarif_min}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
-                    errors.tarif_min ? 'border-red-300' : ''
-                  }`}
-                  placeholder="50000"
-                />
-                {errors.tarif_min && (
-                  <p className="mt-1 text-sm text-red-600">{errors.tarif_min}</p>
-                )}
-              </div>
+              {formData.mode_tarification === 'devis' ? (
+                <div className="md:col-span-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-800">
+                  Cette prestation est en mode devis: vous pouvez créer l'offre sans renseigner de tarifs minimum/maximum.
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label htmlFor="tarif_min" className="block text-sm font-medium text-gray-700">
+                      Tarif minimum (FCFA)
+                    </label>
+                    <input
+                      type="number"
+                      id="tarif_min"
+                      name="tarif_min"
+                      value={formData.tarif_min}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                        errors.tarif_min ? 'border-red-300' : ''
+                      }`}
+                      placeholder="50000"
+                    />
+                    {errors.tarif_min && (
+                      <p className="mt-1 text-sm text-red-600">{errors.tarif_min}</p>
+                    )}
+                  </div>
 
-              <div>
-                <label htmlFor="tarif_max" className="block text-sm font-medium text-gray-700">
-                  Tarif maximum (FCFA) *
-                </label>
-                <input
-                  type="number"
-                  id="tarif_max"
-                  name="tarif_max"
-                  value={formData.tarif_max}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
-                    errors.tarif_max ? 'border-red-300' : ''
-                  }`}
-                  placeholder="100000"
-                />
-                {errors.tarif_max && (
-                  <p className="mt-1 text-sm text-red-600">{errors.tarif_max}</p>
-                )}
-              </div>
+                  <div>
+                    <label htmlFor="tarif_max" className="block text-sm font-medium text-gray-700">
+                      Tarif maximum (FCFA)
+                    </label>
+                    <input
+                      type="number"
+                      id="tarif_max"
+                      name="tarif_max"
+                      value={formData.tarif_max}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm ${
+                        errors.tarif_max ? 'border-red-300' : ''
+                      }`}
+                      placeholder="100000"
+                    />
+                    {errors.tarif_max && (
+                      <p className="mt-1 text-sm text-red-600">{errors.tarif_max}</p>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

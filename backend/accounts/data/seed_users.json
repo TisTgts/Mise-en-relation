@@ -10,6 +10,13 @@
       "last_name": "Admin"
     },
     {
+      "type_utilisateur": "administrateur",
+      "username": "admin2",
+      "email": "admin2@demo.local",
+      "first_name": "Second",
+      "last_name": "Admin"
+    },
+    {
       "type_utilisateur": "client",
       "username": "client_demo",
       "email": "client@demo.local",

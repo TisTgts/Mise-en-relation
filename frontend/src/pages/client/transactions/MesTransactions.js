@@ -1,8 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { FiFilter, FiCalendar, FiDollarSign, FiUser, FiBriefcase, FiEye, FiDownload } from 'react-icons/fi';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  FiSearch,
+  FiCalendar,
+  FiUser,
+  FiBriefcase,
+  FiEye,
+} from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import transactionsService from '../../../services/transactionsService';
+import {
+  truncateText,
+  formatMoneyFcfa,
+  formatDateShort,
+  transactionStatutPillClass,
+  transactionStatutLabel,
+} from '../clientUi';
+
+function normalizeTransaction(tx) {
+  const prestationLabel =
+    tx.prestation_intitule ?? tx.prestation?.intitule ?? (tx.prestation ? `#${tx.prestation}` : '—');
+  const besoinLabel =
+    tx.besoin_intitule ?? tx.besoin?.intitule ?? (tx.besoin ? `#${tx.besoin}` : '—');
+  const lieu = tx.besoin?.lieu_intervention ?? '';
+  const categorie = tx.prestation?.categorie?.nom ?? '';
+  const fournisseurLabel =
+    tx.fournisseur_nom ?? tx.fournisseur?.username ?? tx.fournisseur?.email ?? '—';
+  const email = tx.fournisseur?.email ?? '';
+
+  return {
+    raw: tx,
+    prestationLabel,
+    besoinLabel,
+    lieu,
+    categorie,
+    fournisseurLabel,
+    email,
+  };
+}
 
 const MesTransactions = () => {
   const { user } = useAuth();
@@ -16,120 +51,114 @@ const MesTransactions = () => {
       try {
         setLoading(true);
         const data = await transactionsService.getMyTransactions();
-        setTransactions(data);
-      } catch (error) {
-        console.error('Erreur lors du chargement des transactions:', error);
+        setTransactions(Array.isArray(data) ? data : []);
+      } catch {
+        setTransactions([]);
       } finally {
         setLoading(false);
       }
     };
 
-    if (user) {
+    if (user?.type_utilisateur === 'client') {
       fetchTransactions();
     }
   }, [user]);
 
-  const filteredTransactions = transactions.filter(transaction => {
-    const matchesSearch = 
-      transaction.prestation?.intitule?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.besoin?.intitule?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (transaction.fournisseur_nom || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (filter === 'all') return matchesSearch;
-    if (filter === 'en_attente') return transaction.statut === 'en_attente' && matchesSearch;
-    if (filter === 'acceptee') return transaction.statut === 'acceptee' && matchesSearch;
-    if (filter === 'en_cours') return transaction.statut === 'en_cours' && matchesSearch;
-    if (filter === 'terminee') return transaction.statut === 'terminee' && matchesSearch;
-    if (filter === 'annulee') return transaction.statut === 'annulee' && matchesSearch;
-    
-    return matchesSearch;
-  });
+  const rows = useMemo(() => transactions.map(normalizeTransaction), [transactions]);
 
-  const getStatusColor = (statut) => {
-    switch (statut) {
-      case 'en_attente': return 'bg-yellow-100 text-yellow-800';
-      case 'acceptee': return 'bg-blue-100 text-blue-800';
-      case 'en_cours': return 'bg-purple-100 text-purple-800';
-      case 'terminee': return 'bg-green-100 text-green-800';
-      case 'annulee': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const filtered = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return rows.filter(({ raw, prestationLabel, besoinLabel, fournisseurLabel }) => {
+      const matchesSearch =
+        !q ||
+        prestationLabel.toLowerCase().includes(q) ||
+        besoinLabel.toLowerCase().includes(q) ||
+        fournisseurLabel.toLowerCase().includes(q) ||
+        String(raw.id).includes(q);
 
-  const getStatusText = (statut) => {
-    switch (statut) {
-      case 'en_attente': return 'En attente';
-      case 'acceptee': return 'Acceptée';
-      case 'en_cours': return 'En cours';
-      case 'terminee': return 'Terminée';
-      case 'annulee': return 'Annulée';
-      default: return statut;
-    }
-  };
+      if (filter === 'all') return matchesSearch;
+      return raw.statut === filter && matchesSearch;
+    });
+  }, [rows, filter, searchTerm]);
 
-  const handleExport = () => {
-    // Logique d'exportation à implémenter
-    alert('Fonctionnalité d\'exportation à implémenter');
-  };
+  const stats = useMemo(() => {
+    const tx = transactions;
+    const termineesMontant = tx
+      .filter((t) => t.statut === 'terminee')
+      .reduce((sum, t) => sum + Number(t.prix_final || 0), 0);
+    return {
+      total: tx.length,
+      enAttente: tx.filter((t) => t.statut === 'en_attente').length,
+      enCours: tx.filter((t) => t.statut === 'en_cours' || t.statut === 'acceptee').length,
+      termineesMontant,
+    };
+  }, [transactions]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mes Transactions</h1>
-            <p className="text-gray-600 mt-1">Historique de vos transactions</p>
-          </div>
-          <div className="mt-4 sm:mt-0">
-            <button
-              onClick={handleExport}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-            >
-              <FiDownload className="mr-2 h-4 w-4" />
-              Exporter
-            </button>
-          </div>
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-900">Mes transactions</h1>
+        <p className="mt-1 text-sm text-slate-600">
+          Historique et suivi des collaborations avec les prestataires.
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Total</p>
+          <p className="mt-1 text-2xl font-bold text-slate-900">{stats.total}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">En attente</p>
+          <p className="mt-1 text-2xl font-bold text-amber-700">{stats.enAttente}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Actives</p>
+          <p className="mt-1 text-2xl font-bold text-blue-700">{stats.enCours}</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Montant terminé</p>
+          <p className="mt-1 text-xl font-bold text-emerald-700">
+            {Math.round(stats.termineesMontant).toLocaleString('fr-FR')} FCFA
+          </p>
         </div>
       </div>
 
-      {/* Filtres */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
               Recherche
             </label>
             <div className="relative">
+              <FiSearch className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
-                type="text"
+                type="search"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher une transaction..."
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                placeholder="Prestation, besoin, fournisseur…"
+                className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
-              <FiFilter className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             </div>
           </div>
-          
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-slate-500">
               Statut
             </label>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="all">Toutes les transactions</option>
+              <option value="all">Toutes</option>
               <option value="en_attente">En attente</option>
               <option value="acceptee">Acceptées</option>
               <option value="en_cours">En cours</option>
@@ -140,176 +169,97 @@ const MesTransactions = () => {
         </div>
       </div>
 
-      {/* Liste des transactions */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        {filteredTransactions.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500">
-              {transactions.length === 0 ? 'Vous n\'avez pas encore de transaction' : 'Aucune transaction trouvée'}
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Prestation</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Besoin</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Fournisseur</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-700">Montant</th>
+                <th className="px-4 py-3 text-left font-semibold text-slate-700">Statut</th>
+                <th className="px-4 py-3 text-right font-semibold text-slate-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.length === 0 ? (
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Prestation
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Besoin
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fournisseur
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Prix final
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500">
+                    {transactions.length === 0
+                      ? 'Vous n’avez pas encore de transaction.'
+                      : 'Aucune transaction ne correspond aux filtres.'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredTransactions.map((transaction) => (
-                  <tr key={transaction.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center">
-                        <FiCalendar className="mr-2 h-4 w-4" />
-                        {new Date(transaction.created_at).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900">
-                          {transaction.prestation?.intitule}
-                        </div>
-                        <div className="text-gray-500">
-                          {transaction.prestation?.categorie?.nom}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">
-                        <div className="font-medium text-gray-900">
-                          {transaction.besoin?.intitule}
-                        </div>
-                        <div className="text-gray-500">
-                          {transaction.besoin?.lieu_intervention}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm">
-                        <FiUser className="mr-2 h-4 w-4 text-gray-400" />
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {transaction.fournisseur_nom}
-                          </div>
-                          <div className="text-gray-500">
-                            {transaction.fournisseur?.email || ''}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm font-medium text-gray-900">
-                        <FiDollarSign className="mr-2 h-4 w-4" />
-                        {transaction.prix_final?.toLocaleString()} FCFA
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(transaction.statut)}`}>
-                        {getStatusText(transaction.statut)}
+              ) : (
+                filtered.map(({ raw, prestationLabel, besoinLabel, lieu, categorie, fournisseurLabel, email }) => (
+                  <tr key={raw.id} className="hover:bg-slate-50/80">
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-600">
+                      <span className="inline-flex items-center gap-1">
+                        <FiCalendar className="h-3.5 w-3.5 text-slate-400" />
+                        {formatDateShort(raw.created_at)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        to={`/client/transactions/${transaction.id}`}
-                        className="text-primary-600 hover:text-primary-900"
-                        title="Voir les détails"
+                    <td className="max-w-[11rem] px-4 py-3">
+                      <p className="font-medium text-slate-900" title={prestationLabel}>
+                        {truncateText(prestationLabel, 40)}
+                      </p>
+                      {categorie ? (
+                        <p className="text-xs text-slate-500">{categorie}</p>
+                      ) : null}
+                    </td>
+                    <td className="max-w-[11rem] px-4 py-3">
+                      <p className="text-slate-900" title={besoinLabel}>
+                        {truncateText(besoinLabel, 40)}
+                      </p>
+                      {lieu ? <p className="text-xs text-slate-500">{lieu}</p> : null}
+                    </td>
+                    <td className="max-w-[10rem] px-4 py-3">
+                      <span className="inline-flex items-start gap-1 text-slate-800">
+                        <FiUser className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                        <span>
+                          <span className="block font-medium">{fournisseurLabel}</span>
+                          {email ? <span className="block text-xs text-slate-500">{email}</span> : null}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-900">
+                      {formatMoneyFcfa(raw.prix_final)}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${transactionStatutPillClass(raw.statut)}`}
                       >
-                        <FiEye className="h-4 w-4" />
+                        {transactionStatutLabel(raw.statut)}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right">
+                      <Link
+                        to={`/client/transactions/${raw.id}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-50"
+                        title="Détail"
+                      >
+                        <FiEye className="h-3.5 w-3.5" />
+                        Détail
                       </Link>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Statistiques */}
-      {transactions.length > 0 && (
-        <div className="bg-white shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Statistiques</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                  <FiDollarSign className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-blue-600">Total transactions</p>
-                  <p className="text-2xl font-bold text-blue-900">{transactions.length}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                  <FiBriefcase className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-green-600">En cours</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {transactions.filter(t => t.statut === 'en_cours').length}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-yellow-500 rounded-md p-3">
-                  <FiCalendar className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-yellow-600">En cours</p>
-                  <p className="text-2xl font-bold text-yellow-900">
-                    {transactions.filter(t => t.statut === 'confirmee').length}
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-purple-500 rounded-md p-3">
-                  <FiUser className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-purple-600">Montant total</p>
-                  <p className="text-2xl font-bold text-purple-900">
-                    {transactions
-                      .filter(t => t.statut === 'terminee')
-                      .reduce((sum, t) => sum + (t.prix_final || 0), 0)
-                      .toLocaleString()} FCFA
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <p className="text-center text-xs text-slate-500">
+        <FiBriefcase className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+        Pour les évaluations détaillées, utilisez aussi la page{' '}
+        <Link to="/client/mes-collaborations" className="font-medium text-indigo-600 hover:underline">
+          Mes collaborations
+        </Link>
+        .
+      </p>
     </div>
   );
 };

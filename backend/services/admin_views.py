@@ -12,11 +12,13 @@ from rest_framework import serializers
 
 from accounts.permissions import IsAdministrator
 from accounts.models import User
-from .models import CategorieService, Prestation, Besoin, TransactionService
+from .models import CategorieService, SousCategorieService, Prestation, Besoin, TransactionService, Message
 from .serializers import (
     PrestationSerializer,
     BesoinSerializer,
-    CategorieServiceSerializer
+    CategorieServiceSerializer,
+    SousCategorieServiceSerializer,
+    MessageSerializer,
 )
 
 # Serializer pour les transactions
@@ -32,7 +34,14 @@ class TransactionServiceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'prestation', 'besoin', 'fournisseur', 'client',
             'fournisseur_nom', 'client_nom', 'prestation_intitule', 'besoin_intitule',
-            'prix_final', 'statut', 'created_at', 'updated_at'
+            'prix_final', 'statut',
+            'devis_montant_propose', 'devis_description', 'devis_statut',
+            'devis_date_proposition', 'devis_date_reponse_client', 'devis_propose_par',
+            'travail_fournisseur_termine', 'travail_fournisseur_date',
+            'verification_client_effectuee', 'verification_client_validee', 'verification_client_date',
+            'demande_validation_admin', 'demande_validation_admin_date',
+            'validation_admin_statut', 'validation_admin_date',
+            'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
@@ -90,6 +99,45 @@ class AdminPrestationListView(generics.ListAPIView):
     def get_queryset(self):
         return Prestation.objects.select_related('fournisseur', 'categorie')
 
+class AdminCategoryListCreateView(generics.ListCreateAPIView):
+    """Lister et créer des catégories (admin uniquement)."""
+    permission_classes = [permissions.IsAuthenticated, IsAdministrator]
+    serializer_class = CategorieServiceSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['est_active']
+    ordering_fields = ['nom', 'created_at']
+    ordering = ['nom']
+
+    def get_queryset(self):
+        return CategorieService.objects.all().prefetch_related('sous_categories')
+
+
+class AdminCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Détail / modification / suppression d'une catégorie (admin uniquement)."""
+    permission_classes = [permissions.IsAuthenticated, IsAdministrator]
+    serializer_class = CategorieServiceSerializer
+    queryset = CategorieService.objects.all().prefetch_related('sous_categories')
+
+
+class AdminSubCategoryListCreateView(generics.ListCreateAPIView):
+    """Lister et créer des sous-catégories (admin uniquement)."""
+    permission_classes = [permissions.IsAuthenticated, IsAdministrator]
+    serializer_class = SousCategorieServiceSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['categorie', 'est_active']
+    ordering_fields = ['nom', 'created_at']
+    ordering = ['categorie__nom', 'nom']
+
+    def get_queryset(self):
+        return SousCategorieService.objects.select_related('categorie').all()
+
+
+class AdminSubCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Détail / modification / suppression d'une sous-catégorie (admin uniquement)."""
+    permission_classes = [permissions.IsAuthenticated, IsAdministrator]
+    serializer_class = SousCategorieServiceSerializer
+    queryset = SousCategorieService.objects.select_related('categorie').all()
+
 class AdminBesoinListView(generics.ListAPIView):
     """Vue pour lister tous les besoins (admin uniquement)"""
     permission_classes = [permissions.IsAuthenticated, IsAdministrator]
@@ -116,6 +164,18 @@ class AdminTransactionListView(generics.ListAPIView):
         return TransactionService.objects.select_related(
             'prestation', 'besoin', 'fournisseur', 'client'
         )
+
+
+class AdminMessageListView(generics.ListAPIView):
+    """Liste tous les messages (admin uniquement)."""
+
+    permission_classes = [permissions.IsAuthenticated, IsAdministrator]
+    serializer_class = MessageSerializer
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        return Message.objects.select_related('expediteur', 'destinataire', 'transaction').all()
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated, IsAdministrator])

@@ -1,12 +1,342 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import {FiUser, FiBriefcase, FiFileText, FiSearch, FiFilter, FiEdit, FiTrash2, FiEye, FiDollarSign, FiMapPin, FiCalendar, FiTag } from 'react-icons/fi';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  FiBriefcase,
+  FiFileText,
+  FiSearch,
+  FiTrash2,
+  FiEye,
+  FiCalendar,
+  FiTag,
+  FiX,
+  FiSearch as FiSearchMatch,
+} from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
 
+const truncateCell = (text, max = 48) => {
+  if (text == null || text === '') return '—';
+  const s = String(text);
+  return s.length <= max ? s : `${s.slice(0, max)}…`;
+};
+
+function ProviderProfileModal({ open, onClose }) {
+  if (!open) return null;
+  const { raw } = open;
+
+  const profile = raw?.profile || raw?.profile_fournisseur || {};
+  const user = raw?.user || {};
+
+  const row = (label, value) => (
+    <div className="border-b border-slate-100 py-2 sm:grid sm:grid-cols-3 sm:gap-3">
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-sm text-slate-900 sm:col-span-2 sm:mt-0 whitespace-pre-wrap break-words">
+        {value == null || value === '' ? '—' : String(value)}
+      </dd>
+    </div>
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="provider-modal-title"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">Fournisseur</p>
+            <h2 id="provider-modal-title" className="mt-1 text-lg font-bold text-slate-900">
+              {user.username || raw?.username || 'Profil fournisseur'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            aria-label="Fermer"
+          >
+            <FiX className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="max-h-[calc(90vh-5rem)] overflow-y-auto px-5 py-4">
+          <dl>
+            {row('Nom utilisateur', user.username || raw?.username)}
+            {row('Email', user.email || raw?.email)}
+            {row('Téléphone', profile.telephone || raw?.telephone)}
+            {row('Ville', profile.ville || profile.localisation_ville || raw?.ville)}
+            {row('Quartier', profile.quartier || profile.localisation_quartier || raw?.quartier)}
+            {row('Secteur', profile.secteur_activite || profile.specialite || raw?.secteur_activite)}
+            {row('Note moyenne', profile.note_moyenne)}
+            {row('Bio / Présentation', profile.bio || profile.description || raw?.description)}
+          </dl>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ServiceDetailModal({ open, onClose, onOpenProviderProfile, providerLoadingId }) {
+  if (!open) return null;
+  const { kind, data } = open;
+
+  const row = (label, value) => (
+    <div className="border-b border-slate-100 py-2 sm:grid sm:grid-cols-3 sm:gap-3">
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-sm text-slate-900 sm:col-span-2 sm:mt-0 whitespace-pre-wrap break-words">
+        {value == null || value === '' ? '—' : String(value)}
+      </dd>
+    </div>
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="detail-modal-title"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+              {kind === 'prestation' ? 'Prestation' : kind === 'type_group' ? 'Type de prestation' : 'Besoin'}
+            </p>
+            <h2 id="detail-modal-title" className="mt-1 text-lg font-bold text-slate-900">
+              {kind === 'type_group' ? data.type : (data.intitule || `ID ${data.id}`)}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+            aria-label="Fermer"
+          >
+            <FiX className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="max-h-[calc(90vh-5rem)] overflow-y-auto px-5 py-4">
+          <dl>
+            {kind === 'type_group' ? (
+              <>
+                {row('Type', data.type_prestation)}
+                {row('Prestations', data.totalPrestations)}
+                {row('Offres fournisseurs', data.offers.length)}
+                {row('Fournisseurs', data.fournisseurs.length)}
+                {row('Offres actives', data.actifs)}
+                {row('Catégories couvertes', data.categories.join(', '))}
+                {row(
+                  'Fourchette globale',
+                  data.globalTarifText || '—'
+                )}
+                {row('Zones d’intervention couvertes', (data.zones || []).join(', ') || '—')}
+                <div className="grid grid-cols-2 gap-3 py-3 md:grid-cols-4">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Fournisseurs</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900">{data.fournisseurs.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Offres</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900">{data.offers.length}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Actives</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900">{data.actifs}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Catégories</p>
+                    <p className="mt-1 text-xl font-semibold text-slate-900">{data.categories.length}</p>
+                  </div>
+                </div>
+                <div className="py-2">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Fournisseurs et offres
+                  </dt>
+                  <dd className="mt-2">
+                    <div className="overflow-x-auto rounded-lg border border-slate-200">
+                      <table className="min-w-full text-sm">
+                        <thead className="bg-slate-50 text-left">
+                          <tr>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Fournisseur</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Intitulé offre</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Description</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Tarification</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Mode</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Disponibilité</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Statut</th>
+                            <th className="px-3 py-2 font-semibold text-slate-700">Profil</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {data.offers.map((offer) => (
+                            <tr key={offer.id}>
+                              <td className="px-3 py-2 text-slate-800">{offer.fournisseur_nom || '—'}</td>
+                              <td className="px-3 py-2 text-slate-700">{offer.intitule || '—'}</td>
+                              <td className="max-w-[18rem] px-3 py-2 text-slate-700" title={offer.description}>
+                                {truncateCell(offer.description, 80)}
+                              </td>
+                              <td className="px-3 py-2 text-slate-700">
+                                {offer.tarif_min != null || offer.tarif_max != null
+                                  ? `${offer.tarif_min != null ? Number(offer.tarif_min).toLocaleString('fr-FR') : '—'} – ${offer.tarif_max != null ? Number(offer.tarif_max).toLocaleString('fr-FR') : '—'} FCFA`
+                                  : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-700">{offer.mode_tarification || '—'}</td>
+                              <td className="px-3 py-2 text-slate-700">
+                                {offer.disponibilite_debut ? adminService.formatDate(offer.disponibilite_debut) : '—'} {'->'} {offer.disponibilite_fin ? adminService.formatDate(offer.disponibilite_fin) : '—'}
+                              </td>
+                              <td className="px-3 py-2 text-slate-700">{adminService.formatServiceStatus(offer.statut)}</td>
+                              <td className="px-3 py-2 text-slate-700">
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenProviderProfile(offer)}
+                                  disabled={providerLoadingId === offer.id}
+                                  className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                                >
+                                  {providerLoadingId === offer.id ? 'Chargement...' : 'Voir profil'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </dd>
+                </div>
+                <div className="py-2">
+                  <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    Fournisseurs concernés
+                  </dt>
+                  <dd className="mt-2 space-y-3">
+                    {Object.values(
+                      data.offers.reduce((acc, offer) => {
+                        const key = offer.fournisseur || offer.fournisseur_nom || `f-${offer.id}`;
+                        if (!acc[key]) {
+                          acc[key] = {
+                            fournisseur: offer.fournisseur,
+                            fournisseur_nom: offer.fournisseur_nom || 'Fournisseur',
+                            offres: [],
+                            zones: new Set(),
+                            minTarif: null,
+                            maxTarif: null,
+                            actifs: 0,
+                          };
+                        }
+                        acc[key].offres.push(offer);
+                        if (offer.statut === 'active') acc[key].actifs += 1;
+                        const vals = [offer.tarif_min, offer.tarif_max].filter((v) => v != null).map(Number);
+                        if (vals.length) {
+                          const localMin = Math.min(...vals);
+                          const localMax = Math.max(...vals);
+                          acc[key].minTarif = acc[key].minTarif == null ? localMin : Math.min(acc[key].minTarif, localMin);
+                          acc[key].maxTarif = acc[key].maxTarif == null ? localMax : Math.max(acc[key].maxTarif, localMax);
+                        }
+                        const zones = Array.isArray(offer.zones_intervention) ? offer.zones_intervention : [offer.zones_intervention];
+                        zones.filter(Boolean).forEach((z) => acc[key].zones.add(z));
+                        return acc;
+                      }, {})
+                    ).map((provider) => (
+                      <div key={provider.fournisseur || provider.fournisseur_nom} className="rounded-xl border border-slate-200 bg-white p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{provider.fournisseur_nom}</p>
+                            <p className="text-xs text-slate-600">
+                              {provider.offres.length} offre(s), {provider.actifs} active(s)
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onOpenProviderProfile(provider.offres[0])}
+                            disabled={providerLoadingId === provider.offres[0]?.id}
+                            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-60"
+                          >
+                            {providerLoadingId === provider.offres[0]?.id ? 'Chargement...' : 'Voir profil'}
+                          </button>
+                        </div>
+                        <div className="mt-2 grid gap-2 text-xs text-slate-700 md:grid-cols-3">
+                          <p><span className="font-medium">Tarifs:</span> {provider.minTarif != null ? `${provider.minTarif.toLocaleString('fr-FR')} - ${provider.maxTarif.toLocaleString('fr-FR')} FCFA` : '—'}</p>
+                          <p><span className="font-medium">Zones:</span> {Array.from(provider.zones).join(', ') || '—'}</p>
+                          <p><span className="font-medium">Prestations:</span> {provider.offres.map((o) => o.intitule).filter(Boolean).slice(0, 2).join(' | ') || '—'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </dd>
+                </div>
+              </>
+            ) : kind === 'prestation' ? (
+              <>
+                {row('ID', data.id)}
+                {row('Description', data.description)}
+                {row('Fournisseur', data.fournisseur_nom)}
+                {row('Catégorie', data.categorie_nom)}
+                {row('Sous-catégorie', data.sous_categorie_nom)}
+                {row('Type', data.type_prestation)}
+                {row(
+                  'Tarification',
+                  data.tarif_min != null || data.tarif_max != null
+                    ? `${data.tarif_min?.toLocaleString?.('fr-FR') ?? '—'} – ${data.tarif_max?.toLocaleString?.('fr-FR') ?? '—'} FCFA`
+                    : null
+                )}
+                {row('Statut', adminService.formatServiceStatus(data.statut))}
+                {row('Zones', Array.isArray(data.zones_intervention) ? data.zones_intervention.join(', ') : data.zones_intervention)}
+                {row(
+                  'Disponibilité',
+                  `${data.disponibilite_debut ? adminService.formatDate(data.disponibilite_debut) : '—'} → ${data.disponibilite_fin ? adminService.formatDate(data.disponibilite_fin) : '—'}`
+                )}
+                {row('Créée le', data.created_at ? new Date(data.created_at).toLocaleString('fr-FR') : null)}
+              </>
+            ) : (
+              <>
+                {row('ID', data.id)}
+                {row('Description', data.description)}
+                {row('Client', data.client_nom)}
+                {row('E-mail client', data.client_email)}
+                {row('Catégorie', data.categorie_nom)}
+                {row('Sous-catégorie', data.sous_categorie_nom)}
+                {row('Type de service', data.type_service)}
+                {row('Lieu', data.lieu_intervention)}
+                {row('Budget', data.budget != null ? `${Number(data.budget).toLocaleString('fr-FR')} FCFA` : null)}
+                {row('Urgence', data.urgence)}
+                {row('Statut', adminService.formatServiceStatus(data.statut))}
+                {row('Date souhaitée', adminService.formatDate(data.date_souhaitee))}
+                {row('Date limite', adminService.formatDate(data.date_limite))}
+                {row('Exigences', data.exigences)}
+                {row('Créée le', data.created_at ? new Date(data.created_at).toLocaleString('fr-FR') : null)}
+              </>
+            )}
+          </dl>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3 bg-slate-50/80">
+          {kind === 'besoin' && (
+            <Link
+              to={`/admin/correspondances/besoin/${data.id}`}
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 shadow-sm hover:bg-indigo-50"
+            >
+              <FiSearchMatch className="h-4 w-4" />
+              Correspondances
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ManageServices = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [prestations, setPrestations] = useState([]);
   const [demandes, setDemandes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,13 +344,24 @@ const ManageServices = () => {
   const [filter, setFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('prestations');
   const [toast, setToast] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(null);
+  const [providerProfileOpen, setProviderProfileOpen] = useState(null);
+  const [providerLoadingId, setProviderLoadingId] = useState(null);
+
+  useEffect(() => {
+    const path = location.pathname || '';
+    if (path.includes('/admin/besoins') || path.includes('/admin/demandes')) {
+      setActiveTab('demandes');
+    } else {
+      setActiveTab('prestations');
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        console.log('ManageServices - user:', user);
-        
+
         // Utiliser le service admin pour récupérer les données
         const [prestationsData, demandesData] = await Promise.all([
           adminService.getAllPrestations(),
@@ -114,11 +455,39 @@ const ManageServices = () => {
     return matchesSearch;
   });
 
+  const prestationsByType = useMemo(() => (
+    Object.values(
+      filteredPrestations.reduce((acc, prestation) => {
+        const typeKey = prestation.type_prestation || 'Non défini';
+        if (!acc[typeKey]) {
+          acc[typeKey] = {
+            type: typeKey,
+            type_prestation: typeKey,
+            offers: [],
+          };
+        }
+        acc[typeKey].offers.push(prestation);
+        return acc;
+      }, {})
+    ).map((group) => {
+      const tarifs = group.offers.flatMap((o) => [o.tarif_min, o.tarif_max]).filter((v) => v != null).map(Number);
+      const globalTarifText = tarifs.length
+        ? `${Math.min(...tarifs).toLocaleString('fr-FR')} – ${Math.max(...tarifs).toLocaleString('fr-FR')} FCFA`
+        : null;
+      const fournisseurs = [...new Set(group.offers.map((o) => o.fournisseur_nom).filter(Boolean))];
+      const categories = [...new Set(group.offers.map((o) => o.categorie_nom).filter(Boolean))];
+      const zones = [...new Set(group.offers.flatMap((o) => (Array.isArray(o.zones_intervention) ? o.zones_intervention : [o.zones_intervention])).filter(Boolean))];
+      const actifs = group.offers.filter((o) => o.statut === 'active').length;
+      const totalPrestations = new Set(group.offers.map((o) => o.intitule || o.id)).size;
+      return { ...group, globalTarifText, fournisseurs, categories, zones, actifs, totalPrestations };
+    }).sort((a, b) => a.type.localeCompare(b.type, 'fr'))
+  ), [filteredPrestations]);
+
   const filteredDemandes = demandes.filter(demande => {
     const matchesSearch = 
       demande.intitule?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       demande.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      demande.fournisseur_nom?.toLowerCase().includes(searchTerm.toLowerCase());
+      demande.client_nom?.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (filter === 'all') return matchesSearch;
     if (filter === 'ouverte') return demande.statut === 'ouverte' && matchesSearch;
@@ -133,6 +502,21 @@ const ManageServices = () => {
     prestationsActives: prestations.filter(p => p.statut === 'active').length,
     totalDemandes: demandes.length,
     demandesOuvertes: demandes.filter(d => d.statut === 'ouverte').length
+  };
+
+  const handleOpenProviderProfile = async (offer) => {
+    try {
+      setProviderLoadingId(offer.id);
+      const profile = await adminService.getProviderProfileForAdmin(offer.fournisseur);
+      setProviderProfileOpen({ raw: profile });
+    } catch (error) {
+      setToast({
+        message: error?.message || 'Impossible de charger le profil fournisseur',
+        type: 'error',
+      });
+    } finally {
+      setProviderLoadingId(null);
+    }
   };
 
   if (loading) {
@@ -258,7 +642,11 @@ const ManageServices = () => {
         <div className="border-b border-gray-200">
           <nav className="flex -mb-px">
             <button
-              onClick={() => setActiveTab('prestations')}
+              type="button"
+              onClick={() => {
+                setActiveTab('prestations');
+                navigate('/admin/prestations');
+              }}
               className={`py-2 px-4 border-b-2 font-medium text-sm ${
                 activeTab === 'prestations'
                   ? 'border-primary-500 text-primary-600'
@@ -268,7 +656,11 @@ const ManageServices = () => {
               Prestations ({prestations.length})
             </button>
             <button
-              onClick={() => setActiveTab('demandes')}
+              type="button"
+              onClick={() => {
+                setActiveTab('demandes');
+                navigate('/admin/besoins');
+              }}
               className={`py-2 px-4 border-b-2 font-medium text-sm ${
                 activeTab === 'demandes'
                   ? 'border-primary-500 text-primary-600'
@@ -280,137 +672,163 @@ const ManageServices = () => {
           </nav>
         </div>
 
-        {/* Contenu des onglets */}
-        <div className="p-6">
+        {/* Contenu des onglets — tableaux */}
+        <div className="p-0">
           {activeTab === 'prestations' ? (
-            <div className="space-y-4">
-              {filteredPrestations.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-500">
-                    {prestations.length === 0 ? 'Aucune prestation trouvée' : 'Aucune prestation correspondant aux filtres'}
-                  </div>
+            <div className="overflow-x-auto">
+              {prestationsByType.length === 0 ? (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  {prestations.length === 0 ? 'Aucune prestation trouvée' : 'Aucune prestation correspondant aux filtres'}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredPrestations.map((prestation) => (
-                    <div key={prestation.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-medium text-gray-900 truncate">{prestation.intitule}</h3>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(prestation.statut)}`}>
-                          {adminService.formatServiceStatus(prestation.statut)}
-                        </span>
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{prestation.description}</p>
-                      
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center text-gray-500">
-                          <FiBriefcase className="h-4 w-4 mr-2" />
-                          {prestation.type_prestation}
-                        </div>
-                        <div className="flex items-center text-gray-500">
-                          <FiDollarSign className="h-4 w-4 mr-2" />
-                          {prestation.tarif_min && prestation.tarif_max ? 
-                            `${prestation.tarif_min?.toLocaleString()} - ${prestation.tarif_max?.toLocaleString()} FCFA` :
-                            prestation.tarif_min ? 
-                              `${prestation.tarif_min?.toLocaleString()} FCFA` :
-                              'Non spécifié'
-                          }
-                        </div>
-                        <div className="flex items-center text-gray-500">
-                          <FiUser className="h-4 w-4 mr-2" />
-                          {prestation.fournisseur_nom || 'Non spécifié'}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                        <Link
-                          to={`/fournisseur/prestation/${prestation.id}`}
-                          className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                        >
-                          Voir détails
-                        </Link>
-                        <div className="flex items-center space-x-2">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Type de prestation</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Catégories</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Nombre de fournisseurs</th>
+                      <th scope="col" className="px-4 py-3 text-right font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {prestationsByType.map((typeGroup) => (
+                      <tr key={typeGroup.type} className="hover:bg-gray-50/80">
+                        <td className="px-4 py-3 font-medium text-gray-900">{typeGroup.type}</td>
+                        <td className="max-w-[14rem] px-4 py-3 text-gray-700" title={typeGroup.categories.join(', ')}>
+                          {truncateCell(typeGroup.categories.join(', ') || '—', 60)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-700">{typeGroup.fournisseurs.length}</td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
                           <button
-                            onClick={() => handleDeletePrestation(prestation.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Supprimer"
+                            type="button"
+                            onClick={() => setDetailOpen({ kind: 'type_group', data: typeGroup })}
+                            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-50"
+                            title="Voir fournisseurs"
                           >
-                            <FiTrash2 className="h-4 w-4" />
+                            <FiEye className="h-3.5 w-3.5" />
+                            Voir fournisseurs
                           </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="overflow-x-auto">
               {filteredDemandes.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-500">
-                    {demandes.length === 0 ? 'Aucune demande trouvée' : 'Aucune demande correspondant aux filtres'}
-                  </div>
+                <div className="px-6 py-12 text-center text-gray-500">
+                  {demandes.length === 0 ? 'Aucune demande trouvée' : 'Aucune demande correspondant aux filtres'}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredDemandes.map((demande) => (
-                    <div key={demande.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
-                        <h3 className="text-lg font-medium text-gray-900 truncate">{demande.intitule}</h3>
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(demande.statut)}`}>
-                          {adminService.formatServiceStatus(demande.statut)}
-                        </span>
-                      </div>
-                      
-                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{demande.description}</p>
-                      
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center text-gray-500">
-                          <FiMapPin className="h-4 w-4 mr-2" />
-                          {demande.lieu_intervention}
-                        </div>
-                        <div className="flex items-center text-gray-500">
-                          <FiDollarSign className="h-4 w-4 mr-2" />
-                          {demande.budget ? `${demande.budget?.toLocaleString()} FCFA` : 'Budget non spécifié'}
-                        </div>
-                        <div className="flex items-center text-gray-500">
-                          <FiCalendar className="h-4 w-4 mr-2" />
-                          Date limite: {adminService.formatDate(demande.date_limite)}
-                        </div>
-                        <div className="flex items-center text-gray-500">
-                          <FiUser className="h-4 w-4 mr-2" />
-                          {demande.fournisseur_nom || 'Non spécifié'}
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                        <Link
-                          to="/admin/besoins"
-                          className="text-primary-600 hover:text-primary-800 text-sm font-medium"
-                        >
-                          Liste publique des besoins
-                        </Link>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleDeleteDemande(demande.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="Supprimer"
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        ID
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Intitulé
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Client
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Catégorie
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-right font-semibold text-gray-700">
+                        Budget
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Statut
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Date limite
+                      </th>
+                      <th scope="col" className="px-4 py-3 text-right font-semibold text-gray-700">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 bg-white">
+                    {filteredDemandes.map((demande) => (
+                      <tr key={demande.id} className="hover:bg-gray-50/80">
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-600">{demande.id}</td>
+                        <td className="max-w-[14rem] px-4 py-3">
+                          <span className="font-medium text-gray-900" title={demande.intitule}>
+                            {truncateCell(demande.intitule, 56)}
+                          </span>
+                        </td>
+                        <td className="max-w-[10rem] px-4 py-3 text-gray-700" title={demande.client_nom}>
+                          {truncateCell(demande.client_nom, 28)}
+                        </td>
+                        <td className="max-w-[9rem] px-4 py-3 text-gray-700" title={demande.categorie_nom}>
+                          {truncateCell(demande.categorie_nom, 24)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">
+                          {demande.budget != null ? `${Number(demande.budget).toLocaleString('fr-FR')} FCFA` : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getStatusColor(demande.statut)}`}
                           >
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                            {adminService.formatServiceStatus(demande.statut)}
+                          </span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-gray-600">
+                          {demande.date_limite ? adminService.formatDate(demande.date_limite) : '—'}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <div className="flex flex-wrap justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setDetailOpen({ kind: 'besoin', data: demande })}
+                              className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-50"
+                              title="Détail"
+                            >
+                              <FiEye className="h-3.5 w-3.5" />
+                              Détail
+                            </button>
+                            <Link
+                              to={`/admin/correspondances/besoin/${demande.id}`}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                              title="Voir les correspondances"
+                            >
+                              <FiSearchMatch className="h-3.5 w-3.5" />
+                              Matching
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDemande(demande.id)}
+                              className="inline-flex items-center rounded-lg border border-red-100 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                              title="Supprimer"
+                            >
+                              <FiTrash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </div>
           )}
         </div>
       </div>
-      
+
+      <ServiceDetailModal
+        open={detailOpen}
+        onClose={() => setDetailOpen(null)}
+        onOpenProviderProfile={handleOpenProviderProfile}
+        providerLoadingId={providerLoadingId}
+      />
+      <ProviderProfileModal
+        open={providerProfileOpen}
+        onClose={() => setProviderProfileOpen(null)}
+      />
+
       {/* Toast notifications */}
       {toast && (
         <Toast

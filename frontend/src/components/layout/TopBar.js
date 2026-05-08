@@ -1,15 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FiBell, FiSearch, FiLogOut, FiMenu, FiSun, FiMoon, FiUser, FiSettings, FiChevronDown, FiActivity, FiTrendingUp, FiCalendar } from 'react-icons/fi';
+import { FiSearch, FiLogOut, FiMenu, FiSun, FiMoon, FiUser, FiSettings, FiChevronDown, FiActivity } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationBell from '../NotificationBell';
 
 const TopBar = ({ toggleSidebar, sidebarOpen }) => {
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [notificationsCount] = useState(3);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const { user, logout } = useAuth();
-  const notificationRef = useRef(null);
   const profileMenuRef = useRef(null);
 
   useEffect(() => {
@@ -24,9 +22,6 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
   useEffect(() => {
     // Fermer les menus quand on clique en dehors
     const handleClickOutside = (event) => {
-      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
-        setShowNotifications(false);
-      }
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
         setShowProfileMenu(false);
       }
@@ -84,32 +79,6 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
     }
   };
 
-  const getUserRoleIcon = () => {
-    switch (user?.type_utilisateur) {
-      case 'administrateur':
-        return <FiSettings className="w-4 h-4" />;
-      case 'fournisseur':
-        return <FiActivity className="w-4 h-4" />;
-      case 'client':
-        return <FiTrendingUp className="w-4 h-4" />;
-      default:
-        return <FiUser className="w-4 h-4" />;
-    }
-  };
-
-  const getUserRoleColor = () => {
-    switch (user?.type_utilisateur) {
-      case 'administrateur':
-        return 'bg-purple-100 text-purple-800';
-      case 'fournisseur':
-        return 'bg-blue-100 text-blue-800';
-      case 'client':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
   return (
     <header className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-40">
       <div className="px-4 sm:px-6 lg:px-8">
@@ -160,65 +129,7 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
               <FiSearch className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
             </div>
 
-            {/* Notifications */}
-            <div className="relative" ref={notificationRef}>
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 transition-colors"
-              >
-                <FiBell className="h-5 w-5" />
-                {notificationsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
-                    {notificationsCount}
-                  </span>
-                )}
-              </button>
-              
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                  <div className="px-4 py-3 border-b border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
-                      <span className="text-xs text-gray-500">{notificationsCount} non lues</span>
-                    </div>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">Nouvelle demande de service</p>
-                          <p className="text-xs text-gray-500 mt-1">Transport de marchandises - Il y a 5 minutes</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">Prestation acceptée</p>
-                          <p className="text-xs text-gray-500 mt-1">Service de nettoyage - Il y a 1 heure</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors">
-                      <div className="flex items-start space-x-3">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full mt-2"></div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">Message reçu</p>
-                          <p className="text-xs text-gray-500 mt-1">De client@example.com - Il y a 2 heures</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-200">
-                    <button className="text-xs text-primary-600 hover:text-primary-700 font-medium">
-                      Voir toutes les notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotificationBell variant="dashboard" />
 
             {/* User Profile Menu */}
             <div className="relative" ref={profileMenuRef}>

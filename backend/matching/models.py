@@ -1,4 +1,6 @@
+from django.conf import settings
 from django.db import models
+
 
 class MatchingRule(models.Model):
     """Modèle pour les règles de matching"""
@@ -20,29 +22,25 @@ class MatchingRule(models.Model):
     def __str__(self):
         return self.name
 
-class MatchingScore(models.Model):
-    """Modèle pour stocker les scores de matching"""
-    
-    offer = models.ForeignKey(
-        'services.Prestation', 
-        on_delete=models.CASCADE, 
-        related_name='matching_scores'
+
+class MatchingRun(models.Model):
+    """Une ligne par exécution du matching : métadonnées + tableau JSON des correspondances."""
+
+    lance_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="matching_runs_lances",
+        verbose_name="Lancé par",
     )
-    need = models.ForeignKey(
-        'services.Besoin',
-        on_delete=models.CASCADE,
-        related_name='matching_scores'
-    )
-    score = models.DecimalField(max_digits=5, decimal_places=2)
-    details = models.JSONField(default=dict)  # Détails du calcul
-    calculated_at = models.DateTimeField(auto_now_add=True)
-    
+    lance_le = models.DateTimeField(auto_now_add=True, verbose_name="Date d'exécution")
+    correspondances = models.JSONField(default=list, verbose_name="Correspondances")
+
     class Meta:
-        unique_together = ['offer', 'need']
-        indexes = [
-            models.Index(fields=['score']),
-            models.Index(fields=['calculated_at']),
-        ]
-    
+        ordering = ["-lance_le"]
+        verbose_name = "Exécution de matching"
+        verbose_name_plural = "Exécutions de matching"
+
     def __str__(self):
-        return f"Score {self.score} - Prestation {self.offer.id} / Besoin {self.need.id}"
+        return f"Matching #{self.pk} — {self.lance_le:%Y-%m-%d %H:%M} ({len(self.correspondances or [])} correspondances)"

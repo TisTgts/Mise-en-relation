@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { FiPlus, FiEdit, FiTrash2, FiEye, FiFilter, FiDollarSign, FiMapPin, FiClock, FiBriefcase, FiAlertCircle, FiChevronDown, FiX, FiCheck } from 'react-icons/fi';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { FiPlus, FiEdit, FiTrash2, FiEye, FiSearch, FiDollarSign, FiMapPin, FiClock, FiBriefcase, FiAlertCircle, FiChevronDown, FiX } from 'react-icons/fi';
 import demandesService from '../../../services/demandesService';
 import categoriesService from '../../../services/categoriesService';
 import { useAuth } from '../../../contexts/AuthContext';
 import Toast from '../../../components/Toast';
+import {
+  formatMoneyFcfa,
+  formatDateShort,
+  besoinStatutPillClass,
+  besoinStatutLabel,
+  besoinStepsFromStatut,
+  urgencePillClass,
+  urgenceLabel,
+} from '../clientUi';
 
 const MesBesoins = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [demandes, setDemandes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,13 +30,13 @@ const MesBesoins = () => {
   const [toast, setToast] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [demandeToDelete, setDemandeToDelete] = useState(null);
+  /** Après création : guidage vers les correspondances { besoinId } ou {} si pas d’id */
+  const [postCreateMatchingHint, setPostCreateMatchingHint] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        
-        console.log('MesBesoins - Début du chargement des données');
         
         // Récupérer les demandes et les catégories en parallèle
         const [demandesData, categoriesData] = await Promise.all([
@@ -34,21 +44,12 @@ const MesBesoins = () => {
           categoriesService.getAllCategories()
         ]);
         
-        console.log('MesBesoins - Données brutes reçues:');
-        console.log('  - demandesData:', demandesData);
-        console.log('  - categoriesData:', categoriesData);
-        
         const demandesList = Array.isArray(demandesData)
           ? demandesData
           : (demandesData.results || []);
         const categoriesList = Array.isArray(categoriesData)
           ? categoriesData
           : (categoriesData.results || []);
-        
-        console.log('MesBesoins - Données traitées:');
-        console.log('  - demandesList length:', demandesList?.length);
-        console.log('  - categoriesList length:', categoriesList?.length);
-        console.log('  - categoriesList:', categoriesList);
         
         setDemandes(demandesList);
         setCategories(categoriesList);
@@ -68,25 +69,43 @@ const MesBesoins = () => {
     }
   }, [user]);
 
-  // Vérifier si nous revenons d'une modification réussie
+  // Retour après modification réussie
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const modified = urlParams.get('modified');
-    
-    console.log('MesBesoins - URL params:', urlParams.toString());
-    console.log('MesBesoins - modified param:', modified);
-    
+
     if (modified === 'true') {
-      console.log('MesBesoins - Affichage du message de succès');
       setToast({
         message: 'Besoin modifié avec succès',
         type: 'success'
       });
-      
-      // Nettoyer l'URL
+
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  // Après création d’un besoin : hint dans l’URL → bandeau + toast
+  useEffect(() => {
+    const hint = searchParams.get('hint');
+    if (hint !== 'matching') return;
+
+    const raw = searchParams.get('besoin');
+    let besoinId = null;
+    if (raw != null && raw !== '') {
+      const n = Number(raw);
+      if (Number.isFinite(n)) besoinId = n;
+    }
+    setPostCreateMatchingHint({ besoinId });
+    setToast({
+      message: 'Besoin enregistré. Consultez les correspondances pour être mis en relation.',
+      type: 'success'
+    });
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('hint');
+    next.delete('besoin');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const filteredAndSortedDemandes = demandes
     .filter(demande => {
@@ -168,46 +187,6 @@ const MesBesoins = () => {
     navigate(`/client/besoins/${id}/edit`);
   };
 
-  const getStatusColor = (statut) => {
-    switch (statut) {
-      case 'ouverte': return 'bg-green-100 text-green-800 border-green-200';
-      case 'en_cours': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'pourvue': return 'bg-violet-100 text-violet-800 border-violet-200';
-      case 'annulee': return 'bg-gray-100 text-gray-800 border-gray-200';
-      default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    }
-  };
-
-  const getStatusIcon = (statut) => {
-    switch (statut) {
-      case 'ouverte': return <FiAlertCircle className="w-4 h-4" />;
-      case 'en_cours': return <FiClock className="w-4 h-4" />;
-      case 'pourvue': return <FiBriefcase className="w-4 h-4" />;
-      case 'annulee': return <FiX className="w-4 h-4" />;
-      default: return <FiAlertCircle className="w-4 h-4" />;
-    }
-  };
-
-  const getStatusText = (statut) => {
-    switch (statut) {
-      case 'ouverte': return 'Ouvert';
-      case 'en_cours': return 'En cours';
-      case 'pourvue': return 'Pourvu';
-      case 'annulee': return 'Annulé';
-      default: return statut;
-    }
-  };
-
-  const getUrgencyColor = (urgence) => {
-    switch (urgence) {
-      case 'urgente': return 'text-red-600 bg-red-50';
-      case 'haute': return 'text-orange-600 bg-orange-50';
-      case 'normale': return 'text-amber-600 bg-amber-50';
-      case 'basse': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -217,33 +196,65 @@ const MesBesoins = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Mes besoins</h1>
             <p className="text-gray-600 mt-2">Créez, modifiez ou supprimez vos besoins de services</p>
           </div>
           <div className="mt-4 lg:mt-0">
-            <a
-              href="/client/creer-demande"
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 transform hover:scale-105"
+            <Link
+              to="/client/creer-besoin"
+              className="inline-flex items-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
             >
-              <FiPlus className="mr-2 h-5 w-5" />
+              <FiPlus className="mr-2 h-4 w-4" />
               Nouveau besoin
-            </a>
+            </Link>
           </div>
         </div>
       </div>
 
+      {postCreateMatchingHint && (
+        <div className="flex flex-col gap-3 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-indigo-900">Étape suivante : correspondances</p>
+            <p className="mt-1 text-sm text-slate-600">
+              Découvrez les prestations suggérées pour votre besoin. Vous pouvez aussi lancer le matching depuis la ligne du
+              tableau.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Link
+              to={
+                postCreateMatchingHint.besoinId != null
+                  ? `/client/besoins/${postCreateMatchingHint.besoinId}/matching`
+                  : '/client/matchings'
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              <FiSearch className="h-4 w-4" />
+              Voir les correspondances
+            </Link>
+            <button
+              type="button"
+              onClick={() => setPostCreateMatchingHint(null)}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Masquer
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Filtres avancés */}
-      <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Recherche */}
           <div className="lg:col-span-2">
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              <FiFilter className="inline mr-2 h-4 w-4" />
+              <FiSearch className="inline mr-2 h-4 w-4" />
               Recherche
             </label>
             <div className="relative">
@@ -252,9 +263,9 @@ const MesBesoins = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Rechercher un besoin…"
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
-              <FiFilter className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <FiSearch className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
             </div>
           </div>
           
@@ -267,7 +278,7 @@ const MesBesoins = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">Toutes les catégories</option>
                 {categories.length > 0 ? (
@@ -295,7 +306,7 @@ const MesBesoins = () => {
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="all">Tous les besoins</option>
                 <option value="ouverte">Ouverts</option>
@@ -316,7 +327,7 @@ const MesBesoins = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="created_at">Date</option>
                 <option value="budget">Budget</option>
@@ -335,7 +346,7 @@ const MesBesoins = () => {
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="desc">Récent</option>
                 <option value="asc">Ancien</option>
@@ -347,56 +358,51 @@ const MesBesoins = () => {
       </div>
 
       {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Total</p>
-              <p className="text-3xl font-bold">{filteredAndSortedDemandes.length}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</p>
+              <p className="text-3xl font-bold text-slate-900">{filteredAndSortedDemandes.length}</p>
             </div>
-            <FiBriefcase className="w-8 h-8 text-blue-200" />
+            <FiBriefcase className="h-7 w-7 text-slate-400" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Ouvertes</p>
-              <p className="text-3xl font-bold">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ouvertes</p>
+              <p className="text-3xl font-bold text-emerald-700">
                 {filteredAndSortedDemandes.filter(d => d.statut === 'ouverte').length}
               </p>
             </div>
-            <FiAlertCircle className="w-8 h-8 text-green-200" />
+            <FiAlertCircle className="h-7 w-7 text-emerald-500" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-yellow-100 text-sm">En cours</p>
-              <p className="text-3xl font-bold">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">En cours</p>
+              <p className="text-3xl font-bold text-amber-700">
                 {filteredAndSortedDemandes.filter(d => d.statut === 'en_cours').length}
               </p>
             </div>
-            <FiClock className="w-8 h-8 text-yellow-200" />
+            <FiClock className="h-7 w-7 text-amber-500" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Budget total</p>
-              <p className="text-3xl font-bold">
-                {Math.round(
-                  filteredAndSortedDemandes.reduce((sum, d) => sum + Number(d.budget || 0), 0)
-                ).toLocaleString('fr-FR')}{' '}
-                FCFA
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Budget total</p>
+              <p className="text-xl font-bold text-violet-700">{formatMoneyFcfa(filteredAndSortedDemandes.reduce((sum, d) => sum + Number(d.budget || 0), 0))}</p>
             </div>
-            <FiDollarSign className="w-8 h-8 text-purple-200" />
+            <FiDollarSign className="h-7 w-7 text-violet-500" />
           </div>
         </div>
       </div>
 
       {/* Tableau moderne */}
-      <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {filteredAndSortedDemandes.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-gray-500">
@@ -412,120 +418,93 @@ const MesBesoins = () => {
             </div>
             {demandes.length === 0 && (
               <div className="mt-6">
-                <a
-                  href="/client/creer-demande"
+                <Link
+                  to="/client/creer-besoin"
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 transition-all duration-200"
                 >
                   <FiPlus className="mr-2 h-5 w-5" />
                   Créer mon premier besoin
-                </a>
+                </Link>
               </div>
             )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">
                     Besoin
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">
                     Catégorie
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Budget
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Urgence
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-700">
                     Statut
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Date limite
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-slate-700">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedDemandes.map((demande) => (
-                  <tr key={demande.id} className="hover:bg-gray-50 transition-colors">
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {filteredAndSortedDemandes.map((demande) => {
+                  return (
+                  <tr key={demande.id} className="transition-colors hover:bg-slate-50">
                     <td className="px-6 py-4">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="text-sm font-semibold text-slate-900">
                           {demande.intitule}
                         </div>
-                        <div className="flex items-center mt-1 text-sm text-gray-500">
+                        <div className="mt-1 flex items-center text-sm text-slate-500">
                           <FiMapPin className="mr-1 h-3 w-3" />
-                          {demande.lieu_intervention}
+                          {demande.lieu_intervention || '—'}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col space-y-2">
-                        <div className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                        <div className="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
                           {demande.categorie_nom || demande.categorie?.nom || 'Non définie'}
                         </div>
-                        {demande.sous_categorie && (
-                          <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
-                            {demande.sous_categorie}
+                        {(demande.sous_categorie_nom || demande.sous_categorie?.nom) && (
+                          <div className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
+                            {demande.sous_categorie_nom || demande.sous_categorie?.nom}
                           </div>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {demande.budget?.toLocaleString() || 'N/A'} FCFA
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getUrgencyColor(demande.urgence)}`}>
-                        {demande.urgence === 'urgente' ? 'Urgente' :
-                         demande.urgence === 'haute' ? 'Haute' :
-                         demande.urgence === 'normale' ? 'Normale' : 'Basse'}
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${besoinStatutPillClass(demande.statut)}`}>
+                        {besoinStatutLabel(demande.statut)}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getStatusColor(demande.statut)}`}>
-                          {getStatusIcon(demande.statut)}
-                          <span className="ml-2">{getStatusText(demande.statut)}</span>
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">
-                      {demande.date_limite
-                        ? new Date(demande.date_limite).toLocaleDateString('fr-FR', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })
-                        : '—'}
-                    </td>
-                    <td className="px-6 py-4">
                       <div className="flex items-center justify-end space-x-2">
-                        <a
-                          href={`/client/besoins/${demande.id}`}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                        <Link
+                          to={`/client/besoins/${demande.id}`}
+                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                           title="Voir les détails"
                         >
                           <FiEye className="h-4 w-4" />
-                        </a>
+                        </Link>
                         <button
                           onClick={() => handleEdit(demande.id)}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                           title="Modifier"
                         >
                           <FiEdit className="h-4 w-4" />
                         </button>
+                        <Link
+                          to={`/client/besoins/${demande.id}/matching`}
+                          className="inline-flex items-center rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+                          title="Voir les correspondances"
+                        >
+                          <FiSearch className="h-4 w-4" />
+                        </Link>
                         <button
                           onClick={() => handleDelete(demande.id)}
-                          className="inline-flex items-center px-3 py-2 border border-red-300 rounded-lg text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                          className="inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
                           title="Supprimer"
                         >
                           <FiTrash2 className="h-4 w-4" />
@@ -533,7 +512,8 @@ const MesBesoins = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 // Actions pour le reducer
 const AUTH_ACTIONS = {
@@ -180,7 +181,8 @@ export const AuthProvider = ({ children }) => {
     };
 
     restoreUser();
-  }, []); // Exécuter uniquement au montage
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- restauration session au montage uniquement
+  }, []);
 
   // Effet pour sauvegarder le token dans localStorage
   useEffect(() => {
@@ -195,33 +197,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, [state.token, state.refresh_token, state.type_utilisateur]);
 
-  // Effet pour configurer les headers par défaut pour les requêtes API
-  useEffect(() => {
-    if (state.token) {
-      const originalFetch = window.fetch;
-      window.fetch = (url, options = {}) => {
-        // Ne pas ajouter de header pour les requêtes d'authentification et locales
-        const isAuthRequest = url.includes('/api/accounts/login/') || 
-                           url.includes('/api/accounts/register/') ||
-                           url.includes('/api/accounts/logout/') ||
-                           url.startsWith('http://localhost:8000/api/accounts/');
-        
-        // Ne pas ajouter de header pour les requêtes vers le backend avec URL absolue
-        const isAbsoluteBackendRequest = url.includes('http://localhost:8000');
-        
-        const headers = {
-          ...options.headers,
-        };
-        
-        // Ajouter le header Authorization seulement pour les requêtes relatives et non-auth
-        if (!isAuthRequest && !isAbsoluteBackendRequest) {
-          headers['Authorization'] = `Bearer ${state.token}`;
-        }
-        
-        return originalFetch(url, { ...options, headers });
-      };
-    }
-  }, [state.token]);
+  // Note: on ne monkey-patche pas `window.fetch`.
+  // Chaque requête vers l'API doit passer ses headers explicitement (Authorization via le token).
 
   // Actions
   const login = async (email, password) => {
@@ -235,7 +212,7 @@ export const AuthProvider = ({ children }) => {
       formData.append('email', email);
       formData.append('password', password);
       
-      const response = await fetch('http://localhost:8000/api/accounts/login/', {
+      const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: 'POST',
         body: formData,
         mode: 'cors'
@@ -280,7 +257,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: AUTH_ACTIONS.REGISTER_START });
     
     try {
-      const response = await fetch('http://localhost:8000/api/accounts/register/', {
+      const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

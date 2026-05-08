@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { FiUsers, FiSearch, FiFilter, FiEdit, FiTrash2, FiEye, FiMail, FiPhone, FiBriefcase, FiShield, FiUserPlus, FiUserX } from 'react-icons/fi';
+import { FiUsers, FiSearch, FiTrash2, FiMail, FiPhone, FiBriefcase, FiShield, FiUserPlus, FiUserX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';

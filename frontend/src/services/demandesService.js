@@ -115,7 +115,24 @@ class DemandesService {
       const errorText = await response.text();
       console.error('demandesService.updateDemande - error response:', response);
       console.error('demandesService.updateDemande - error text:', errorText);
-      throw new Error(`Failed to update demande: ${response.status} ${errorText}`);
+      let message = `Failed to update demande: ${response.status}`;
+      try {
+        const payload = JSON.parse(errorText);
+        if (typeof payload === 'string') {
+          message = payload;
+        } else if (payload?.detail) {
+          message = payload.detail;
+        } else {
+          const firstKey = Object.keys(payload || {})[0];
+          if (firstKey) {
+            const firstValue = payload[firstKey];
+            message = Array.isArray(firstValue) ? `${firstKey}: ${firstValue[0]}` : `${firstKey}: ${firstValue}`;
+          }
+        }
+      } catch (_) {
+        if (errorText) message = `${message} ${errorText}`;
+      }
+      throw new Error(message);
     }
     
     const data = await response.json();
@@ -159,16 +176,11 @@ class DemandesService {
       headers: buildAuthHeaders(),
     });
     
-    console.log('demandesService.getMyDemandes - response status:', response.status);
-    
     if (!response.ok) {
-      console.error('demandesService.getMyDemandes - error response:', response);
       throw new Error('Failed to fetch my demandes');
     }
-    
-    const data = await response.json();
-    console.log('demandesService.getMyDemandes - response data:', data);
-    return data;
+
+    return response.json();
   }
 
   // Récupérer les demandes par catégorie

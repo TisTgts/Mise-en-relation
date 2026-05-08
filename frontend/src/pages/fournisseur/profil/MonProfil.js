@@ -21,6 +21,23 @@ const parseApiErrors = (data) => {
   return parts.length ? parts.join(' ') : 'Une erreur est survenue.';
 };
 
+const parseEmplacement = (raw) => {
+  try {
+    const parsed = JSON.parse(raw || '{}');
+    const lat = Number(parsed?.latitude);
+    const lng = Number(parsed?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return {
+      latitude: lat,
+      longitude: lng,
+      adresse: parsed?.adresse || '',
+      ville: parsed?.ville || '',
+    };
+  } catch {
+    return null;
+  }
+};
+
 const MonProfil = () => {
   const { user, updateUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -40,7 +57,12 @@ const MonProfil = () => {
     certifications: [],
     assurance_valide: false,
     disponibilites: '{}',
+    emplacement: '{}',
     tarif_horaire: '',
+    abonnement_type: 'standard',
+    abonnement_actif: true,
+    abonnement_debut: '',
+    abonnement_fin: '',
   });
 
   const [newService, setNewService] = useState('');
@@ -66,10 +88,15 @@ const MonProfil = () => {
       certifications: Array.isArray(profileData.certifications) ? profileData.certifications : [],
       assurance_valide: !!profileData.assurance_valide,
       disponibilites: JSON.stringify(profileData.disponibilites && typeof profileData.disponibilites === 'object' ? profileData.disponibilites : {}, null, 2),
+      emplacement: JSON.stringify(profileData.emplacement && typeof profileData.emplacement === 'object' ? profileData.emplacement : {}, null, 2),
       tarif_horaire:
         profileData.tarif_horaire != null && profileData.tarif_horaire !== ''
           ? String(profileData.tarif_horaire)
           : '',
+      abonnement_type: profileData.abonnement_type || 'standard',
+      abonnement_actif: profileData.abonnement_actif !== false,
+      abonnement_debut: profileData.abonnement_debut || '',
+      abonnement_fin: profileData.abonnement_fin || '',
     });
   }, []);
 
@@ -88,6 +115,14 @@ const MonProfil = () => {
       setLoading(false);
       return;
     }
+    // Afficher au moins les infos compte meme si l'API profil est indisponible.
+    setFormData((prev) => ({
+      ...prev,
+      first_name: user.first_name || prev.first_name,
+      last_name: user.last_name || prev.last_name,
+      email: user.email || prev.email,
+      telephone: user.telephone || prev.telephone,
+    }));
     let cancelled = false;
     (async () => {
       try {
@@ -134,6 +169,7 @@ const MonProfil = () => {
     setToast(null);
     try {
       let disponibilitesObj;
+      let emplacementObj;
       try {
         disponibilitesObj = JSON.parse(formData.disponibilites || '{}');
         if (disponibilitesObj === null || typeof disponibilitesObj !== 'object' || Array.isArray(disponibilitesObj)) {
@@ -141,6 +177,19 @@ const MonProfil = () => {
         }
       } catch {
         setToast({ message: 'Disponibilités : JSON objet invalide.', type: 'error' });
+        setSaving(false);
+        return;
+      }
+      try {
+        emplacementObj = JSON.parse(formData.emplacement || '{}');
+        if (emplacementObj === null || typeof emplacementObj !== 'object' || Array.isArray(emplacementObj)) {
+          throw new Error();
+        }
+      } catch {
+        setToast({
+          message: 'Emplacement : JSON objet invalide. Exemple: {"latitude": 12.34, "longitude": -1.23, "adresse": "Ouagadougou"}',
+          type: 'error',
+        });
         setSaving(false);
         return;
       }
@@ -175,6 +224,7 @@ const MonProfil = () => {
           certifications: formData.certifications,
           assurance_valide: formData.assurance_valide,
           disponibilites: disponibilitesObj,
+          emplacement: emplacementObj,
           tarif_horaire: tarif,
         }),
       });
@@ -232,17 +282,22 @@ const MonProfil = () => {
     );
   }
 
+  const emplacement = parseEmplacement(formData.emplacement);
+  const mapUrl = emplacement
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${emplacement.longitude - 0.02}%2C${emplacement.latitude - 0.02}%2C${emplacement.longitude + 0.02}%2C${emplacement.latitude + 0.02}&layer=mapnik&marker=${emplacement.latitude}%2C${emplacement.longitude}`
+    : null;
+
   return (
-    <div className="max-w-4xl mx-auto py-8">
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <div className="max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Mon profil</h1>
+            <h1 className="text-2xl font-bold text-slate-900">Mon profil</h1>
             {!editing && (
               <button
                 type="button"
                 onClick={() => setEditing(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700"
+                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
               >
                 <FiEdit2 className="mr-2 h-4 w-4" />
                 Modifier
@@ -254,32 +309,32 @@ const MonProfil = () => {
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Informations personnelles</h2>
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Informations personnelles</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Prénom</label>
                   <input
                     type="text"
                     name="first_name"
                     value={formData.first_name}
                     onChange={handleChange}
                     disabled={!editing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Nom</label>
                   <input
                     type="text"
                     name="last_name"
                     value={formData.last_name}
                     onChange={handleChange}
                     disabled={!editing}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Email</label>
                   <div className="relative">
                     <FiMail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <input
@@ -287,12 +342,12 @@ const MonProfil = () => {
                       name="email"
                       value={formData.email}
                       readOnly
-                      className="w-full pl-10 pr-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-600"
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-3 text-slate-600"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Téléphone</label>
                   <div className="relative">
                     <FiPhone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <input
@@ -301,7 +356,7 @@ const MonProfil = () => {
                       value={formData.telephone}
                       onChange={handleChange}
                       disabled={!editing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                      className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100"
                     />
                   </div>
                 </div>
@@ -309,10 +364,10 @@ const MonProfil = () => {
             </div>
 
             <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">Profil fournisseur</h2>
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Profil fournisseur</h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Raison sociale</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Raison sociale</label>
                   <div className="relative">
                     <FiBriefcase className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <input
@@ -321,14 +376,14 @@ const MonProfil = () => {
                       value={formData.raison_sociale}
                       onChange={handleChange}
                       disabled={!editing}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                      className="w-full rounded-lg border border-slate-300 py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Années d&apos;expérience</label>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Années d&apos;expérience</label>
                     <input
                       type="number"
                       name="annees_experience"
@@ -336,11 +391,11 @@ const MonProfil = () => {
                       onChange={handleChange}
                       disabled={!editing}
                       min="0"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tarif horaire (FCFA)</label>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Tarif horaire (FCFA)</label>
                     <input
                       type="number"
                       name="tarif_horaire"
@@ -349,9 +404,41 @@ const MonProfil = () => {
                       disabled={!editing}
                       min="0"
                       step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100"
                     />
                   </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm font-semibold text-slate-900">Abonnement matching</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        formData.abonnement_type === 'premium'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {formData.abonnement_type === 'premium' ? 'Premium' : 'Standard'}
+                    </span>
+                    <span
+                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        formData.abonnement_actif
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {formData.abonnement_actif ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-600">
+                    Standard = bonus matching de base. Premium = bonus plus élevé (activation prochaine).
+                  </p>
+                  {(formData.abonnement_debut || formData.abonnement_fin) && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Période: {formData.abonnement_debut || '—'} → {formData.abonnement_fin || '—'}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -362,9 +449,9 @@ const MonProfil = () => {
                     checked={formData.assurance_valide}
                     onChange={handleChange}
                     disabled={!editing}
-                    className="h-4 w-4 text-primary-600 border-gray-300 rounded"
+                    className="h-4 w-4 rounded border-slate-300 text-indigo-600"
                   />
-                  <label htmlFor="assurance_valide" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="assurance_valide" className="text-sm font-medium text-slate-700">
                     Assurance valide
                   </label>
                 </div>
@@ -513,6 +600,39 @@ const MonProfil = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Emplacement (JSON objet)
+                  </label>
+                  <textarea
+                    name="emplacement"
+                    value={formData.emplacement}
+                    onChange={handleChange}
+                    disabled={!editing}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Exemple: {"{"}"latitude": 12.36, "longitude": -1.53, "adresse": "Ouagadougou"{"}"}
+                  </p>
+                </div>
+
+                {mapUrl && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Apercu carte (geolocalisation)
+                    </label>
+                    <div className="rounded-md overflow-hidden border border-gray-200">
+                      <iframe
+                        title="Carte emplacement fournisseur"
+                        src={mapUrl}
+                        className="w-full h-64"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Disponibilités (JSON objet)
                   </label>
                   <textarea
@@ -528,18 +648,18 @@ const MonProfil = () => {
             </div>
 
             {editing && (
-              <div className="flex items-center justify-end space-x-4 pt-6 border-t border-gray-200">
+              <div className="flex items-center justify-end space-x-4 border-t border-slate-200 pt-6">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50"
+                  className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {saving ? (
                     <>

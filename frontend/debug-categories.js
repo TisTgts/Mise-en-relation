@@ -5,18 +5,15 @@ async function testCategories() {
   console.log('=== Test des catégories ===');
   
   // 1. Vérifier l'URL de l'endpoint
-  const API_ENDPOINTS = {
-    SERVICES: {
-      CATEGORIES: '/api/services/categories/'
-    }
-  };
-  
-  console.log('Endpoint URL:', API_ENDPOINTS.SERVICES.CATEGORIES);
+  const apiBase = '/api';
+  const categoriesEndpoint = `${apiBase}/services/categories/`;
+
+  console.log('Endpoint URL:', categoriesEndpoint);
   
   // 2. Tester avec fetch simple
   try {
     console.log('Test avec fetch simple...');
-    const response = await fetch(API_ENDPOINTS.SERVICES.CATEGORIES);
+    const response = await fetch(categoriesEndpoint);
     console.log('Response status:', response.status);
     console.log('Response ok:', response.ok);
     
@@ -34,7 +31,7 @@ async function testCategories() {
   // 3. Tester avec URL complète
   try {
     console.log('Test avec URL complète...');
-    const fullUrl = 'http://localhost:8000/api/services/categories/';
+    const fullUrl = `${window.location.origin}${categoriesEndpoint}`;
     console.log('Full URL:', fullUrl);
     
     const response = await fetch(fullUrl);

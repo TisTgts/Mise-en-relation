@@ -1,79 +1,115 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { FiDollarSign, FiEye, FiMail, FiPlus, FiRefreshCw, FiUser, FiCompass } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
-import prestationsService from '../../services/prestationsService';
-import { FiPlus, FiDollarSign, FiStar, FiTrendingUp, FiBriefcase, FiArrowUp, FiFileText, FiUser } from 'react-icons/fi';
-import { PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from 'recharts';
+import { API_ENDPOINTS } from '../../config/api';
+import {
+  fetchAllPaginated,
+  formatDateShort,
+  formatMoneyFcfa,
+  prestationStatutLabel,
+  prestationStatutPillClass,
+  transactionStatutLabel,
+  transactionStatutPillClass,
+  truncateText,
+} from './fournisseurUi';
+
+const TABS = [
+  { id: 'overview', label: "Vue d'ensemble" },
+  { id: 'prestations', label: 'Prestations' },
+  { id: 'transactions', label: 'Transactions' },
+];
+
+const buildAuthHeaders = (token) => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token || ''}`,
+});
 
 const FournisseurDashboard = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, token } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [prestations, setPrestations] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalPrestations: 0,
-    prestationsActives: 0,
-    totalTransactions: 0,
-    noteMoyenne: 0,
-    revenuTotal: 0,
-  });
-
-  const calculateStats = useCallback((prestationsList) => {
-    const total = prestationsList.length;
-    const actives = prestationsList.filter((p) => p.statut === 'active').length;
-    const noteMoyenne = prestationsList.reduce((acc, p) => acc + (p.note || 0), 0) / total || 0;
-    const revenuTotal = prestationsList.reduce((acc, p) => acc + (p.tarif_max || 0), 0);
-
-    setStats({
-      totalPrestations: total,
-      prestationsActives: actives,
-      totalTransactions: Math.floor(Math.random() * 20) + 5,
-      noteMoyenne: noteMoyenne.toFixed(1),
-      revenuTotal,
-    });
-  }, []);
+  const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState('overview');
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('FournisseurDashboard - user:', user);
-      console.log('FournisseurDashboard - user type:', user?.type_utilisateur);
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+      const headers = buildAuthHeaders(token);
+      const [prestData, txData, msgData] = await Promise.all([
+        fetch(`${API_ENDPOINTS.SERVICES.PRESTATIONS}my/`, { headers }).then((r) => r.ok ? r.json() : []),
+        fetchAllPaginated(API_ENDPOINTS.SERVICES.TRANSACTIONS, headers),
+        fetchAllPaginated(API_ENDPOINTS.SERVICES.MESSAGES, headers),
+      ]);
 
-      const prestationsData = await prestationsService.getMyPrestations();
-      console.log('FournisseurDashboard - prestationsData:', prestationsData);
-      setPrestations(prestationsData.results || prestationsData);
+      const pList = Array.isArray(prestData) ? prestData : prestData.results || [];
+      const uid = user?.id;
+      const txList = (Array.isArray(txData) ? txData : []).filter((t) => {
+        const fid = t.fournisseur?.id ?? t.fournisseur;
+        return uid == null || fid === uid;
+      });
+      const msgList = (Array.isArray(msgData) ? msgData : []).filter((m) => {
+        const eid = m.expediteur?.id ?? m.expediteur;
+        const did = m.destinataire?.id ?? m.destinataire;
+        return uid == null || eid === uid || did === uid;
+      });
 
-      calculateStats(prestationsData.results || prestationsData);
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
+      setPrestations(pList);
+      setTransactions(txList);
+      setMessages(msgList);
+    } catch (e) {
+      const msg = String(e?.message || e);
+      if (msg.includes('HTTP 401')) {
+        navigate('/login');
+      }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, [user, calculateStats]);
+  }, [user?.id, token, navigate]);
 
   useEffect(() => {
     if (!isAuthenticated || user?.type_utilisateur !== 'fournisseur') {
       navigate('/login');
       return;
     }
-
     fetchData();
   }, [isAuthenticated, user, navigate, fetchData]);
 
-  const statusData = [
-    { name: 'Actives', value: stats.prestationsActives, color: '#10B981' },
-    { name: 'Inactives', value: stats.totalPrestations - stats.prestationsActives, color: '#EF4444' },
-  ];
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && TABS.some((x) => x.id === t)) setTab(t);
+    else if (!t) setTab('overview');
+  }, [searchParams]);
 
-  const monthlyData = [
-    { month: 'Jan', prestations: 4, revenus: 250000 },
-    { month: 'Fev', prestations: 6, revenus: 380000 },
-    { month: 'Mar', prestations: 8, revenus: 520000 },
-    { month: 'Avr', prestations: 5, revenus: 310000 },
-    { month: 'Mai', prestations: 9, revenus: 580000 },
-    { month: 'Jun', prestations: 7, revenus: 450000 },
-  ];
+  const goTab = (id) => {
+    setTab(id);
+    if (id === 'overview') setSearchParams({}, { replace: true });
+    else setSearchParams({ tab: id }, { replace: true });
+  };
+
+  const stats = useMemo(() => {
+    const totalPrestations = prestations.length;
+    const prestationsActives = prestations.filter((p) => p.statut === 'active').length;
+    const transactionsActives = transactions.filter((t) => ['en_attente', 'acceptee', 'en_cours'].includes(t.statut)).length;
+    const revenuTermine = transactions
+      .filter((t) => t.statut === 'terminee')
+      .reduce((s, t) => s + Number(t.prix_final || 0), 0);
+    const nonLus = messages.filter((m) => {
+      const did = m.destinataire?.id ?? m.destinataire;
+      return did === user?.id && !m.lu;
+    }).length;
+    return { totalPrestations, prestationsActives, transactionsActives, revenuTermine, nonLus };
+  }, [prestations, transactions, messages, user?.id]);
 
   if (loading) {
     return (
@@ -84,222 +120,231 @@ const FournisseurDashboard = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Tableau de bord fournisseur</h1>
-            <p className="text-gray-600 mt-1">Bienvenue, {user?.first_name || user?.username}</p>
+            <h1 className="text-2xl font-bold text-slate-900">Tableau de bord fournisseur</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Bienvenue {user?.first_name || user?.username}, suivez vos prestations et vos transactions.
+            </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRefreshing(true);
+                fetchData();
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <FiRefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Actualiser
+            </button>
             <Link
               to="/fournisseur/profil"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-gray-800 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              <FiUser className="mr-2" />
+              <FiUser className="h-4 w-4" />
               Mon profil
             </Link>
             <Link
               to="/fournisseur/creer-prestation"
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
             >
-              <FiPlus className="mr-2" />
+              <FiPlus className="h-4 w-4" />
               Nouvelle prestation
             </Link>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-blue-100 text-sm">Mes prestations</p>
-              <p className="text-3xl font-bold mt-2">{stats.totalPrestations}</p>
-              <div className="flex items-center mt-2 text-sm">
-                <FiArrowUp className="mr-1" />
-                <span>{stats.prestationsActives} actives</span>
-              </div>
-            </div>
-            <div className="bg-white bg-opacity-20 p-3 rounded-lg">
-              <FiBriefcase className="w-6 h-6" />
-            </div>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Prestations</p>
+            <p className="mt-1 text-2xl font-bold text-slate-900">{stats.totalPrestations}</p>
+            <p className="text-xs text-slate-500">{stats.prestationsActives} actives</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Transactions actives</p>
+            <p className="mt-1 text-2xl font-bold text-blue-700">{stats.transactionsActives}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Revenu terminé</p>
+            <p className="mt-1 text-xl font-bold text-emerald-700">{formatMoneyFcfa(stats.revenuTermine)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Messages non lus</p>
+            <p className="mt-1 text-2xl font-bold text-amber-700">{stats.nonLus}</p>
           </div>
         </div>
+      </header>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm">Transactions</p>
-              <p className="text-3xl font-bold mt-2">{stats.totalTransactions}</p>
-              <div className="flex items-center mt-2 text-sm">
-                <FiTrendingUp className="mr-1" />
-                <span>Ce mois</span>
-              </div>
-            </div>
-            <div className="bg-white bg-opacity-20 p-3 rounded-lg">
-              <FiDollarSign className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm">Note moyenne</p>
-              <p className="text-3xl font-bold mt-2">{stats.noteMoyenne}/5</p>
-              <div className="flex items-center mt-2 text-sm">
-                <FiStar className="mr-1" />
-                <span>Excellente</span>
-              </div>
-            </div>
-            <div className="bg-white bg-opacity-20 p-3 rounded-lg">
-              <FiStar className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-sm">Revenu potentiel</p>
-              <p className="text-3xl font-bold mt-2">{stats.revenuTotal.toLocaleString()} FCFA</p>
-              <div className="flex items-center mt-2 text-sm">
-                <FiArrowUp className="mr-1" />
-                <span>Total</span>
-              </div>
-            </div>
-            <div className="bg-white bg-opacity-20 p-3 rounded-lg">
-              <FiTrendingUp className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Statut des prestations</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, value }) => `${name}: ${value}`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Revenus mensuels</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => [`${value.toLocaleString()} FCFA`, 'Revenu']} />
-              <Area type="monotone" dataKey="revenus" stroke="#3B82F6" fill="#3B82F6" fillOpacity={0.3} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Mes prestations récentes</h3>
-          <Link to="/fournisseur/mes-prestations" className="text-blue-600 hover:text-blue-700 text-sm font-medium">
-            Voir tout
-          </Link>
-        </div>
-        <div className="space-y-4">
-          {prestations.slice(0, 5).map((prestation) => (
-            <div
-              key={prestation.id}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-wrap border-b border-slate-200">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => goTab(t.id)}
+              className={`px-4 py-3 text-sm font-medium ${
+                tab === t.id
+                  ? 'border-b-2 border-indigo-600 bg-indigo-50/60 text-indigo-700'
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
             >
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <FiBriefcase className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{prestation.intitule}</p>
-                  <p className="text-sm text-gray-500">{prestation.type_prestation}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-semibold text-gray-900">
-                  {prestation.tarif_min?.toLocaleString()} - {prestation.tarif_max?.toLocaleString()} FCFA
-                </p>
-                <span
-                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    prestation.statut === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {prestation.statut}
-                </span>
-              </div>
-            </div>
+              {t.label}
+            </button>
           ))}
         </div>
+
+        {tab === 'overview' && (
+          <div className="grid gap-4 p-5 md:grid-cols-2">
+            {prestations.length === 0 && (
+              <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 sm:flex-row sm:items-center sm:justify-between md:col-span-2">
+                <div className="flex gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                    <FiCompass className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-emerald-900">Première étape : vos offres</p>
+                    <p className="mt-1 text-sm text-emerald-800/90">
+                      Créez au moins une prestation pour apparaître dans les correspondances et recevoir des sollicitations.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  to="/fournisseur/creer-prestation"
+                  className="inline-flex shrink-0 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800"
+                >
+                  Créer ma première prestation
+                </Link>
+              </div>
+            )}
+            <Link to="/fournisseur/mes-prestations" className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
+              <p className="font-semibold text-slate-900">Mes prestations</p>
+              <p className="mt-1 text-sm text-slate-600">Gérer vos offres et leurs statuts.</p>
+            </Link>
+            <Link to="/fournisseur/transactions" className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
+              <p className="font-semibold text-slate-900">Mes transactions</p>
+              <p className="mt-1 text-sm text-slate-600">Suivre les prestations vendues.</p>
+            </Link>
+            <Link to="/fournisseur/messages" className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
+              <p className="font-semibold text-slate-900">Messages</p>
+              <p className="mt-1 text-sm text-slate-600">Échanger avec les clients.</p>
+            </Link>
+            <Link to="/fournisseur/mes-collaborations" className="rounded-xl border border-slate-200 p-4 hover:bg-slate-50">
+              <p className="font-semibold text-slate-900">Collaborations</p>
+              <p className="mt-1 text-sm text-slate-600">Vue détaillée des missions.</p>
+            </Link>
+          </div>
+        )}
+
+        {tab === 'prestations' && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Intitulé</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Type</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Tarif</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Statut</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Créée</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {prestations.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                      Aucune prestation.
+                    </td>
+                  </tr>
+                ) : (
+                  prestations.slice(0, 12).map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-50/80">
+                      <td className="max-w-[14rem] px-4 py-3">
+                        <span className="font-medium text-slate-900" title={p.intitule}>
+                          {truncateText(p.intitule, 48)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-slate-700">{p.type_prestation || '—'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-900">
+                        {p.tarif_min != null || p.tarif_max != null
+                          ? `${p.tarif_min != null ? Number(p.tarif_min).toLocaleString('fr-FR') : '—'} – ${p.tarif_max != null ? Number(p.tarif_max).toLocaleString('fr-FR') : '—'}`
+                          : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${prestationStatutPillClass(p.statut)}`}>
+                          {prestationStatutLabel(p.statut)}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatDateShort(p.created_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <Link to={`/fournisseur/prestation/${p.id}`} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                          <FiEye className="h-3.5 w-3.5" />
+                          Détail
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tab === 'transactions' && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Date</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Prestation</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Client</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Montant</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-700">Statut</th>
+                  <th className="px-4 py-3 text-right font-semibold text-slate-700">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-slate-500">
+                      Aucune transaction.
+                    </td>
+                  </tr>
+                ) : (
+                  transactions.slice(0, 12).map((t) => (
+                    <tr key={t.id} className="hover:bg-slate-50/80">
+                      <td className="whitespace-nowrap px-4 py-3 text-slate-600">{formatDateShort(t.created_at)}</td>
+                      <td className="max-w-[14rem] px-4 py-3 text-slate-900">
+                        {truncateText(t.prestation_intitule || t.prestation?.intitule || `Prestation #${t.prestation}`, 42)}
+                      </td>
+                      <td className="px-4 py-3 text-slate-800">{t.client_nom || '—'}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-900">{formatMoneyFcfa(t.prix_final)}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${transactionStatutPillClass(t.statut)}`}>
+                          {transactionStatutLabel(t.statut)}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <Link to={`/fournisseur/transactions/${t.id}`} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50">
+                          <FiDollarSign className="h-3.5 w-3.5" />
+                          Ouvrir
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link
-            to="/fournisseur/creer-prestation"
-            className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-          >
-            <FiPlus className="w-8 h-8 text-blue-600 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">Créer une prestation</p>
-              <p className="text-sm text-gray-500">Ajouter un nouveau service</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/fournisseur/mes-prestations"
-            className="flex items-center p-4 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-          >
-            <FiBriefcase className="w-8 h-8 text-green-600 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">Mes prestations</p>
-              <p className="text-sm text-gray-500">Gérer mes services</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/fournisseur/mes-collaborations"
-            className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
-          >
-            <FiFileText className="w-8 h-8 text-purple-600 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">Besoins publics</p>
-              <p className="text-sm text-gray-500">Consulter la liste publique</p>
-            </div>
-          </Link>
-
-          <Link
-            to="/fournisseur/profil"
-            className="flex items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border border-gray-100"
-          >
-            <FiUser className="w-8 h-8 text-gray-700 mr-3" />
-            <div>
-              <p className="font-medium text-gray-900">Mon profil</p>
-              <p className="text-sm text-gray-500">Compte et informations fournisseur</p>
-            </div>
-          </Link>
-        </div>
+      <div className="text-center text-xs text-slate-500">
+        <FiMail className="mr-1 inline h-3.5 w-3.5 align-text-bottom" />
+        Pour répondre rapidement, ouvrez la page <Link to="/fournisseur/messages" className="font-medium text-indigo-600 hover:underline">Messages</Link>.
       </div>
     </div>
   );

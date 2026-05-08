@@ -101,10 +101,20 @@ class ProfileFournisseurSerializer(serializers.ModelSerializer):
         fields = [
             'user', 'raison_sociale', 'types_services_offerts', 'zones_couverture',
             'annees_experience', 'certifications', 'assurance_valide',
-            'note_moyenne', 'services_effectues', 'disponibilites', 'tarif_horaire',
+            'note_moyenne', 'services_effectues', 'disponibilites', 'tarif_horaire', 'emplacement',
+            'abonnement_type', 'abonnement_actif', 'abonnement_debut', 'abonnement_fin',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at', 'note_moyenne', 'services_effectues']
+        read_only_fields = [
+            'created_at',
+            'updated_at',
+            'note_moyenne',
+            'services_effectues',
+            'abonnement_type',
+            'abonnement_actif',
+            'abonnement_debut',
+            'abonnement_fin',
+        ]
 
 class ProfileClientSerializer(serializers.ModelSerializer):
     """Profil détaillé du client (demandeur de services)."""
@@ -115,7 +125,7 @@ class ProfileClientSerializer(serializers.ModelSerializer):
         fields = [
             'user', 'raison_sociale', 'secteur_activite', 'taille_entreprise',
             'besoins_services', 'fournisseurs_preferes', 'plage_budget',
-            'frequence_besoins', 'contact_principal', 'mode_paiement_preferes',
+            'frequence_besoins', 'contact_principal', 'mode_paiement_preferes', 'emplacement',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']
@@ -128,7 +138,7 @@ class ProfileFournisseurUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'raison_sociale', 'types_services_offerts', 'zones_couverture',
             'annees_experience', 'certifications', 'assurance_valide',
-            'disponibilites', 'tarif_horaire'
+            'disponibilites', 'tarif_horaire', 'emplacement'
         ]
 
 class ProfileClientUpdateSerializer(serializers.ModelSerializer):
@@ -139,7 +149,7 @@ class ProfileClientUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'raison_sociale', 'secteur_activite', 'taille_entreprise',
             'besoins_services', 'fournisseurs_preferes', 'plage_budget',
-            'frequence_besoins', 'contact_principal', 'mode_paiement_preferes'
+            'frequence_besoins', 'contact_principal', 'mode_paiement_preferes', 'emplacement'
         ]
 
 class UserUpdateSerializer(serializers.ModelSerializer):

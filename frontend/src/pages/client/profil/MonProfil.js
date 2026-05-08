@@ -29,6 +29,23 @@ const parseApiErrors = (data) => {
   return parts.length ? parts.join(' ') : 'Une erreur est survenue.';
 };
 
+const parseEmplacement = (raw) => {
+  try {
+    const parsed = JSON.parse(raw || '{}');
+    const lat = Number(parsed?.latitude);
+    const lng = Number(parsed?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return {
+      latitude: lat,
+      longitude: lng,
+      adresse: parsed?.adresse || '',
+      ville: parsed?.ville || '',
+    };
+  } catch {
+    return null;
+  }
+};
+
 const MonProfil = () => {
   const { user, logout, updateUser, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -57,6 +74,7 @@ const MonProfil = () => {
     frequence_besoins: '',
     contact_principal: '',
     mode_paiement_preferes: [],
+    emplacement: '{}',
   });
 
   const applyProfilePayload = useCallback((data) => {
@@ -78,6 +96,7 @@ const MonProfil = () => {
       frequence_besoins: data.frequence_besoins || '',
       contact_principal: data.contact_principal || '',
       mode_paiement_preferes: Array.isArray(data.mode_paiement_preferes) ? data.mode_paiement_preferes : [],
+      emplacement: JSON.stringify(data.emplacement && typeof data.emplacement === 'object' ? data.emplacement : {}, null, 2),
     });
   }, []);
 
@@ -98,6 +117,13 @@ const MonProfil = () => {
       setLoading(false);
       return;
     }
+    // Fallback affichage compte si l'API profil repond tardivement.
+    setAccountForm((prev) => ({
+      ...prev,
+      first_name: user.first_name || prev.first_name,
+      last_name: user.last_name || prev.last_name,
+      telephone: user.telephone || prev.telephone,
+    }));
     let cancelled = false;
     (async () => {
       try {
@@ -190,7 +216,17 @@ const MonProfil = () => {
         frequence_besoins: profileForm.frequence_besoins,
         contact_principal: profileForm.contact_principal,
         mode_paiement_preferes: profileForm.mode_paiement_preferes,
+        emplacement: {},
       };
+      try {
+        const emplacementObj = JSON.parse(profileForm.emplacement || '{}');
+        if (emplacementObj === null || typeof emplacementObj !== 'object' || Array.isArray(emplacementObj)) {
+          throw new Error();
+        }
+        body.emplacement = emplacementObj;
+      } catch {
+        throw new Error('Emplacement : JSON objet invalide. Exemple: {"latitude": 12.34, "longitude": -1.23, "adresse": "Ouagadougou"}');
+      }
       const response = await fetch(API_ENDPOINTS.USER.PROFILE, {
         method: 'PATCH',
         headers: authHeadersJson(),
@@ -264,20 +300,25 @@ const MonProfil = () => {
     );
   }
 
+  const emplacement = parseEmplacement(profileForm.emplacement);
+  const mapUrl = emplacement
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${emplacement.longitude - 0.02}%2C${emplacement.latitude - 0.02}%2C${emplacement.longitude + 0.02}%2C${emplacement.latitude + 0.02}&layer=mapnik&marker=${emplacement.latitude}%2C${emplacement.longitude}`
+    : null;
+
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className="bg-white shadow rounded-lg p-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Mon profil</h1>
-            <p className="text-gray-600 mt-1">Compte utilisateur et informations entreprise</p>
+            <h1 className="text-2xl font-bold text-slate-900">Mon profil</h1>
+            <p className="mt-1 text-sm text-slate-600">Compte utilisateur et informations entreprise</p>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             <FiUser className="mr-2 h-4 w-4" />
             Déconnexion
@@ -287,55 +328,55 @@ const MonProfil = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <form onSubmit={handleSaveAccount} className="bg-white shadow rounded-lg p-6 space-y-6">
-            <h2 className="text-lg font-medium text-gray-900">Compte</h2>
-            <p className="text-sm text-gray-500">Prénom, nom, téléphone et photo (enregistrés via l&apos;API compte).</p>
+          <form onSubmit={handleSaveAccount} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Compte</h2>
+            <p className="text-sm text-slate-500">Prénom, nom, téléphone et photo (enregistrés via l&apos;API compte).</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Prénom</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Prénom</label>
                 <input
                   type="text"
                   name="first_name"
                   value={accountForm.first_name}
                   onChange={handleAccountChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nom</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Nom</label>
                 <input
                   type="text"
                   name="last_name"
                   value={accountForm.last_name}
                   onChange={handleAccountChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Téléphone</label>
                 <input
                   type="tel"
                   name="telephone"
                   value={accountForm.telephone}
                   onChange={handleAccountChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nouvelle photo</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Nouvelle photo</label>
               <input
                 type="file"
                 accept="image/*"
                 onChange={(ev) => setPhotoFile(ev.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-600"
+                className="block w-full text-sm text-slate-600"
               />
             </div>
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={savingAccount}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50"
+                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
                 {savingAccount ? (
                   <span className="inline-flex items-center">
@@ -352,36 +393,36 @@ const MonProfil = () => {
             </div>
           </form>
 
-          <form onSubmit={handleSaveProfile} className="bg-white shadow rounded-lg p-6 space-y-6">
-            <h2 className="text-lg font-medium text-gray-900">Profil entreprise (client)</h2>
+          <form onSubmit={handleSaveProfile} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">Profil entreprise (client)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Raison sociale</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Raison sociale</label>
                 <input
                   type="text"
                   name="raison_sociale"
                   value={profileForm.raison_sociale}
                   onChange={handleProfileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Secteur d&apos;activité</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Secteur d&apos;activité</label>
                 <input
                   type="text"
                   name="secteur_activite"
                   value={profileForm.secteur_activite}
                   onChange={handleProfileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Taille de l&apos;entreprise</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Taille de l&apos;entreprise</label>
                 <select
                   name="taille_entreprise"
                   value={profileForm.taille_entreprise}
                   onChange={handleProfileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">Non renseigné</option>
                   <option value="TPE">TPE</option>
@@ -390,12 +431,12 @@ const MonProfil = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Fréquence des besoins</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Fréquence des besoins</label>
                 <select
                   name="frequence_besoins"
                   value={profileForm.frequence_besoins}
                   onChange={handleProfileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   {FREQUENCE_CHOICES.map((c) => (
                     <option key={c.value || 'none'} value={c.value}>
@@ -405,20 +446,20 @@ const MonProfil = () => {
                 </select>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Contact principal</label>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Contact principal</label>
                 <input
                   type="text"
                   name="contact_principal"
                   value={profileForm.contact_principal}
                   onChange={handleProfileChange}
                   placeholder="Nom du référent"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Plage de budget (FCFA)</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Plage de budget (FCFA)</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="number"
@@ -427,7 +468,7 @@ const MonProfil = () => {
                   onChange={handleProfileChange}
                   placeholder="Minimum"
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
                 <input
                   type="number"
@@ -436,13 +477,41 @@ const MonProfil = () => {
                   onChange={handleProfileChange}
                   placeholder="Maximum"
                   min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Types de services recherchés</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Emplacement (JSON objet)</label>
+              <textarea
+                name="emplacement"
+                value={profileForm.emplacement}
+                onChange={handleProfileChange}
+                rows={4}
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Exemple: {"{"}"latitude": 12.36, "longitude": -1.53, "adresse": "Ouagadougou"{"}"}
+              </p>
+            </div>
+
+            {mapUrl && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">Aperçu carte (géolocalisation)</label>
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <iframe
+                    title="Carte emplacement client"
+                    src={mapUrl}
+                    className="w-full h-64"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Types de services recherchés</label>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -454,13 +523,13 @@ const MonProfil = () => {
                       addTag('besoins_services', newBesoin, setNewBesoin);
                     }
                   }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   placeholder="Ex. maintenance, site web…"
                 />
                 <button
                   type="button"
                   onClick={() => addTag('besoins_services', newBesoin, setNewBesoin)}
-                  className="px-3 py-2 bg-primary-600 text-white rounded-md"
+                  className="rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
                 >
                   <FiPlus className="h-5 w-5" />
                 </button>
@@ -469,7 +538,7 @@ const MonProfil = () => {
                 {profileForm.besoins_services.map((t, i) => (
                   <span
                     key={`${t}-${i}`}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-sm"
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-sm text-slate-700"
                   >
                     {t}
                     <button type="button" onClick={() => removeTag('besoins_services', i)} className="text-gray-500 hover:text-red-600">
@@ -481,7 +550,7 @@ const MonProfil = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Fournisseurs préférés</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Fournisseurs préférés</label>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -493,13 +562,13 @@ const MonProfil = () => {
                       addTag('fournisseurs_preferes', newFournisseur, setNewFournisseur);
                     }
                   }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   placeholder="Nom ou raison sociale"
                 />
                 <button
                   type="button"
                   onClick={() => addTag('fournisseurs_preferes', newFournisseur, setNewFournisseur)}
-                  className="px-3 py-2 bg-primary-600 text-white rounded-md"
+                  className="rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
                 >
                   <FiPlus className="h-5 w-5" />
                 </button>
@@ -508,7 +577,7 @@ const MonProfil = () => {
                 {profileForm.fournisseurs_preferes.map((t, i) => (
                   <span
                     key={`${t}-${i}`}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-sm"
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-sm text-slate-700"
                   >
                     {t}
                     <button type="button" onClick={() => removeTag('fournisseurs_preferes', i)} className="text-gray-500 hover:text-red-600">
@@ -520,7 +589,7 @@ const MonProfil = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Modes de paiement préférés</label>
+              <label className="mb-2 block text-sm font-medium text-slate-700">Modes de paiement préférés</label>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -532,13 +601,13 @@ const MonProfil = () => {
                       addTag('mode_paiement_preferes', newModePaiement, setNewModePaiement);
                     }
                   }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
+                  className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   placeholder="Ex. virement, mobile money…"
                 />
                 <button
                   type="button"
                   onClick={() => addTag('mode_paiement_preferes', newModePaiement, setNewModePaiement)}
-                  className="px-3 py-2 bg-primary-600 text-white rounded-md"
+                  className="rounded-lg bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-700"
                 >
                   <FiPlus className="h-5 w-5" />
                 </button>
@@ -547,7 +616,7 @@ const MonProfil = () => {
                 {profileForm.mode_paiement_preferes.map((t, i) => (
                   <span
                     key={`${t}-${i}`}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100 text-sm"
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-sm text-slate-700"
                   >
                     {t}
                     <button type="button" onClick={() => removeTag('mode_paiement_preferes', i)} className="text-gray-500 hover:text-red-600">
@@ -562,14 +631,14 @@ const MonProfil = () => {
               <button
                 type="button"
                 onClick={() => window.history.back()}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50"
+                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
                 Retour
               </button>
               <button
                 type="submit"
                 disabled={savingProfile}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 disabled:opacity-50"
+                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
                 {savingProfile ? (
                   <span className="inline-flex items-center">
@@ -588,56 +657,56 @@ const MonProfil = () => {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Photo de profil</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-semibold text-slate-900">Photo de profil</h3>
             <div className="text-center">
               <div className="relative inline-block">
-                <div className="h-32 w-32 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center mx-auto">
+                <div className="mx-auto flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-slate-200">
                   {photoSrc ? (
                     <img src={photoSrc} alt="Profil" className="h-full w-full object-cover" />
                   ) : user?.first_name ? (
-                    <span className="text-2xl font-bold text-gray-600">{user.first_name[0].toUpperCase()}</span>
+                    <span className="text-2xl font-bold text-slate-600">{user.first_name[0].toUpperCase()}</span>
                   ) : (
-                    <FiUser className="h-16 w-16 text-gray-400" />
+                    <FiUser className="h-16 w-16 text-slate-400" />
                   )}
                 </div>
-                <span className="absolute bottom-0 right-0 bg-primary-600 rounded-full p-2 text-white pointer-events-none" title="Photo : formulaire Compte">
+                <span className="pointer-events-none absolute bottom-0 right-0 rounded-full bg-indigo-600 p-2 text-white" title="Photo : formulaire Compte">
                   <FiCamera className="h-4 w-4" />
                 </span>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-4 text-center">Choisissez une image puis enregistrez la section Compte.</p>
+            <p className="mt-4 text-center text-xs text-slate-500">Choisissez une image puis enregistrez la section Compte.</p>
           </div>
 
-          <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Résumé compte</h3>
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-semibold text-slate-900">Résumé compte</h3>
             <div className="space-y-3">
               <div className="flex items-start">
-                <FiMail className="mr-3 h-5 w-5 text-gray-400 mt-0.5" />
+                <FiMail className="mr-3 mt-0.5 h-5 w-5 text-slate-400" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Email</p>
-                  <p className="text-sm text-gray-600">{user?.email}</p>
+                  <p className="text-sm font-medium text-slate-900">Email</p>
+                  <p className="text-sm text-slate-600">{user?.email}</p>
                 </div>
               </div>
               <div className="flex items-start">
-                <FiUser className="mr-3 h-5 w-5 text-gray-400 mt-0.5" />
+                <FiUser className="mr-3 mt-0.5 h-5 w-5 text-slate-400" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Type de compte</p>
-                  <p className="text-sm text-gray-600 capitalize">{user?.type_utilisateur}</p>
+                  <p className="text-sm font-medium text-slate-900">Type de compte</p>
+                  <p className="text-sm capitalize text-slate-600">{user?.type_utilisateur}</p>
                 </div>
               </div>
               <div className="flex items-start">
-                <FiPhone className="mr-3 h-5 w-5 text-gray-400 mt-0.5" />
+                <FiPhone className="mr-3 mt-0.5 h-5 w-5 text-slate-400" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Téléphone</p>
-                  <p className="text-sm text-gray-600">{user?.telephone || 'Non renseigné'}</p>
+                  <p className="text-sm font-medium text-slate-900">Téléphone</p>
+                  <p className="text-sm text-slate-600">{user?.telephone || 'Non renseigné'}</p>
                 </div>
               </div>
               <div className="flex items-start">
-                <FiBriefcase className="mr-3 h-5 w-5 text-gray-400 mt-0.5" />
+                <FiBriefcase className="mr-3 mt-0.5 h-5 w-5 text-slate-400" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Raison sociale</p>
-                  <p className="text-sm text-gray-600">{profileForm.raison_sociale || '—'}</p>
+                  <p className="text-sm font-medium text-slate-900">Raison sociale</p>
+                  <p className="text-sm text-slate-600">{profileForm.raison_sociale || '—'}</p>
                 </div>
               </div>
             </div>

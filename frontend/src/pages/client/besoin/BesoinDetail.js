@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { FiArrowLeft, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiDollarSign, FiClock, FiUser, FiTag } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiDollarSign, FiClock, FiUser, FiTag, FiSearch } from 'react-icons/fi';
 import demandesService from '../../../services/demandesService';
+import {
+  formatMoneyFcfa,
+  formatDateShort,
+  besoinStatutPillClass,
+  besoinStatutLabel,
+  besoinStepsFromStatut,
+  urgencePillClass,
+  urgenceLabel,
+} from '../clientUi';
 
 const BesoinDetail = () => {
   const { id } = useParams();
@@ -41,46 +50,6 @@ const BesoinDetail = () => {
     }
   };
 
-  const getStatusColor = (statut) => {
-    switch (statut) {
-      case 'ouverte': return 'bg-green-100 text-green-800';
-      case 'en_cours': return 'bg-blue-100 text-blue-800';
-      case 'pourvue': return 'bg-purple-100 text-purple-800';
-      case 'annulee': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (statut) => {
-    switch (statut) {
-      case 'ouverte': return 'Ouverte';
-      case 'en_cours': return 'En cours';
-      case 'pourvue': return 'Pourvue';
-      case 'annulee': return 'Annulée';
-      default: return statut;
-    }
-  };
-
-  const getUrgencyColor = (urgence) => {
-    switch (urgence) {
-      case 'basse': return 'bg-gray-100 text-gray-800';
-      case 'normale': return 'bg-blue-100 text-blue-800';
-      case 'haute': return 'bg-orange-100 text-orange-800';
-      case 'urgente': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getUrgencyText = (urgence) => {
-    switch (urgence) {
-      case 'basse': return 'Basse';
-      case 'normale': return 'Normale';
-      case 'haute': return 'Haute';
-      case 'urgente': return 'Urgente';
-      default: return urgence;
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -111,35 +80,42 @@ const BesoinDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
+      <div>
         {/* Header */}
-        <div className="bg-white shadow rounded-lg p-6 mb-6">
+        <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
                 to="/client/mes-besoins"
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 <FiArrowLeft className="mr-2 h-4 w-4" />
                 Retour
               </Link>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">{besoin.intitule}</h1>
-                <p className="text-gray-600 mt-1">Détail du besoin</p>
+                <h1 className="text-2xl font-bold text-slate-900">{besoin.intitule}</h1>
+                <p className="mt-1 text-sm text-slate-600">Détail du besoin</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
               <Link
+                to={`/client/besoins/${besoin.id}/matching`}
+                className="inline-flex items-center rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
+              >
+                <FiSearch className="mr-2 h-4 w-4" />
+                Matching
+              </Link>
+              <Link
                 to={`/client/besoins/${besoin.id}/edit`}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                className="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
               >
                 <FiEdit className="mr-2 h-4 w-4" />
                 Modifier
               </Link>
               <button
                 onClick={handleDelete}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+                className="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
                 <FiTrash2 className="mr-2 h-4 w-4" />
                 Supprimer
@@ -148,28 +124,72 @@ const BesoinDetail = () => {
           </div>
         </div>
 
+        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">Étapes du besoin</p>
+          <div className="overflow-x-auto">
+            <div className="flex min-w-max items-start">
+              {besoinStepsFromStatut(besoin.statut).map((step, idx, arr) => (
+                <React.Fragment key={step.key}>
+                  <div className="flex w-36 flex-col items-center text-center">
+                    <span
+                      className={`h-3 w-3 rounded-full ${
+                        step.blocked
+                          ? 'bg-rose-500'
+                          : step.done
+                            ? 'bg-emerald-500'
+                            : step.current
+                              ? 'bg-indigo-500'
+                              : 'bg-slate-300'
+                      }`}
+                    />
+                    <span
+                      className={`mt-2 text-[11px] font-medium ${
+                        step.blocked
+                          ? 'text-rose-700'
+                          : step.done
+                            ? 'text-emerald-700'
+                            : step.current
+                              ? 'text-indigo-700'
+                              : 'text-slate-600'
+                      }`}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                  {idx < arr.length - 1 ? (
+                    <div className={`mt-1 h-0.5 w-12 ${step.done ? 'bg-emerald-400' : step.current ? 'bg-indigo-300' : 'bg-slate-300'}`} />
+                  ) : null}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+          {besoin.statut === 'annulee' ? (
+            <p className="mt-3 text-xs text-rose-700">Ce besoin a été annulé.</p>
+          ) : null}
+        </section>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Informations principales */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Description</h2>
-              <p className="text-gray-700 whitespace-pre-wrap">{besoin.description}</p>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Description</h2>
+              <p className="whitespace-pre-wrap text-slate-700">{besoin.description}</p>
             </div>
 
             {/* Exigences spécifiques */}
             {besoin.exigences && Object.keys(besoin.exigences).length > 0 && (
-              <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Exigences spécifiques</h2>
+              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 className="mb-4 text-lg font-semibold text-slate-900">Exigences spécifiques</h2>
                 <div className="space-y-3">
                   {Object.entries(besoin.exigences).map(([key, value]) => (
                     <div key={key} className="flex items-start">
                       <div className="flex-shrink-0">
-                        <FiTag className="h-5 w-5 text-gray-400 mt-0.5" />
+                        <FiTag className="mt-0.5 h-5 w-5 text-slate-400" />
                       </div>
                       <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-900">{key}</p>
-                        <p className="text-sm text-gray-600">{value}</p>
+                        <p className="text-sm font-medium text-slate-900">{key}</p>
+                        <p className="text-sm text-slate-600">{value}</p>
                       </div>
                     </div>
                   ))}
@@ -178,49 +198,36 @@ const BesoinDetail = () => {
             )}
 
             {/* Caractéristiques techniques */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Caractéristiques</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Caractéristiques</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-center">
-                  <FiMapPin className="h-5 w-5 text-gray-400 mr-3" />
+                  <FiMapPin className="mr-3 h-5 w-5 text-slate-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Lieu d'intervention</p>
-                    <p className="text-sm text-gray-600">{besoin.lieu_intervention}</p>
+                    <p className="text-sm font-medium text-slate-900">Lieu d'intervention</p>
+                    <p className="text-sm text-slate-600">{besoin.lieu_intervention || '—'}</p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <FiCalendar className="h-5 w-5 text-gray-400 mr-3" />
+                  <FiCalendar className="mr-3 h-5 w-5 text-slate-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Date souhaitée</p>
-                    <p className="text-sm text-gray-600">
-                      {besoin.date_souhaitee ? 
-                        new Date(besoin.date_souhaitee).toLocaleDateString('fr-FR') : 
-                        'Non spécifiée'
-                      }
-                    </p>
+                    <p className="text-sm font-medium text-slate-900">Date souhaitée</p>
+                    <p className="text-sm text-slate-600">{formatDateShort(besoin.date_souhaitee)}</p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <FiClock className="h-5 w-5 text-gray-400 mr-3" />
+                  <FiClock className="mr-3 h-5 w-5 text-slate-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Date limite</p>
-                    <p className="text-sm text-gray-600">
-                      {besoin.date_limite ? 
-                        new Date(besoin.date_limite).toLocaleDateString('fr-FR') : 
-                        'Non spécifiée'
-                      }
-                    </p>
+                    <p className="text-sm font-medium text-slate-900">Date limite</p>
+                    <p className="text-sm text-slate-600">{formatDateShort(besoin.date_limite)}</p>
                   </div>
                 </div>
                 <div className="flex items-center">
-                  <FiDollarSign className="h-5 w-5 text-gray-400 mr-3" />
+                  <FiDollarSign className="mr-3 h-5 w-5 text-slate-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Budget</p>
-                    <p className="text-sm text-gray-600">
-                      {besoin.budget ? 
-                        `${besoin.budget.toLocaleString()} FCFA${besoin.flexible ? ' (Flexible)' : ''}` : 
-                        'Non spécifié'
-                      }
+                    <p className="text-sm font-medium text-slate-900">Budget</p>
+                    <p className="text-sm text-slate-600">
+                      {besoin.budget ? `${formatMoneyFcfa(besoin.budget)}${besoin.flexible ? ' (Flexible)' : ''}` : 'Non spécifié'}
                     </p>
                   </div>
                 </div>
@@ -231,61 +238,55 @@ const BesoinDetail = () => {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Statut et urgence */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Statut</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Statut</h2>
               <div className="space-y-3">
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">État actuel</p>
-                  <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusColor(besoin.statut)}`}>
-                    {getStatusText(besoin.statut)}
+                  <p className="mb-2 text-sm font-medium text-slate-700">État actuel</p>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${besoinStatutPillClass(besoin.statut)}`}>
+                    {besoinStatutLabel(besoin.statut)}
                   </span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Niveau d'urgence</p>
-                  <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getUrgencyColor(besoin.urgence)}`}>
-                    {getUrgencyText(besoin.urgence)}
+                  <p className="mb-2 text-sm font-medium text-slate-700">Niveau d'urgence</p>
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${urgencePillClass(besoin.urgence)}`}>
+                    {urgenceLabel(besoin.urgence)}
                   </span>
                 </div>
               </div>
             </div>
 
             {/* Catégorie */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Catégorie</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Catégorie</h2>
               <div className="flex items-center">
-                <FiTag className="h-5 w-5 text-gray-400 mr-3" />
+                <FiTag className="mr-3 h-5 w-5 text-slate-400" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{besoin.categorie_nom || besoin.categorie?.nom || 'Non catégorisée'}</p>
-                  <p className="text-sm text-gray-600">{besoin.type_service}</p>
+                  <p className="text-sm font-medium text-slate-900">{besoin.categorie_nom || besoin.categorie?.nom || 'Non catégorisée'}</p>
+                  <p className="text-sm text-slate-600">{besoin.type_service || '—'}</p>
                 </div>
               </div>
             </div>
 
             {/* Informations système */}
-            <div className="bg-white shadow rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Informations système</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="mb-4 text-lg font-semibold text-slate-900">Informations système</h2>
               <div className="space-y-3">
                 <div className="flex items-center">
-                  <FiUser className="h-5 w-5 text-gray-400 mr-3" />
+                  <FiUser className="mr-3 h-5 w-5 text-slate-400" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">Client</p>
-                    <p className="text-sm text-gray-600">{besoin.client_nom || '—'}</p>
+                    <p className="text-sm font-medium text-slate-900">Client</p>
+                    <p className="text-sm text-slate-600">{besoin.client_nom || '—'}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Date de création</p>
-                  <p className="text-sm text-gray-600">
-                    {new Date(besoin.created_at).toLocaleDateString('fr-FR')} à{' '}
-                    {new Date(besoin.created_at).toLocaleTimeString('fr-FR')}
-                  </p>
+                  <p className="text-sm font-medium text-slate-700">Date de création</p>
+                  <p className="text-sm text-slate-600">{formatDateShort(besoin.created_at)}</p>
                 </div>
                 {besoin.updated_at !== besoin.created_at && (
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Dernière modification</p>
-                    <p className="text-sm text-gray-600">
-                      {new Date(besoin.updated_at).toLocaleDateString('fr-FR')} à{' '}
-                      {new Date(besoin.updated_at).toLocaleTimeString('fr-FR')}
-                    </p>
+                    <p className="text-sm font-medium text-slate-700">Dernière modification</p>
+                    <p className="text-sm text-slate-600">{formatDateShort(besoin.updated_at)}</p>
                   </div>
                 )}
               </div>

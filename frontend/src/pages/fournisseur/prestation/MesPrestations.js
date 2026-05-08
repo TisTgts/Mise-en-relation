@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FiPlus, FiEdit, FiTrash2, FiEye, FiDollarSign, FiStar, FiTrendingUp, FiFilter, FiMapPin, FiClock, FiBriefcase, FiAlertCircle, FiChevronDown } from 'react-icons/fi';
+import { FiPlus, FiEdit, FiTrash2, FiEye, FiDollarSign, FiStar, FiTrendingUp, FiFilter, FiMapPin, FiBriefcase, FiChevronDown } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import prestationsService from '../../../services/prestationsService';
 import categoriesService from '../../../services/categoriesService';
 import Toast from '../../../components/Toast';
+import {
+  formatMoneyFcfa,
+  prestationStatutPillClass,
+  prestationStatutLabel,
+} from '../fournisseurUi';
 
 const MesPrestations = () => {
   const { user } = useAuth();
@@ -72,42 +77,10 @@ const MesPrestations = () => {
     }
   };
 
-  const getCategorieNom = (categorieId) => {
-    const categorie = categories.find(c => c.id === categorieId);
+  const getCategorieNom = (categorieValue) => {
+    const id = typeof categorieValue === 'object' ? categorieValue?.id : categorieValue;
+    const categorie = categories.find(c => c.id === id);
     return categorie ? categorie.nom : 'Non spécifiée';
-  };
-
-  const getStatusColor = (statut) => {
-    switch (statut) {
-      case 'active': return 'bg-green-100 text-green-800 border-green-200';
-      case 'inactive': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'en_cours': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'terminee': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (statut) => {
-    switch (statut) {
-      case 'active': return <FiBriefcase className="w-4 h-4" />;
-      case 'inactive': return <FiAlertCircle className="w-4 h-4" />;
-      case 'pending': return <FiClock className="w-4 h-4" />;
-      case 'en_cours': return <FiTrendingUp className="w-4 h-4" />;
-      case 'terminee': return <FiStar className="w-4 h-4" />;
-      default: return <FiAlertCircle className="w-4 h-4" />;
-    }
-  };
-
-  const getStatusText = (statut) => {
-    switch (statut) {
-      case 'active': return 'Active';
-      case 'inactive': return 'Inactive';
-      case 'pending': return 'En attente';
-      case 'en_cours': return 'En cours';
-      case 'terminee': return 'Terminée';
-      default: return statut;
-    }
   };
 
   const filteredAndSortedPrestations = prestations
@@ -117,7 +90,11 @@ const MesPrestations = () => {
         prestation.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         prestation.type_prestation?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      const matchesCategory = !selectedCategory || prestation.categorie?.id?.toString() === selectedCategory;
+      const categorieId =
+        typeof prestation.categorie === 'object'
+          ? prestation.categorie?.id
+          : prestation.categorie;
+      const matchesCategory = !selectedCategory || String(categorieId) === selectedCategory;
       
       if (filter === 'all') return matchesSearch && matchesCategory;
       if (filter === 'active') return prestation.statut === 'active' && matchesSearch && matchesCategory;
@@ -168,28 +145,28 @@ const MesPrestations = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 pb-10">
       {/* Header */}
-      <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Mes Prestations</h1>
-            <p className="text-gray-600 mt-2">Gérez vos offres de services</p>
+            <h1 className="text-3xl font-bold text-slate-900">Mes prestations</h1>
+            <p className="mt-2 text-sm text-slate-600">Gérez vos offres de services</p>
           </div>
           <div className="mt-4 lg:mt-0">
             <Link
               to="/fournisseur/creer-prestation"
-              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 transform hover:scale-105"
+              className="inline-flex items-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
             >
               <FiPlus className="mr-2 h-5 w-5" />
-              Créer une Prestation
+              Créer une prestation
             </Link>
           </div>
         </div>
       </div>
 
       {/* Filtres avancés */}
-      <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-200">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Recherche */}
           <div className="lg:col-span-2">
@@ -203,7 +180,7 @@ const MesPrestations = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Rechercher une prestation..."
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors"
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-10 pr-4 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <FiFilter className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
             </div>
@@ -218,7 +195,7 @@ const MesPrestations = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">Toutes les catégories</option>
                 {categories.map((cat) => (
@@ -240,7 +217,7 @@ const MesPrestations = () => {
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="all">Toutes les prestations</option>
                 <option value="active">Actives</option>
@@ -262,7 +239,7 @@ const MesPrestations = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="created_at">Date</option>
                 <option value="tarif_min">Tarif</option>
@@ -282,7 +259,7 @@ const MesPrestations = () => {
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-colors appearance-none"
+                className="w-full appearance-none rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="desc">Récent</option>
                 <option value="asc">Ancien</option>
@@ -294,50 +271,47 @@ const MesPrestations = () => {
       </div>
 
       {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Total</p>
-              <p className="text-3xl font-bold">{stats.total}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Total</p>
+              <p className="text-3xl font-bold text-slate-900">{stats.total}</p>
             </div>
-            <FiBriefcase className="w-8 h-8 text-blue-200" />
+            <FiBriefcase className="h-7 w-7 text-slate-400" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Actives</p>
-              <p className="text-3xl font-bold">{stats.actives}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Actives</p>
+              <p className="text-3xl font-bold text-emerald-700">{stats.actives}</p>
             </div>
-            <FiTrendingUp className="w-8 h-8 text-green-200" />
+            <FiTrendingUp className="h-7 w-7 text-emerald-500" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-yellow-100 text-sm">Note moyenne</p>
-              <p className="text-3xl font-bold">{stats.noteMoyenne}</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Note moyenne</p>
+              <p className="text-3xl font-bold text-amber-700">{stats.noteMoyenne}</p>
             </div>
-            <FiStar className="w-8 h-8 text-yellow-200" />
+            <FiStar className="h-7 w-7 text-amber-500" />
           </div>
         </div>
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm">Revenu total</p>
-              <p className="text-3xl font-bold">
-                0 FCFA
-                {/* {stats.revenuTotal.toLocaleString('fr-FR')}  */}
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Revenu de base</p>
+              <p className="text-xl font-bold text-violet-700">{formatMoneyFcfa(stats.revenuTotal)}</p>
             </div>
-            <FiDollarSign className="w-8 h-8 text-purple-200" />
+            <FiDollarSign className="h-7 w-7 text-violet-500" />
           </div>
         </div>
       </div>
 
       {/* Tableau moderne */}
-      <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-200">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {filteredAndSortedPrestations.length === 0 ? (
           <div className="text-center py-16">
             <div className="text-gray-500">
@@ -354,10 +328,7 @@ const MesPrestations = () => {
             </div>
             {prestations.length === 0 && (
               <div className="mt-6">
-                <Link
-                  to="/fournisseur/creer-prestation"
-                  className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 transition-all duration-200"
-                >
+                <Link to="/fournisseur/creer-prestation" className="inline-flex items-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700">
                   <FiPlus className="mr-2 h-5 w-5" />
                   Créer ma première prestation
                 </Link>
@@ -367,7 +338,7 @@ const MesPrestations = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Prestation
@@ -389,15 +360,15 @@ const MesPrestations = () => {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-100">
                 {filteredAndSortedPrestations.map((prestation) => (
-                  <tr key={prestation.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={prestation.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <div>
-                        <div className="text-sm font-semibold text-gray-900">
+                        <div className="text-sm font-semibold text-slate-900">
                           {prestation.intitule}
                         </div>
-                        <div className="flex items-center mt-1 text-sm text-gray-500">
+                        <div className="flex items-center mt-1 text-sm text-slate-500">
                           <FiMapPin className="mr-1 h-3 w-3" />
                           {prestation.lieu_intervention || 'Non spécifié'}
                         </div>
@@ -405,11 +376,11 @@ const MesPrestations = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col space-y-2">
-                        <div className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm">
+                        <div className="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700">
                           {getCategorieNom(prestation.categorie)}
                         </div>
                         {prestation.type_prestation && (
-                          <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
+                          <div className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700">
                             {prestation.type_prestation}
                           </div>
                         )}
@@ -417,28 +388,25 @@ const MesPrestations = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-slate-900">
                           {prestation.tarif_min && prestation.tarif_max ? 
-                            `${prestation.tarif_min?.toLocaleString('fr-FR')} - ${prestation.tarif_max?.toLocaleString('fr-FR')} FCFA` :
+                            `${formatMoneyFcfa(prestation.tarif_min)} - ${formatMoneyFcfa(prestation.tarif_max)}` :
                             prestation.tarif_min ? 
-                              `${prestation.tarif_min?.toLocaleString('fr-FR')} FCFA` :
+                              `${formatMoneyFcfa(prestation.tarif_min)}` :
                               'Non spécifié'
                           }
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getStatusColor(prestation.statut)}`}>
-                          {getStatusIcon(prestation.statut)}
-                          <span className="ml-2">{getStatusText(prestation.statut)}</span>
-                        </span>
-                      </div>
+                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${prestationStatutPillClass(prestation.statut)}`}>
+                        {prestationStatutLabel(prestation.statut)}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <FiStar className="mr-1 h-4 w-4 text-yellow-400" />
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-slate-900">
                           {prestation.note || 'N/A'}
                         </span>
                       </div>
@@ -447,14 +415,14 @@ const MesPrestations = () => {
                       <div className="flex items-center justify-end space-x-2">
                         <Link
                           to={`/fournisseur/prestation/${prestation.id}`}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                           title="Voir les détails"
                         >
                           <FiEye className="h-4 w-4" />
                         </Link>
                         <Link
                           to={`/fournisseur/modifier-prestation/${prestation.id}`}
-                          className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
+                          className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                           title="Modifier"
                         >
                           <FiEdit className="h-4 w-4" />
@@ -462,7 +430,7 @@ const MesPrestations = () => {
                         <button
                           type="button"
                           onClick={() => handleDeletePrestation(prestation.id)}
-                          className="inline-flex items-center px-3 py-2 border border-red-300 rounded-lg text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+                          className="inline-flex items-center rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
                           title="Supprimer"
                         >
                           <FiTrash2 className="h-4 w-4" />
@@ -478,13 +446,7 @@ const MesPrestations = () => {
       </div>
       
       {/* Toast notifications */}
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 };

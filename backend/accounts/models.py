@@ -70,6 +70,11 @@ class ProfileClient(models.Model):
     frequence_besoins = models.CharField(max_length=50, blank=True, verbose_name="Fréquence des besoins")
     contact_principal = models.CharField(max_length=100, blank=True, verbose_name="Contact principal")
     mode_paiement_preferes = models.JSONField(default=list, verbose_name="Modes de paiement préférés")
+    emplacement = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Emplacement (géolocalisation)"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Date de mise à jour")
     
@@ -104,7 +109,11 @@ class ProfileClient(models.Model):
 
 class ProfileFournisseur(models.Model):
     """Profil détaillé pour les fournisseurs qui offrent les services"""
-    
+    ABONNEMENT_CHOICES = [
+        ("standard", "Standard"),
+        ("premium", "Premium"),
+    ]
+
     user = models.OneToOneField(
         User, 
         on_delete=models.CASCADE, 
@@ -132,6 +141,20 @@ class ProfileFournisseur(models.Model):
         blank=True,
         verbose_name="Tarif horaire"
     )
+    emplacement = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Emplacement (géolocalisation)"
+    )
+    abonnement_type = models.CharField(
+        max_length=20,
+        choices=ABONNEMENT_CHOICES,
+        default="standard",
+        verbose_name="Type d'abonnement",
+    )
+    abonnement_actif = models.BooleanField(default=True, verbose_name="Abonnement actif")
+    abonnement_debut = models.DateField(null=True, blank=True, verbose_name="Début abonnement")
+    abonnement_fin = models.DateField(null=True, blank=True, verbose_name="Fin abonnement")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Date de mise à jour")
     

@@ -100,9 +100,19 @@ class PrestationsService {
     
     if (!response.ok) {
       const errorText = await response.text();
+      let parsedError = errorText;
+      try {
+        const payload = JSON.parse(errorText);
+        parsedError =
+          payload?.error ||
+          payload?.detail ||
+          (typeof payload === 'object' ? JSON.stringify(payload) : errorText);
+      } catch (_) {
+        // Garder le texte brut si ce n'est pas du JSON
+      }
       console.error('prestationsService.updatePrestation - error response:', response);
       console.error('prestationsService.updatePrestation - error text:', errorText);
-      throw new Error(`Failed to update prestation: ${response.status} ${errorText}`);
+      throw new Error(`Failed to update prestation: ${response.status} ${parsedError}`);
     }
     
     const data = await response.json();
