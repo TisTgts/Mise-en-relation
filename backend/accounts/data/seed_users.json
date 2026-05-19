@@ -1,48 +1,165 @@
 {
-  "_readme": "Types d'utilisateur = valeurs de accounts.User.TYPES_UTILISATEUR (aligné sur le cahier / PDF). Modifier ce fichier si le PDF impose d'autres identifiants ou e-mails. Mot de passe par défaut : demo1234 (champ password ci-dessous).",
+  "_readme": "Identifiants de connexion fixes (username + email). Modifiez first_name / last_name pour changer les personnes sans toucher aux logins. Mot de passe commun : champ password.",
   "password": "demo1234",
+  "counts": {
+    "administrateur": 2,
+    "client": 10,
+    "fournisseur": 10
+  },
   "users": [
     {
       "type_utilisateur": "administrateur",
       "username": "admin",
       "email": "admin@demo.local",
-      "first_name": "Super",
-      "last_name": "Admin"
+      "first_name": "Mamadou",
+      "last_name": "Kaboré"
     },
     {
       "type_utilisateur": "administrateur",
       "username": "admin2",
       "email": "admin2@demo.local",
-      "first_name": "Second",
-      "last_name": "Admin"
+      "first_name": "Salimata",
+      "last_name": "Ouédraogo"
     },
     {
       "type_utilisateur": "client",
       "username": "client_demo",
       "email": "client@demo.local",
-      "first_name": "Ibrahima",
-      "last_name": "Fall"
+      "first_name": "Ibrahim",
+      "last_name": "Zongo"
     },
     {
       "type_utilisateur": "client",
       "username": "client2_demo",
       "email": "client2@demo.local",
-      "first_name": "Aïssatou",
-      "last_name": "Sarr"
+      "first_name": "Aïssata",
+      "last_name": "Traoré"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_03",
+      "email": "client_bulk_03@demo.local",
+      "first_name": "Moussa",
+      "last_name": "Compaoré"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_04",
+      "email": "client_bulk_04@demo.local",
+      "first_name": "Aminata",
+      "last_name": "Savadogo"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_05",
+      "email": "client_bulk_05@demo.local",
+      "first_name": "Issa",
+      "last_name": "Sanou"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_06",
+      "email": "client_bulk_06@demo.local",
+      "first_name": "Mariam",
+      "last_name": "Koné"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_07",
+      "email": "client_bulk_07@demo.local",
+      "first_name": "Adama",
+      "last_name": "Nikiema"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_08",
+      "email": "client_bulk_08@demo.local",
+      "first_name": "Fatoumata",
+      "last_name": "Diallo"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_09",
+      "email": "client_bulk_09@demo.local",
+      "first_name": "Oumar",
+      "last_name": "Barro"
+    },
+    {
+      "type_utilisateur": "client",
+      "username": "client_bulk_10",
+      "email": "client_bulk_10@demo.local",
+      "first_name": "Binta",
+      "last_name": "Ouattara"
     },
     {
       "type_utilisateur": "fournisseur",
       "username": "fournisseur_demo",
       "email": "fournisseur@demo.local",
       "first_name": "Amadou",
-      "last_name": "Diallo"
+      "last_name": "Sawadogo"
     },
     {
       "type_utilisateur": "fournisseur",
       "username": "presta_sarl",
       "email": "contact@presta-sarl.demo",
       "first_name": "Fatou",
-      "last_name": "Ndiaye"
+      "last_name": "Bance"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_03",
+      "email": "fournisseur_bulk_03@demo.local",
+      "first_name": "Boubacar",
+      "last_name": "Zoungrana"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_04",
+      "email": "fournisseur_bulk_04@demo.local",
+      "first_name": "Clarisse",
+      "last_name": "Pare"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_05",
+      "email": "fournisseur_bulk_05@demo.local",
+      "first_name": "Hamidou",
+      "last_name": "Bado"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_06",
+      "email": "fournisseur_bulk_06@demo.local",
+      "first_name": "Kadidia",
+      "last_name": "Somé"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_07",
+      "email": "fournisseur_bulk_07@demo.local",
+      "first_name": "Seydou",
+      "last_name": "Ilboudo"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_08",
+      "email": "fournisseur_bulk_08@demo.local",
+      "first_name": "Zenabou",
+      "last_name": "Kafando"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_09",
+      "email": "fournisseur_bulk_09@demo.local",
+      "first_name": "Yacouba",
+      "last_name": "Nana"
+    },
+    {
+      "type_utilisateur": "fournisseur",
+      "username": "fournisseur_bulk_10",
+      "email": "fournisseur_bulk_10@demo.local",
+      "first_name": "Hortense",
+      "last_name": "Dabiré"
     }
   ]
 }

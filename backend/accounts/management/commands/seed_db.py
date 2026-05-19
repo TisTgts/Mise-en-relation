@@ -1,8 +1,9 @@
 """
 Peuple la base avec des données de démonstration.
 
-Les comptes utilisateurs sont définis dans accounts/data/seed_users.json
-(types = valeurs de User.TYPES_UTILISATEUR, alignés sur le cahier / PDF).
+Tous les comptes (username, email, type, prénom, nom) sont définis dans
+accounts/data/seed_users.json. Les identifiants de connexion restent stables ;
+modifiez first_name / last_name pour changer les personnes affichées.
 
 Usage:
   python manage.py seed_db              # remplit une base vide
@@ -22,61 +23,15 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.utils import timezone
 
+from accounts.data.seed_business_data import (
+    CATEGORIES,
+    CLIENTS,
+    FOURNISSEURS,
+    TRANSACTION_NOTES,
+    USER_PHONES,
+)
 from accounts.models import User, ProfileClient, ProfileFournisseur
 from services.models import Besoin, CategorieService, SousCategorieService, Prestation, TransactionService
-
-
-BURKINA_CITIES = [
-    {
-        "city": "Ouagadougou",
-        "lat": 12.3714,
-        "lng": -1.5197,
-        "quartiers": ["Koulouba", "Patte d'Oie", "Dassasgho", "Gounghin", "Tampouy"],
-    },
-    {
-        "city": "Bobo-Dioulasso",
-        "lat": 11.1771,
-        "lng": -4.2979,
-        "quartiers": ["Colsama", "Sarfalao", "Belleville", "Accart-ville", "Kodeni"],
-    },
-]
-
-BURKINA_CLIENT_SECTORS = [
-    "Commerce de détail",
-    "Restauration",
-    "Agroalimentaire",
-    "Services administratifs",
-    "Santé",
-    "Education",
-]
-
-BURKINA_PAYMENT_MODES = ["Mobile Money", "Virement", "Espèces", "Chèque"]
-
-BURKINA_FIRST_NAMES = [
-    "Aissata",
-    "Moussa",
-    "Aminata",
-    "Issa",
-    "Mariam",
-    "Adama",
-    "Fatoumata",
-    "Oumar",
-    "Binta",
-    "Abdoulaye",
-]
-
-BURKINA_LAST_NAMES = [
-    "Ouedraogo",
-    "Traore",
-    "Compaore",
-    "Savadogo",
-    "Zongo",
-    "Sanou",
-    "Kone",
-    "Nikiema",
-    "Diallo",
-    "Barro",
-]
 
 
 def _seed_users_json_path() -> Path:
@@ -106,7 +61,7 @@ def _default_users_from_model() -> List[dict]:
     return users
 
 
-def load_user_specs() -> Tuple[List[dict], str]:
+def load_user_specs() -> Tuple[List[dict], str, dict]:
     path = _seed_users_json_path()
     allowed = {code for code, _ in User.TYPES_UTILISATEUR}
     if path.exists():
@@ -114,9 +69,12 @@ def load_user_specs() -> Tuple[List[dict], str]:
             data = json.load(f)
         users = [u for u in data.get("users", []) if isinstance(u, dict)]
         password = data.get("password", "demo1234")
+        counts = data.get("counts") if isinstance(data.get("counts"), dict) else {}
     else:
         users = _default_users_from_model()
         password = "demo1234"
+        counts = {}
+    seen_usernames = set()
     for u in users:
         t = u.get("type_utilisateur")
         if t not in allowed:
@@ -126,7 +84,27 @@ def load_user_specs() -> Tuple[List[dict], str]:
             )
         if not u.get("username") or not u.get("email"):
             raise CommandError(f"username et email obligatoires : {u!r}")
-    return users, password
+        username = u["username"]
+        if username in seen_usernames:
+            raise CommandError(f"username dupliqué dans seed_users.json : {username!r}")
+        seen_usernames.add(username)
+    return users, password, counts
+
+
+def _validate_user_counts(users: List[dict], counts: dict) -> None:
+    """Vérifie que seed_users.json contient le nombre attendu par type."""
+    if not counts:
+        return
+    by_type: DefaultDict[str, int] = defaultdict(int)
+    for u in users:
+        by_type[u["type_utilisateur"]] += 1
+    for utype, expected in counts.items():
+        actual = by_type.get(utype, 0)
+        if actual != expected:
+            raise CommandError(
+                f"seed_users.json : {actual} compte(s) « {utype} », "
+                f"{expected} attendu(s) (champ counts)."
+            )
 
 
 def _ensure_user(
@@ -154,6 +132,8 @@ def _ensure_user(
     user.first_name = first_name or ""
     user.last_name = last_name or ""
     user.is_active = True
+    user.telephone = USER_PHONES.get(username, "")
+    user.est_verifie = utype != "administrateur"
     if utype == "administrateur":
         user.is_staff = True
         user.is_superuser = True
@@ -227,7 +207,8 @@ class Command(BaseCommand):
     def _seed(self):
         random.seed(226)
         now = timezone.now()
-        specs, password = load_user_specs()
+        specs, password, counts = load_user_specs()
+        _validate_user_counts(specs, counts)
 
         created: List[User] = []
         for spec in specs:
@@ -262,330 +243,219 @@ class Command(BaseCommand):
             )
 
         admin = admins[0]
+        clients = sorted(clients, key=lambda u: u.username)
+        fournis = sorted(fournis, key=lambda u: u.username)
 
-        # Monter le volume d'utilisateurs pour une base réaliste Burkina.
-        target_clients = 12
-        target_fournisseurs = 10
-
-        for i in range(len(clients) + 1, target_clients + 1):
-            first = BURKINA_FIRST_NAMES[(i - 1) % len(BURKINA_FIRST_NAMES)]
-            last = BURKINA_LAST_NAMES[(i + 2) % len(BURKINA_LAST_NAMES)]
-            _ensure_user(
-                username=f"client_bf_{i:02d}",
-                email=f"client_bf_{i:02d}@demo.bf",
-                utype="client",
-                first_name=first,
-                last_name=last,
-                password=password,
-            )
-        for i in range(len(fournis) + 1, target_fournisseurs + 1):
-            first = BURKINA_FIRST_NAMES[(i + 3) % len(BURKINA_FIRST_NAMES)]
-            last = BURKINA_LAST_NAMES[(i + 5) % len(BURKINA_LAST_NAMES)]
-            _ensure_user(
-                username=f"fournisseur_bf_{i:02d}",
-                email=f"fournisseur_bf_{i:02d}@demo.bf",
-                utype="fournisseur",
-                first_name=first,
-                last_name=last,
-                password=password,
-            )
-
-        # Recharger les groupes après création des comptes bulk.
-        by_type = defaultdict(list)
-        for u in User.objects.filter(type_utilisateur__in=["administrateur", "client", "fournisseur"]):
-            by_type[u.type_utilisateur].append(u)
-        clients = sorted(by_type["client"], key=lambda u: u.username)
-        fournis = sorted(by_type["fournisseur"], key=lambda u: u.username)
-
-        categories_structure = {
-            "Informatique & Digital": [
-                "Développement web",
-                "Développement logiciel",
-                "Support informatique",
-                "Fourniture matériel informatique",
-            ],
-            "BTP & Travaux": [
-                "Plomberie",
-                "Électricité",
-                "Maçonnerie",
-            ],
-            "Transport & Logistique": [
-                "Livraison",
-                "Déménagement",
-            ],
-            "Maintenance & Réparation": [
-                "Climatisation",
-                "Électroménager",
-            ],
-        }
         categories_by_name = {}
-        for parent_name, children in categories_structure.items():
+        for parent_name, meta in CATEGORIES.items():
             parent_cat, _ = CategorieService.objects.get_or_create(
                 nom=parent_name,
-                defaults={"description": f"Catégorie principale: {parent_name}", "est_active": True},
+                defaults={"description": meta["description"], "est_active": True},
             )
+            if parent_cat.description != meta["description"]:
+                parent_cat.description = meta["description"]
+                parent_cat.save(update_fields=["description"])
             categories_by_name[parent_name] = parent_cat
-            for child_name in children:
+            for child_name, child_desc in meta["sous_categories"].items():
                 child_cat, _ = SousCategorieService.objects.get_or_create(
                     categorie=parent_cat,
                     nom=child_name,
-                    defaults={
-                        "description": f"Sous-catégorie de {parent_name}",
-                        "est_active": True,
-                    },
+                    defaults={"description": child_desc, "est_active": True},
                 )
-                if not child_cat.est_active:
+                if child_cat.description != child_desc or not child_cat.est_active:
+                    child_cat.description = child_desc
                     child_cat.est_active = True
-                    child_cat.save(update_fields=["est_active"])
+                    child_cat.save(update_fields=["description", "est_active"])
                 categories_by_name[child_name] = child_cat
 
-        def _city_payload(index):
-            city = BURKINA_CITIES[index % len(BURKINA_CITIES)]
-            quartier = city["quartiers"][index % len(city["quartiers"])]
-            return {
-                "city": city["city"],
-                "lat": city["lat"],
-                "lng": city["lng"],
-                "adresse": f"{city['city']} - {quartier}",
-                "quartier": quartier,
-            }
+        today = now.date()
+        abonnement_fin = today + timedelta(days=365)
 
-        fournisseur_domains = [
-            (
-                "Informatique & Digital",
-                [
-                    "Développement web",
-                    "Développement logiciel",
-                    "Support informatique",
-                    "Fourniture matériel informatique",
-                    "Support informatique",
-                ],
-            ),
-            (
-                "BTP & Travaux",
-                [
-                    "Plomberie",
-                    "Électricité",
-                    "Maçonnerie",
-                    "Plomberie",
-                    "Électricité",
-                ],
-            ),
-            (
-                "Transport & Logistique",
-                [
-                    "Livraison",
-                    "Déménagement",
-                    "Livraison",
-                    "Déménagement",
-                    "Livraison",
-                ],
-            ),
-            (
-                "Maintenance & Réparation",
-                [
-                    "Climatisation",
-                    "Électroménager",
-                    "Climatisation",
-                    "Électroménager",
-                    "Climatisation",
-                ],
-            ),
-        ]
-
-        for idx, fournisseur in enumerate(fournis):
-            city = _city_payload(idx)
-            domain_name, offered_types = fournisseur_domains[idx % len(fournisseur_domains)]
+        for fournisseur in fournis:
+            biz = FOURNISSEURS.get(fournisseur.username)
+            if not biz:
+                raise CommandError(
+                    f"Profil fournisseur manquant dans seed_business_data.py : {fournisseur.username!r}"
+                )
+            loc = biz["emplacement"]
+            offered = [p["sous_categorie"] for p in biz["prestations"]]
             ProfileFournisseur.objects.update_or_create(
                 user=fournisseur,
                 defaults={
-                    "raison_sociale": f"{(fournisseur.first_name or fournisseur.username).title()} Services SARL",
-                    "types_services_offerts": offered_types,
-                    "zones_couverture": ["Ouagadougou", "Bobo-Dioulasso"],
-                    "annees_experience": 3 + (idx % 12),
-                    "certifications": ["Certification métier"] if idx % 3 == 0 else [],
+                    "raison_sociale": biz["raison_sociale"],
+                    "types_services_offerts": offered,
+                    "zones_couverture": biz["zones"],
+                    "annees_experience": biz["annees_experience"],
+                    "certifications": biz["certifications"],
                     "assurance_valide": True,
-                    "note_moyenne": Decimal("3.80") + Decimal((idx % 12) / 10),
-                    "services_effectues": 10 + (idx * 7),
-                    "disponibilites": {"lun-ven": "08h-18h"},
-                    "tarif_horaire": Decimal("15000.00") + Decimal((idx % 6) * 2500),
+                    "note_moyenne": biz["note_moyenne"],
+                    "services_effectues": biz["services_effectues"],
+                    "disponibilites": biz["disponibilites"],
+                    "tarif_horaire": biz["tarif_horaire"],
                     "emplacement": {
-                        "latitude": city["lat"],
-                        "longitude": city["lng"],
-                        "adresse": city["adresse"],
-                        "ville": city["city"],
+                        "latitude": loc["latitude"],
+                        "longitude": loc["longitude"],
+                        "adresse": loc["adresse"],
+                        "ville": loc["ville"],
+                        "quartier": loc.get("quartier", ""),
                     },
+                    "abonnement_type": biz.get("abonnement_type", "standard"),
+                    "abonnement_actif": True,
+                    "abonnement_debut": today,
+                    "abonnement_fin": abonnement_fin,
                 },
             )
-
-            # 5 prestations par fournisseur
-            for j, service_type in enumerate(offered_types, start=1):
-                sub = categories_by_name.get(service_type)
+            for p in biz["prestations"]:
+                sub = categories_by_name.get(p["sous_categorie"])
                 if not sub:
                     continue
-                mode_tarification = "forfait" if j % 2 else "devis"
-                tarif_min = Decimal("50000.00") + Decimal((idx + j) * 10000)
-                tarif_max = tarif_min + Decimal("250000.00")
                 Prestation.objects.update_or_create(
                     fournisseur=fournisseur,
-                    intitule=f"{service_type} - Offre {j:02d} - {fournisseur.username}",
+                    intitule=p["intitule"],
                     defaults={
                         "categorie": sub.categorie,
                         "sous_categorie": sub,
-                        "description": f"Prestation {service_type} proposée par {fournisseur.username}.",
-                        "type_prestation": service_type,
-                        "caracteristiques": {"niveau_service": "standard", "domaine": domain_name},
-                        "zones_intervention": ["Ouagadougou", "Bobo-Dioulasso"],
+                        "description": p["description"],
+                        "type_prestation": p["sous_categorie"],
+                        "caracteristiques": {
+                            **p.get("caracteristiques", {}),
+                            "domaine": biz["domaine"],
+                            "entreprise": biz["raison_sociale"],
+                        },
+                        "zones_intervention": biz["zones"],
                         "disponibilite_debut": now,
-                        "disponibilite_fin": now + timedelta(days=120),
-                        "mode_tarification": mode_tarification,
-                        "tarif_min": tarif_min,
-                        "tarif_max": tarif_max,
+                        "disponibilite_fin": now + timedelta(days=180),
+                        "mode_tarification": p["mode_tarification"],
+                        "tarif_min": p["tarif_min"],
+                        "tarif_max": p["tarif_max"],
                         "statut": "active",
                     },
                 )
 
-        besoins_templates = [
-            ("Refonte site web pour PME à Ouaga", "Développement web", Decimal("850000.00"), True),
-            ("Application de gestion stock pour boutique", "Développement logiciel", Decimal("1500000.00"), False),
-            ("Support informatique mensuel agence", "Support informatique", Decimal("350000.00"), True),
-            ("Fourniture PC et imprimantes de bureau", "Fourniture matériel informatique", Decimal("1800000.00"), False),
-            ("Réparation fuite ONEA sur installation interne", "Plomberie", Decimal("85000.00"), False),
-            ("Mise aux normes électriques local commercial", "Électricité", Decimal("650000.00"), False),
-            ("Rénovation mur et dalle magasin", "Maçonnerie", Decimal("500000.00"), True),
-            ("Livraison urbaine de colis e-commerce", "Livraison", Decimal("250000.00"), True),
-            ("Déménagement de bureau inter-quartiers", "Déménagement", Decimal("450000.00"), True),
-            ("Maintenance climatisation saison chaude", "Climatisation", Decimal("300000.00"), True),
-            ("Réparation congélateur boutique", "Électroménager", Decimal("220000.00"), True),
-        ]
-        urgence_cycle = ["basse", "normale", "haute", "urgente"]
+        prestations_by_sub = defaultdict(list)
+        for prest in Prestation.objects.filter(statut="active").select_related("sous_categorie"):
+            if prest.sous_categorie_id:
+                prestations_by_sub[prest.sous_categorie.nom].append(prest)
 
-        # 10 besoins par client
-        for cidx, client in enumerate(clients):
-            city = _city_payload(cidx)
+        for client in clients:
+            biz = CLIENTS.get(client.username)
+            if not biz:
+                raise CommandError(
+                    f"Profil client manquant dans seed_business_data.py : {client.username!r}"
+                )
+            loc = biz["emplacement"]
+            besoin_types = list({b["sous_categorie"] for b in biz["besoins"]})
             ProfileClient.objects.update_or_create(
                 user=client,
                 defaults={
-                    "raison_sociale": f"{(client.first_name or client.username).title()} & Co",
-                    "secteur_activite": BURKINA_CLIENT_SECTORS[cidx % len(BURKINA_CLIENT_SECTORS)],
-                    "taille_entreprise": "PME" if cidx % 2 == 0 else "TPE",
-                    "besoins_services": [tpl[1] for tpl in besoins_templates[:4]],
+                    "raison_sociale": biz["raison_sociale"],
+                    "secteur_activite": biz["secteur_activite"],
+                    "taille_entreprise": biz["taille_entreprise"],
+                    "besoins_services": besoin_types[:6],
                     "fournisseurs_preferes": [],
-                    "plage_budget": {"min": 100000, "max": 3000000},
-                    "frequence_besoins": "mensuelle" if cidx % 3 else "trimestrielle",
+                    "plage_budget": biz["plage_budget"],
+                    "frequence_besoins": biz["frequence_besoins"],
                     "contact_principal": client.get_full_name() or client.username,
-                    "mode_paiement_preferes": BURKINA_PAYMENT_MODES[:2] if cidx % 2 == 0 else BURKINA_PAYMENT_MODES[1:3],
+                    "mode_paiement_preferes": biz["mode_paiement_preferes"],
                     "emplacement": {
-                        "latitude": city["lat"],
-                        "longitude": city["lng"],
-                        "adresse": city["adresse"],
-                        "ville": city["city"],
+                        "latitude": loc["latitude"],
+                        "longitude": loc["longitude"],
+                        "adresse": loc["adresse"],
+                        "ville": loc["ville"],
+                        "quartier": loc.get("quartier", ""),
                     },
                 },
             )
-
-            for j in range(10):
-                tpl = besoins_templates[(cidx * 3 + j) % len(besoins_templates)]
-                titre_base, service_type, budget_base, flexible_default = tpl
-                sub = categories_by_name.get(service_type)
+            for j, b in enumerate(biz["besoins"]):
+                sub = categories_by_name.get(b["sous_categorie"])
                 if not sub:
                     continue
-                mode_budget = "sur_devis" if (j % 3 == 0) else "budget_fixe"
-                statut = "ouverte"
-                if j in (7, 8):
-                    statut = "en_cours"
-                if j == 9:
-                    statut = "pourvue"
                 Besoin.objects.update_or_create(
                     client=client,
-                    intitule=f"{titre_base} - {client.username} - {j+1:02d}",
+                    intitule=b["intitule"],
                     defaults={
                         "categorie": sub.categorie,
                         "sous_categorie": sub,
-                        "description": f"Besoin {service_type} pour {client.username}.",
-                        "type_service": service_type,
+                        "description": b["description"],
+                        "type_service": b["sous_categorie"],
                         "exigences": {
-                            "priorite_metier": "standard",
-                            "index_client": cidx,
-                            "index_besoin": j + 1,
-                            "quartier": city["quartier"],
+                            **b.get("exigences", {}),
+                            "entreprise": biz["raison_sociale"],
+                            "ville": loc["ville"],
                         },
-                        "lieu_intervention": city["adresse"],
-                        "date_souhaitee": now + timedelta(days=2 + (j % 10)),
-                        "date_limite": now + timedelta(days=10 + (j % 20)),
-                        "urgence": urgence_cycle[(cidx + j) % len(urgence_cycle)],
-                        "mode_budget": mode_budget,
-                        "budget": None if mode_budget == "sur_devis" else (budget_base + Decimal((j % 4) * 50000)),
-                        "flexible": flexible_default,
-                        "statut": statut,
+                        "lieu_intervention": b.get("lieu", loc["adresse"]),
+                        "date_souhaitee": now + timedelta(days=3 + (j % 14)),
+                        "date_limite": now + timedelta(days=12 + (j % 25)),
+                        "urgence": b["urgence"],
+                        "mode_budget": b["mode_budget"],
+                        "budget": b.get("budget"),
+                        "flexible": b["flexible"],
+                        "statut": b["statut"],
                     },
                 )
 
-        created_prestations = list(Prestation.objects.filter(statut="active").order_by("id"))
-
-        # Transactions démo sur quelques besoins non ouverts
         besoins_non_ouverts = list(
-            Besoin.objects.filter(statut__in=["en_cours", "pourvue"]).order_by("id")[:8]
+            Besoin.objects.filter(statut__in=["en_cours", "pourvue"])
+            .select_related("sous_categorie", "client")
+            .order_by("id")
         )
+        all_prestations = list(Prestation.objects.filter(statut="active").order_by("id"))
+
         for idx, besoin in enumerate(besoins_non_ouverts):
-            prestation = created_prestations[idx % len(created_prestations)]
+            sub_name = besoin.sous_categorie.nom if besoin.sous_categorie else None
+            candidates = prestations_by_sub.get(sub_name, []) if sub_name else []
+            prestation = candidates[idx % len(candidates)] if candidates else all_prestations[idx % len(all_prestations)]
+
             if besoin.mode_budget == "sur_devis":
-                if idx % 3 == 0:
-                    devis_statut = "en_attente_client"
-                elif idx % 3 == 1:
-                    devis_statut = "accepte_client"
-                else:
-                    devis_statut = "rejete_client"
-                devis_montant = prestation.tarif_min or Decimal("75000.00")
+                devis_statut = ["en_attente_client", "accepte_client", "rejete_client"][idx % 3]
+                devis_montant = (
+                    (besoin.budget or prestation.tarif_min or Decimal("150000"))
+                    if devis_statut == "accepte_client"
+                    else (prestation.tarif_min or Decimal("150000"))
+                )
                 prix_final = devis_montant if devis_statut == "accepte_client" else None
+                devis_desc = (
+                    f"Devis détaillé pour « {besoin.intitule} » — "
+                    f"prestataire {prestation.fournisseur.get_full_name() or prestation.fournisseur.username}, "
+                    f"délai estimé 5 à 10 jours ouvrés."
+                )
             else:
                 devis_statut = "non_requis"
                 devis_montant = None
-                prix_final = prestation.tarif_min
+                prix_final = besoin.budget or prestation.tarif_min
+                devis_desc = ""
 
-            tx, created = TransactionService.objects.get_or_create(
+            if besoin.statut == "en_cours":
+                tx_statut = "en_cours"
+                note = TRANSACTION_NOTES["en_cours"]
+            elif besoin.statut == "pourvue":
+                tx_statut = "terminee"
+                note = TRANSACTION_NOTES["terminee"]
+            else:
+                tx_statut = "acceptee"
+                note = TRANSACTION_NOTES["acceptee"]
+
+            TransactionService.objects.update_or_create(
                 prestation=prestation,
                 besoin=besoin,
-                fournisseur=prestation.fournisseur,
-                client=besoin.client,
                 defaults={
+                    "fournisseur": prestation.fournisseur,
+                    "client": besoin.client,
                     "prix_final": prix_final,
                     "devis_montant_propose": devis_montant,
-                    "devis_description": "Devis initial proposé automatiquement pour la démo.",
+                    "devis_description": devis_desc,
                     "devis_statut": devis_statut,
                     "devis_date_proposition": now if besoin.mode_budget == "sur_devis" else None,
-                    "devis_date_reponse_client": now if devis_statut in ["accepte_client", "rejete_client"] else None,
+                    "devis_date_reponse_client": (
+                        now if devis_statut in ["accepte_client", "rejete_client"] else None
+                    ),
                     "devis_propose_par": prestation.fournisseur if besoin.mode_budget == "sur_devis" else None,
-                    "statut": "en_cours" if besoin.statut == "en_cours" else ("terminee" if devis_statut != "en_attente_client" else "acceptee"),
+                    "statut": tx_statut,
                     "debut_confirme": True,
-                    "fin_confirmee": besoin.statut == "pourvue" and devis_statut != "en_attente_client",
-                    "notes": "Transaction générée automatiquement pour dataset de démonstration.",
+                    "fin_confirmee": besoin.statut == "pourvue",
+                    "notes": note,
                 },
             )
-            if not created:
-                tx.statut = "en_cours" if besoin.statut == "en_cours" else ("terminee" if devis_statut != "en_attente_client" else "acceptee")
-                tx.debut_confirme = True
-                tx.fin_confirmee = besoin.statut == "pourvue" and devis_statut != "en_attente_client"
-                if besoin.mode_budget == "sur_devis":
-                    tx.devis_montant_propose = tx.devis_montant_propose or devis_montant
-                    tx.devis_description = tx.devis_description or "Devis initial proposé automatiquement pour la démo."
-                    tx.devis_statut = devis_statut
-                    tx.devis_date_proposition = tx.devis_date_proposition or now
-                    if devis_statut in ["accepte_client", "rejete_client"]:
-                        tx.devis_date_reponse_client = tx.devis_date_reponse_client or now
-                    tx.devis_propose_par = tx.devis_propose_par or prestation.fournisseur
-                    tx.prix_final = tx.devis_montant_propose if devis_statut == "accepte_client" else None
-                else:
-                    tx.devis_statut = "non_requis"
-                    tx.prix_final = tx.prix_final or prestation.tarif_min
-                tx.save(
-                    update_fields=[
-                        "statut", "debut_confirme", "fin_confirmee",
-                        "prix_final", "devis_montant_propose", "devis_description",
-                        "devis_statut", "devis_date_proposition", "devis_date_reponse_client",
-                        "devis_propose_par", "updated_at"
-                    ]
-                )
 
         self.stdout.write(self.style.SUCCESS("Données de démonstration insérées."))
         self.stdout.write(f"Fichier utilisateurs : {_seed_users_json_path()}")
