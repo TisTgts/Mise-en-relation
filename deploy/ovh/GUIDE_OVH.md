@@ -370,6 +370,28 @@ bash deploy/ovh/deploy-app.sh
 
 ---
 
+## Peupler / réinitialiser la base (données demo)
+
+Sur le VPS, après avoir poussé le code (`seed_business_data.py`, `seed_users.json`) :
+
+```bash
+cd /var/www/plateforme
+git pull origin feature/code
+bash deploy/ovh/seed-db.sh
+```
+
+Ce script :
+
+1. Arrête Gunicorn (`plateforme`)
+2. Lance `migrate` puis `python manage.py seed_db --reset` (PostgreSQL : `flush` + données demo)
+3. Redémarre l’API
+
+Comptes : mot de passe **`demo1234`** — voir `utilisateurs_identifiants.md` à la racine du dépôt.
+
+> **Attention** : `--reset` **efface toutes les données** de production sur le VPS (utilisateurs réels inclus). À n’utiliser qu’en environnement de démo / test.
+
+---
+
 ## Fichiers de ce dossier
 
 | Fichier | Rôle |
@@ -379,6 +401,7 @@ bash deploy/ovh/deploy-app.sh
 | [`gunicorn.service`](./gunicorn.service) | Service systemd |
 | [`setup-vps.sh`](./setup-vps.sh) | Préparation VPS (optionnel) |
 | [`deploy-app.sh`](./deploy-app.sh) | Mise à jour après `git pull` |
+| [`seed-db.sh`](./seed-db.sh) | Peuplement demo (`seed_db --reset`) sur PostgreSQL |
 
 ---
 

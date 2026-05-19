@@ -22,3 +22,4 @@ sudo systemctl restart plateforme
 sudo systemctl reload nginx
 
 echo "=== Déploiement terminé ==="
+echo "Pour repeupler la base demo : bash deploy/ovh/seed-db.sh"

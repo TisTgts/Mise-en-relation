@@ -164,7 +164,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options["reset"]:
-            self._reset_sqlite()
+            self._reset_database()
 
         if User.objects.exists() and not options["force"] and not options["reset"]:
             self.stdout.write(
@@ -183,26 +183,37 @@ class Command(BaseCommand):
 
         self._seed()
 
-    def _reset_sqlite(self):
-        if settings.DATABASES["default"]["ENGINE"] != "django.db.backends.sqlite3":
-            self.stderr.write("L'option --reset n'est implémentée que pour SQLite.")
-            return
-        db_path = Path(settings.DATABASES["default"]["NAME"])
-        connection.close()
-        if db_path.exists():
-            try:
-                db_path.unlink()
-            except PermissionError:
-                self.stderr.write(
-                    self.style.ERROR(
-                        "Impossible de supprimer db.sqlite3 (fichier utilisé). "
-                        "Arrêtez le serveur Django (runserver) et les shells ouverts sur cette base, puis réessayez."
+    def _reset_database(self):
+        engine = settings.DATABASES["default"]["ENGINE"]
+        if engine == "django.db.backends.sqlite3":
+            db_path = Path(settings.DATABASES["default"]["NAME"])
+            connection.close()
+            if db_path.exists():
+                try:
+                    db_path.unlink()
+                except PermissionError:
+                    self.stderr.write(
+                        self.style.ERROR(
+                            "Impossible de supprimer db.sqlite3 (fichier utilisé). "
+                            "Arrêtez le serveur Django (runserver) et réessayez."
+                        )
                     )
+                    raise SystemExit(1)
+                self.stdout.write(self.style.SUCCESS(f"Fichier supprimé : {db_path}"))
+            call_command("migrate", interactive=False, verbosity=1)
+            self.stdout.write(self.style.SUCCESS("Migrations appliquées."))
+            return
+
+        if not settings.DEBUG:
+            self.stdout.write(
+                self.style.WARNING(
+                    "ATTENTION : --reset efface TOUTES les données PostgreSQL "
+                    "(utilisateurs, besoins, transactions, matchings)."
                 )
-                raise SystemExit(1)
-            self.stdout.write(self.style.SUCCESS(f"Fichier supprimé : {db_path}"))
-        call_command("migrate", interactive=False, verbosity=1)
-        self.stdout.write(self.style.SUCCESS("Migrations appliquées."))
+            )
+        connection.close()
+        call_command("flush", interactive=False, verbosity=1)
+        self.stdout.write(self.style.SUCCESS("Base PostgreSQL vidée (flush)."))
 
     def _seed(self):
         random.seed(226)
