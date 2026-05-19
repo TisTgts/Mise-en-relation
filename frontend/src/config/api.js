@@ -5,7 +5,7 @@ export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: `${API_BASE_URL}/accounts/login/`,
     REGISTER: `${API_BASE_URL}/accounts/register/`,
-    REFRESH: `${API_BASE_URL}/accounts/refresh/`,
+    REFRESH: `${API_BASE_URL}/accounts/token/refresh/`,
     LOGOUT: `${API_BASE_URL}/accounts/logout/`,
   },
   

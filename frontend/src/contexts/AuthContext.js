@@ -270,16 +270,38 @@ export const AuthProvider = ({ children }) => {
       const data = await response.json();
 
       if (response.ok) {
+        // L'API renvoie les mêmes champs que la connexion : on connecte l'utilisateur
+        // pour permettre la suite du parcours (ex. inscription fournisseur en plusieurs étapes).
         dispatch({
-          type: AUTH_ACTIONS.REGISTER_SUCCESS
+          type: AUTH_ACTIONS.LOGIN_SUCCESS,
+          payload: {
+            user: data.user,
+            token: data.access,
+            refresh_token: data.refresh,
+            type_utilisateur: data.user?.type_utilisateur
+          }
         });
-        return { success: true };
+        return {
+          success: true,
+          user: data.user,
+          access: data.access,
+          refresh: data.refresh,
+        };
       } else {
+        const msg =
+          (typeof data.detail === 'string' && data.detail) ||
+          (Array.isArray(data.non_field_errors) && data.non_field_errors.join(' ')) ||
+          data.message ||
+          Object.entries(data)
+            .filter(([k]) => k !== 'detail')
+            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : JSON.stringify(v)}`)
+            .join(' | ') ||
+          'Erreur d\'inscription';
         dispatch({
           type: AUTH_ACTIONS.REGISTER_FAILURE,
-          payload: data.message || 'Erreur d\'inscription'
+          payload: msg
         });
-        return { success: false, error: data.message || 'Erreur d\'inscription' };
+        return { success: false, error: msg };
       }
     } catch (error) {
       dispatch({

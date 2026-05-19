@@ -1,0 +1,43 @@
+# Exemple Render.com — à adapter avec vos URLs réelles
+# Doc : https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: serviceconnect-api
+    runtime: python
+    rootDir: backend
+    buildCommand: ./build.sh
+    startCommand: gunicorn transport_platform.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: serviceconnect-db
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "False"
+
+  - type: web
+    name: serviceconnect-front
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false
+
+databases:
+  - name: serviceconnect-db
+    plan: free
+    databaseName: serviceconnect
+    user: serviceconnect

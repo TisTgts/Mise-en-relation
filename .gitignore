@@ -1,2 +1,34 @@
 # Dependencies
 node_modules/
+frontend/node_modules/
+
+# Python
+**/__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Django
+backend/db.sqlite3
+backend/staticfiles/
+backend/media/
+backend/.env
+
+# React
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+frontend/.env.production.local
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Office temp
+~$*.docx
+~WRL*.tmp
