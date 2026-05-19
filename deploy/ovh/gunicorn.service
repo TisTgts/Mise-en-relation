@@ -1,9 +1,9 @@
-# Service systemd Gunicorn — utilisateur ubuntu (propriétaire du code)
-# sudo cp gunicorn.service /etc/systemd/system/serviceconnect.service
-# sudo systemctl daemon-reload && sudo systemctl enable --now serviceconnect
+# Service systemd Gunicorn — dossier /var/www/plateforme
+# sudo cp gunicorn.service /etc/systemd/system/plateforme.service
+# sudo systemctl daemon-reload && sudo systemctl enable --now plateforme
 
 [Unit]
-Description=ServiceConnect Django (Gunicorn)
+Description=Plateforme TIS Django (Gunicorn)
 After=network.target postgresql.service
 
 [Service]
@@ -16,8 +16,8 @@ ExecStart=/var/www/plateforme/venv/bin/gunicorn \
     --bind 127.0.0.1:8000 \
     --workers 2 \
     --timeout 120 \
-    --access-logfile /var/log/serviceconnect/access.log \
-    --error-logfile /var/log/serviceconnect/error.log
+    --access-logfile /var/log/plateforme/access.log \
+    --error-logfile /var/log/plateforme/error.log
 Restart=always
 RestartSec=5
 

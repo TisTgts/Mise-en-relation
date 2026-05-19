@@ -251,10 +251,10 @@ Après configuration du domaine : remplacez par `http://toghinis.net/api` puis r
 ### Étape 7 — Service API (Gunicorn)
 
 ```bash
-sudo mkdir -p /var/log/serviceconnect
-sudo chown ubuntu:ubuntu /var/log/serviceconnect
+sudo mkdir -p /var/log/plateforme
+sudo chown ubuntu:ubuntu /var/log/plateforme
 
-sudo tee /etc/systemd/system/serviceconnect.service > /dev/null << 'EOF'
+sudo tee /etc/systemd/system/plateforme.service > /dev/null << 'EOF'
 [Unit]
 Description=ServiceConnect Django
 After=network.target
@@ -272,9 +272,9 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable serviceconnect
-sudo systemctl start serviceconnect
-sudo systemctl status serviceconnect
+sudo systemctl enable plateforme
+sudo systemctl start plateforme
+sudo systemctl status plateforme
 ```
 
 Résultat attendu : **`active (running)`**.
@@ -284,7 +284,7 @@ Résultat attendu : **`active (running)`**.
 ### Étape 8 — Nginx (site + API)
 
 ```bash
-sudo tee /etc/nginx/sites-available/serviceconnect > /dev/null << 'EOF'
+sudo tee /etc/nginx/sites-available/plateforme > /dev/null << 'EOF'
 server {
     listen 80;
     server_name 144.217.82.132 toghinis.net www.toghinis.net;
@@ -320,7 +320,7 @@ server {
 }
 EOF
 
-sudo ln -sf /etc/nginx/sites-available/serviceconnect /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/plateforme /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -382,12 +382,12 @@ bash deploy/ovh/deploy-app.sh
 
 | Problème | Commande / action |
 |----------|-------------------|
-| API ne répond pas | `sudo systemctl status serviceconnect` |
-| Logs API | `sudo journalctl -u serviceconnect -f` |
+| API ne répond pas | `sudo systemctl status plateforme` |
+| Logs API | `sudo journalctl -u plateforme -f` |
 | Logs Nginx | `sudo tail -f /var/log/nginx/error.log` |
 | Page blanche React | Vérifier `npm run build` et le dossier `frontend/build` |
 | Erreur CORS | Vérifier `CORS_ALLOWED_ORIGINS` dans `backend/.env` |
-| 502 Bad Gateway | Gunicorn arrêté → `sudo systemctl restart serviceconnect` |
+| 502 Bad Gateway | Gunicorn arrêté → `sudo systemctl restart plateforme` |
 
 ---
 

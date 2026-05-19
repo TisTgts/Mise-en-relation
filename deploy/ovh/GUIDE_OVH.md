@@ -108,7 +108,7 @@ ls /var/www/plateforme
 
 ```bash
 cd /var/www/plateforme
-git pull origin feature/code
+git pull origin (feature/code) brache
 bash deploy/ovh/deploy-app.sh
 ```
 
@@ -156,11 +156,11 @@ nano /var/www/plateforme/backend/.env
 Exemple (avant HTTPS, gardez `http://` dans CORS) :
 
 ```env
-SECRET_KEY=generer-avec-python-secrets-token_urlsafe
+SECRET_KEY=qhEZ6PRBQA3BtQuUitvKOiae1kccfcd9tEfJokgk_MX1rCLW2BxIUtWTj_g12YwoFTQ
 DEBUG=False
 ALLOWED_HOSTS=144.217.82.132,toghinis.net,www.toghinis.net
 
-DATABASE_URL=postgres://tis:MOT_DE_PASSE@localhost:5432/plateforme_db
+DATABASE_URL=postgres://tis:tis&db$26@localhost:5432/plateforme_db
 
 CORS_ALLOWED_ORIGINS=http://144.217.82.132,http://toghinis.net,http://www.toghinis.net
 CORS_ALLOW_ALL_ORIGINS=False
@@ -205,29 +205,33 @@ Après HTTPS : `REACT_APP_API_URL=https://toghinis.net/api` puis `npm run build`
 
 ## 8. Gunicorn (systemd)
 
-Le service utilise l’utilisateur **`ubuntu`** (même propriétaire que les fichiers du projet).
+Dossier du projet : **`/var/www/plateforme`**  
+Nom du service : **`plateforme`** (cohérent avec votre dossier)
 
 ```bash
-sudo cp /var/www/plateforme/deploy/ovh/gunicorn.service /etc/systemd/system/serviceconnect.service
-sudo mkdir -p /var/log/serviceconnect
-sudo chown ubuntu:ubuntu /var/log/serviceconnect
+sudo cp /var/www/plateforme/deploy/ovh/gunicorn.service /etc/systemd/system/plateforme.service
+sudo mkdir -p /var/log/plateforme
+sudo chown ubuntu:ubuntu /var/log/plateforme
 sudo mkdir -p /var/www/plateforme/backend/media
 sudo chown -R ubuntu:ubuntu /var/www/plateforme/backend/media
 sudo systemctl daemon-reload
-sudo systemctl enable serviceconnect
-sudo systemctl start serviceconnect
-sudo systemctl status serviceconnect
+sudo systemctl enable plateforme
+sudo systemctl start plateforme
+sudo systemctl status plateforme
 ```
 
 Attendu : **`active (running)`**.
+
+> Si vous aviez créé un ancien service `serviceconnect` :  
+> `sudo systemctl disable --now serviceconnect`
 
 ---
 
 ## 9. Nginx
 
 ```bash
-sudo cp /var/www/plateforme/deploy/ovh/nginx-serviceconnect.conf /etc/nginx/sites-available/serviceconnect
-sudo nano /etc/nginx/sites-available/serviceconnect
+sudo cp /var/www/plateforme/deploy/ovh/nginx-serviceconnect.conf /etc/nginx/sites-available/plateforme
+sudo nano /etc/nginx/sites-available/plateforme
 ```
 
 Remplacez `VOTRE_DOMAINE.fr` par `toghinis.net` et ajoutez l’IP dans `server_name` si besoin :
@@ -239,7 +243,7 @@ server_name 144.217.82.132 toghinis.net www.toghinis.net;
 Puis :
 
 ```bash
-sudo ln -sf /etc/nginx/sites-available/serviceconnect /etc/nginx/sites-enabled/
+sudo ln -sf /etc/nginx/sites-available/plateforme /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -287,7 +291,7 @@ sudo systemctl reload nginx
 Logs :
 
 ```bash
-sudo journalctl -u serviceconnect -f
+sudo journalctl -u plateforme -f
 sudo tail -f /var/log/nginx/error.log
 ```
 

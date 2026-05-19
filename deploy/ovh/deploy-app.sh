@@ -18,7 +18,7 @@ npm ci
 npm run build
 
 echo "=== Redémarrage API ==="
-sudo systemctl restart serviceconnect
+sudo systemctl restart plateforme
 sudo systemctl reload nginx
 
 echo "=== Déploiement terminé ==="

@@ -19,8 +19,8 @@ echo "  \\q"
 
 echo "=== Dossiers application ==="
 mkdir -p /var/www/plateforme
-mkdir -p /var/log/serviceconnect
-chown -R www-data:www-data /var/log/serviceconnect
+mkdir -p /var/log/plateforme
+chown -R ubuntu:ubuntu /var/log/plateforme
 
 echo "=== Pare-feu (SSH + HTTP + HTTPS) ==="
 ufw allow OpenSSH
