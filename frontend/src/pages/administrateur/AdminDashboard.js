@@ -215,17 +215,30 @@ const AdminDashboard = () => {
     }
   };
 
+  const matchingResultMessage = (result, label) => {
+    const n = result?.total_matches_generated ?? 0;
+    const b = result?.processed_besoins ?? 0;
+    let msg = `${label} : ${b} besoin(s) traité(s), ${n} correspondance(s) générée(s).`;
+    if (n === 0 && b > 0) {
+      msg += ' Aucune paire au-dessus des seuils (catégorie, zone, score). Vérifiez prestations actives et zones d’intervention.';
+    }
+    if (result?.remaining_besoins_without_matching != null) {
+      msg += ` Reste sans matching : ${result.remaining_besoins_without_matching}.`;
+    }
+    return msg;
+  };
+
   const handleRunMatching = async () => {
     try {
       setRunningMatching(true);
       const result = await adminService.runMatchingForUnmatchedNeeds(100);
       setToast({
-        message: `Matching : ${result.processed_besoins} besoin(s), ${result.total_matches_generated} correspondance(s).`,
-        type: 'success',
+        message: matchingResultMessage(result, 'Matching batch'),
+        type: result?.total_matches_generated > 0 ? 'success' : 'error',
       });
       await fetchDashboardData();
-    } catch {
-      setToast({ message: 'Erreur lors du matching', type: 'error' });
+    } catch (err) {
+      setToast({ message: err.message || 'Erreur lors du matching', type: 'error' });
     } finally {
       setRunningMatching(false);
     }
@@ -253,12 +266,12 @@ const AdminDashboard = () => {
       setRunningMatching(true);
       const result = await adminService.runMatchingForSelectedNeeds(selectedBesoins);
       setToast({
-        message: `Sélection : ${result.processed_besoins} besoin(s), ${result.total_matches_generated} correspondance(s).`,
-        type: 'success',
+        message: matchingResultMessage(result, 'Sélection'),
+        type: result?.total_matches_generated > 0 ? 'success' : 'error',
       });
       await fetchDashboardData();
-    } catch {
-      setToast({ message: 'Erreur matching sélection', type: 'error' });
+    } catch (err) {
+      setToast({ message: err.message || 'Erreur matching sélection', type: 'error' });
     } finally {
       setRunningMatching(false);
     }
@@ -269,12 +282,12 @@ const AdminDashboard = () => {
       setRunningMatching(true);
       const result = await adminService.runMatchingForAllOpenNeeds();
       setToast({
-        message: `Tous les ouverts : ${result.processed_besoins} besoin(s), ${result.total_matches_generated} correspondance(s).`,
-        type: 'success',
+        message: matchingResultMessage(result, 'Tous les ouverts'),
+        type: result?.total_matches_generated > 0 ? 'success' : 'error',
       });
       await fetchDashboardData();
-    } catch {
-      setToast({ message: 'Erreur matching global', type: 'error' });
+    } catch (err) {
+      setToast({ message: err.message || 'Erreur matching global', type: 'error' });
     } finally {
       setRunningMatching(false);
     }

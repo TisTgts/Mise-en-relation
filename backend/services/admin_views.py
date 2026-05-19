@@ -249,11 +249,12 @@ def admin_statistics(request):
             })
         
         # Top fournisseurs (par nombre de prestations)
-        top_fournisseurs = User.objects.filter(
-            type_utilisateur='fournisseur'
-        ).annotate(
-            prestation_count=Count('prestations')
-        ).order_by('-prestation_count')[:5]
+        top_fournisseurs = (
+            User.objects.filter(type_utilisateur='fournisseur')
+            .select_related('profile_fournisseur')
+            .annotate(prestation_count=Count('prestations'))
+            .order_by('-prestation_count')[:5]
+        )
         
         # Top catégories (par nombre de prestations)
         top_categories = CategorieService.objects.annotate(
@@ -271,9 +272,13 @@ def admin_statistics(request):
             'top_fournisseurs': [
                 {
                     'id': p.id,
-                    'name': f"{p.first_name} {p.last_name}",
-                    'raison_sociale': getattr(p.profile_fournisseur, 'raison_sociale', ''),
-                    'prestation_count': p.prestation_count
+                    'name': f"{p.first_name} {p.last_name}".strip() or p.username,
+                    'raison_sociale': (
+                        p.profile_fournisseur.raison_sociale
+                        if hasattr(p, 'profile_fournisseur') and p.profile_fournisseur
+                        else ''
+                    ),
+                    'prestation_count': p.prestation_count,
                 }
                 for p in top_fournisseurs
             ],

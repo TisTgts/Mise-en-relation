@@ -215,26 +215,28 @@ class MatchingService:
     def _within_zone_perimeter(self, prestation, besoin):
         """
         Filtre dur de périmètre:
-        - si coordonnées fournisseur/client disponibles: distance <= HARD_MAX_DISTANCE_KM
-        - sinon fallback textuel sur zones_intervention vs lieu_intervention
-        - si infos géo absentes des 2 côtés: ne pas exclure (retourne True)
+        1. zones_intervention de la prestation vs lieu du besoin (ville / quartier)
+        2. sinon distance GPS siège fournisseur ↔ siège client (si coordonnées des deux)
+        3. sinon ne pas exclure
         """
+        zones = self._normalize_zones(prestation.service_areas)
+        lieu = self._normalize(besoin.service_location)
+        if zones and lieu:
+            if any(self._zone_match_score(area, lieu) > Decimal("0") for area in zones):
+                return True
+
         fournisseur_profile = self._provider_profile(prestation.provider)
         client_profile = self._client_profile(besoin.client)
-
         fournisseur_coords = self._extract_lat_lng(getattr(fournisseur_profile, "emplacement", None))
         client_coords = self._extract_lat_lng(getattr(client_profile, "emplacement", None))
 
         if fournisseur_coords and client_coords:
-            category_name = self._normalized_main_category_name(besoin) or self._normalized_main_category_name(prestation)
+            category_name = self._normalized_main_category_name(besoin) or self._normalized_main_category_name(
+                prestation
+            )
             max_distance = self.CATEGORY_DISTANCE_LIMIT_KM.get(category_name, self.HARD_MAX_DISTANCE_KM)
             distance = Decimal(str(self._distance_km(fournisseur_coords, client_coords)))
             return distance <= max_distance
-
-        zones = self._normalize_zones(prestation.service_areas)
-        lieu = self._normalize(besoin.service_location)
-        if zones and lieu:
-            return any(self._zone_match_score(area, lieu) > Decimal("0") for area in zones)
 
         return True
 
@@ -305,9 +307,16 @@ class MatchingService:
 
     def calculate_geographie_score(self, prestation, besoin):
         lieu = besoin.service_location or ""
+        zones = self._normalize_zones(prestation.service_areas)
+        if zones and lieu:
+            best = Decimal("0")
+            for area in zones:
+                best = max(best, self._zone_match_score(area, lieu))
+            if best > Decimal("0"):
+                return best
+
         fournisseur_profile = self._provider_profile(prestation.provider)
         client_profile = self._client_profile(besoin.client)
-
         fournisseur_coords = self._extract_lat_lng(getattr(fournisseur_profile, "emplacement", None))
         client_coords = self._extract_lat_lng(getattr(client_profile, "emplacement", None))
 
@@ -323,16 +332,9 @@ class MatchingService:
                 return Decimal("50")
             return Decimal("28")
 
-        zones = self._normalize_zones(prestation.service_areas)
-        if not zones:
-            if not self._normalize(lieu):
-                return Decimal("35")
-            return Decimal("25")
-
-        best = Decimal("0")
-        for area in zones:
-            best = max(best, self._zone_match_score(area, lieu))
-        return best
+        if not self._normalize(lieu):
+            return Decimal("35")
+        return Decimal("25")
 
     def calculate_disponibilite_score(self, prestation, besoin):
         start = prestation.availability_start

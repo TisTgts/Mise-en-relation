@@ -176,6 +176,11 @@ class MatchingServiceTests(MatchingBaseTestCase):
 
     def test_hard_match_rejete_hors_perimetre_distance(self):
         service = MatchingService()
+        self.prestation.zones_intervention = ["Thiès"]
+        self.prestation.save(update_fields=["zones_intervention"])
+        self.besoin.lieu_intervention = "Dakar Plateau"
+        self.besoin.save(update_fields=["lieu_intervention"])
+
         profile_f, _ = ProfileFournisseur.objects.get_or_create(user=self.fournisseur_user)
         profile_f.emplacement = {"latitude": 12.3714, "longitude": -1.5197}  # Ouaga
         profile_f.save(update_fields=["emplacement"])
@@ -277,8 +282,28 @@ class MatchingServiceTests(MatchingBaseTestCase):
         profile_c, _ = ProfileClient.objects.get_or_create(user=self.client_user)
         profile_c.emplacement = {"latitude": 11.9000, "longitude": -1.9000}  # ~65 km
         profile_c.save(update_fields=["emplacement"])
+        # Sans recouvrement textuel zone/lieu : le filtre GPS dur s'applique.
+        self.prestation.zones_intervention = []
+        self.prestation.save(update_fields=["zones_intervention"])
 
         self.assertFalse(service._within_zone_perimeter(self.prestation, self.besoin))
+
+    def test_zone_intervention_textuelle_accepte_hors_distance_sieges(self):
+        """Un fournisseur peut couvrir une ville déclarée même si son siège est ailleurs."""
+        service = MatchingService()
+        self.prestation.zones_intervention = ["Ouagadougou", "Bobo-Dioulasso"]
+        self.prestation.save(update_fields=["zones_intervention"])
+        self.besoin.lieu_intervention = "Ouagadougou — Patte d'Oie"
+        self.besoin.save(update_fields=["lieu_intervention"])
+
+        profile_f, _ = ProfileFournisseur.objects.get_or_create(user=self.fournisseur_user)
+        profile_f.emplacement = {"latitude": 11.1771, "longitude": -4.2979}  # Bobo
+        profile_f.save(update_fields=["emplacement"])
+        profile_c, _ = ProfileClient.objects.get_or_create(user=self.client_user)
+        profile_c.emplacement = {"latitude": 12.3714, "longitude": -1.5197}  # Ouaga
+        profile_c.save(update_fields=["emplacement"])
+
+        self.assertTrue(service._within_zone_perimeter(self.prestation, self.besoin))
 
 
 class MatchingApiTests(MatchingBaseTestCase):

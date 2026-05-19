@@ -6,6 +6,16 @@ class AdminService {
     return apiFetchAllPaginated(url, { headers });
   }
 
+  async _parseErrorResponse(response, fallback) {
+    const text = await response.text();
+    try {
+      const data = JSON.parse(text);
+      return data.error || data.detail || data.message || fallback;
+    } catch {
+      return text || fallback;
+    }
+  }
+
   // Gestion des utilisateurs
   async getAllUsers() {
     const token = localStorage.getItem('access_token');
@@ -433,17 +443,17 @@ class AdminService {
   // Statistiques détaillées
   async getDetailedStatistics() {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.STATISTICS_ADMIN}`, {
+    const response = await fetch(API_ENDPOINTS.SERVICES.ADMIN_STATISTICS, {
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch statistics');
     }
-    
+
     return response.json();
   }
 
@@ -459,8 +469,9 @@ class AdminService {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Failed to run unmatched needs matching');
+      throw new Error(
+        await this._parseErrorResponse(response, 'Échec du matching (besoins non matchés)')
+      );
     }
 
     return response.json();
@@ -478,8 +489,9 @@ class AdminService {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Failed to run selected matching');
+      throw new Error(
+        await this._parseErrorResponse(response, 'Échec du matching (sélection)')
+      );
     }
 
     return response.json();
@@ -497,8 +509,9 @@ class AdminService {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(errorText || 'Failed to run all-open matching');
+      throw new Error(
+        await this._parseErrorResponse(response, 'Échec du matching (besoins ouverts)')
+      );
     }
 
     return response.json();

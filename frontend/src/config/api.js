@@ -37,7 +37,10 @@ export const API_ENDPOINTS = {
     TRANSACTION_CLIENT_RESPOND_DEVIS: (id) => `${API_BASE_URL}/services/transactions/${id}/client-respond-devis/`,
     MESSAGES: `${API_BASE_URL}/services/messages/`,
     STATISTICS: `${API_BASE_URL}/services/statistics/`,
+    /** Résumé simple (structure { success, data }) */
     STATISTICS_ADMIN: `${API_BASE_URL}/services/statistics/admin/`,
+    /** Statistiques détaillées tableau de bord admin (KPI, graphiques, tops) */
+    ADMIN_STATISTICS: `${API_BASE_URL}/services/admin/statistics/`,
     ADMIN_MESSAGES: `${API_BASE_URL}/services/admin/messages/`,
     ADMIN_TRANSACTIONS: `${API_BASE_URL}/services/admin/transactions/`,
     ADMIN_CATEGORIES: `${API_BASE_URL}/services/admin/categories/`,
