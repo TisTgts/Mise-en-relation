@@ -295,6 +295,15 @@ server {
         alias /var/www/plateforme/backend/media/;
     }
 
+    location ^~ /static/js/ {
+        alias /var/www/plateforme/frontend/build/static/js/;
+    }
+    location ^~ /static/css/ {
+        alias /var/www/plateforme/frontend/build/static/css/;
+    }
+    location ^~ /static/media/ {
+        alias /var/www/plateforme/frontend/build/static/media/;
+    }
     location /static/ {
         alias /var/www/plateforme/backend/staticfiles/;
     }
@@ -353,8 +362,16 @@ Attendre la propagation DNS (souvent &lt; 1 h).
 
 **Certificat HTTPS** (sur le VPS, quand le domaine pointe vers le VPS) :
 
+Voir **étape 11** du [`GUIDE_OVH.md`](./GUIDE_OVH.md) (DNS + bloc `/.well-known/` + certbot webroot).
+
+Résumé :
+
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
+sudo mkdir -p /var/www/plateforme/certbot/.well-known/acme-challenge
+# Mettre à jour nginx (bloc acme-challenge) puis :
+sudo nginx -t && sudo systemctl reload nginx
+sudo apt install -y certbot
+sudo certbot certonly --webroot -w /var/www/plateforme/certbot -d toghinis.net -d www.toghinis.net
 sudo certbot --nginx -d toghinis.net -d www.toghinis.net
 ```
 

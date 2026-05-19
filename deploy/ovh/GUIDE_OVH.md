@@ -108,7 +108,7 @@ ls /var/www/plateforme
 
 ```bash
 cd /var/www/plateforme
-git pull origin (feature/code) brache
+git pull origin feature/code
 bash deploy/ovh/deploy-app.sh
 ```
 
@@ -264,12 +264,75 @@ sudo systemctl reload nginx
 
 ## 11. HTTPS (Let’s Encrypt)
 
-Quand le domaine pointe vers le VPS :
+### 11A — Vérifier le DNS (important)
+
+Sur le VPS :
 
 ```bash
-sudo apt install -y certbot python3-certbot-nginx
+dig +short toghinis.net A
+dig +short www.toghinis.net A
+dig +short toghinis.net AAAA
+```
+
+Les enregistrements **A** doivent afficher **`144.217.82.132`**.  
+Si un **AAAA** (IPv6) pointe ailleurs, supprimez-le dans la zone DNS OVH ou pointez-le vers ce VPS.
+
+Dans **OVH** → **toghinis.net** → **Zone DNS** : pas de redirection « parking », pas de CDN devant le VPS.
+
+### 11B — Corriger Nginx pour le défi ACME
+
+L’erreur *« key authorization file did not match »* vient souvent de `try_files … /index.html` qui intercepte `/.well-known/`.
+
+```bash
+sudo mkdir -p /var/www/plateforme/certbot/.well-known/acme-challenge
+sudo chown -R ubuntu:ubuntu /var/www/plateforme/certbot
+```
+
+Mettez à jour la config Nginx (le fichier modèle contient déjà le bloc `acme-challenge`) :
+
+```bash
+sudo cp /var/www/plateforme/deploy/ovh/nginx-serviceconnect.conf /etc/nginx/sites-available/plateforme
+sudo nano /etc/nginx/sites-available/plateforme
+# server_name 144.217.82.132 toghinis.net www.toghinis.net;
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Vérifiez que le bloc suivant est **au-dessus** de `location /` :
+
+```nginx
+location ^~ /.well-known/acme-challenge/ {
+    root /var/www/plateforme/certbot;
+    default_type "text/plain";
+    try_files $uri =404;
+}
+```
+
+### 11C — Obtenir le certificat (méthode webroot, recommandée)
+
+```bash
+sudo apt install -y certbot
+sudo certbot certonly --webroot \
+  -w /var/www/plateforme/certbot \
+  -d toghinis.net \
+  -d www.toghinis.net
+```
+
+Puis installer la config HTTPS dans Nginx :
+
+```bash
 sudo certbot --nginx -d toghinis.net -d www.toghinis.net
 ```
+
+Si `--nginx` échoue encore, configurez SSL à la main ou relancez seulement :
+
+```bash
+sudo certbot install --cert-name toghinis.net
+```
+
+> Évitez plusieurs `certbot --nginx` d’affilée après un échec : attendez 1 minute, corrigez Nginx, puis utilisez **webroot** ci-dessus.
+
+### 11D — Après le certificat
 
 Mettre à jour `backend/.env` (`CORS` en `https://`), `frontend/.env.production`, puis :
 
