@@ -1,4 +1,4 @@
-# Mise en relation — Plateforme ServiceConnect
+# Mise en relation — Plateforme AppName
 
 Plateforme web pour mettre en relation **clients** (besoins) et **fournisseurs** (prestations), avec **matching automatique**, administration et statistiques.
 

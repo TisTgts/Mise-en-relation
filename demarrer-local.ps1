@@ -1,7 +1,7 @@
 # Double-clic ou : powershell -ExecutionPolicy Bypass -File demarrer-local.ps1
 # Lance le backend Django en local
 
-Write-Host "=== ServiceConnect - demarrage backend ===" -ForegroundColor Cyan
+Write-Host "=== AppName - demarrage backend ===" -ForegroundColor Cyan
 Set-Location $PSScriptRoot\backend
 
 if (-not (Test-Path "..\venv")) {

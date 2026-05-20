@@ -1,4 +1,4 @@
-# Héberger ServiceConnect sur OVHcloud
+# Héberger AppName sur OVHcloud
 
 Ce guide suppose un **VPS OVH** (Ubuntu 22.04 / 24.04). C’est la formule adaptée à Django + React.
 

@@ -17,6 +17,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../config/api';
+import { APP_NAME } from '../../config/branding';
 import {
   truncateText,
   besoinStatutLabel,
@@ -665,7 +666,7 @@ const ClientDashboard = () => {
             {tab === 'prestations' && (
               <div>
                 <p className="text-sm text-gray-600 mb-4">
-                  Aperçu des prestations publiées sur la plateforme. Ouvrez la liste complète pour filtrer et comparer.
+                  Aperçu des prestations publiées sur {APP_NAME}. Ouvrez la liste complète pour filtrer et comparer.
                 </p>
                 {prestations.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">

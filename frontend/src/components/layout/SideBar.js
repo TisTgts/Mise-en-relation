@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiHome, FiBriefcase, FiUsers, FiMessageSquare, FiSettings, FiBarChart, FiFileText, FiGrid, FiChevronDown, FiChevronUp, FiSearch, FiDollarSign, FiUser } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import AppBrand from '../AppBrand';
 
 /** Indique si le lien du menu correspond à l’URL courante (y compris alias et sous-routes). */
 const itemIsActive = (pathname, item) => {
@@ -197,6 +198,20 @@ const SideBar = ({ isOpen, toggleSidebar }) => {
 
   const menuItems = getMenuItems();
 
+  const getDashboardLink = () => {
+    if (!user?.type_utilisateur) return '/';
+    switch (user.type_utilisateur) {
+      case 'administrateur':
+        return '/admin/dashboard';
+      case 'fournisseur':
+        return '/fournisseur/dashboard';
+      case 'client':
+        return '/client/dashboard';
+      default:
+        return '/dashboard';
+    }
+  };
+
   // Grouper les éléments par section
   const groupedItems = menuItems.reduce((groups, item) => {
     if (!groups[item.section]) {
@@ -233,24 +248,17 @@ const SideBar = ({ isOpen, toggleSidebar }) => {
       )}
 
       {/* Sidebar */}
-      <div className={`
-        inset-y-0 left-0 z-30 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
-        lg:translate-x-0 lg:static lg:inset-0
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center h-16 px-6 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">M</span>
-                </div>
-              </div>
-              <div className="ml-3">
-                <h1 className="text-xl font-semibold text-gray-900">Mise en Relation</h1>
-              </div>
-            </div>
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-30 flex h-screen w-64 flex-col bg-white shadow-lg
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:static lg:z-auto lg:min-h-screen lg:translate-x-0 lg:shadow-none
+        `}
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex h-[4.25rem] shrink-0 items-center border-b border-gray-200 px-4">
+            <AppBrand to={getDashboardLink()} size="sm" className="w-full" />
           </div>
 
           {/* Navigation */}
@@ -326,7 +334,7 @@ const SideBar = ({ isOpen, toggleSidebar }) => {
             </div>
           </div>
         </div>
-      </div>
+      </aside>
     </>
   );
 };

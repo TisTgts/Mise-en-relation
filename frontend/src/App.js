@@ -428,11 +428,9 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/services" element={
-            <ProtectedRoute>
-              <ProtectedPage>
-                <Services />
-              </ProtectedPage>
-            </ProtectedRoute>
+            <PublicPage>
+              <Services />
+            </PublicPage>
           } />
         </Routes>
         </NotificationProvider>

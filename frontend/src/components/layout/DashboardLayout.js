@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import TopBar from './TopBar';
 import SideBar from './SideBar';
+import { APP_NAME } from '../../config/branding';
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -8,6 +9,10 @@ const DashboardLayout = ({ children }) => {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  useEffect(() => {
+    document.title = `${APP_NAME} — Tableau de bord`;
+  }, []);
 
   // Fermer le sidebar sur mobile quand on resize
   useEffect(() => {

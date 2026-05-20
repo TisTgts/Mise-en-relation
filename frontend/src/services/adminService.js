@@ -199,21 +199,15 @@ class AdminService {
     return response.json();
   }
 
-  // Gestion des prestations
+  // Gestion des prestations (toutes les pages — PAGE_SIZE backend = 20)
   async getAllPrestations() {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.PRESTATIONS.replace('prestations/', '')}admin/prestations/`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch prestations');
-    }
-    
-    return response.json();
+    const url = `${API_ENDPOINTS.SERVICES.PRESTATIONS.replace('prestations/', '')}admin/prestations/`;
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    return this.fetchAllPaginated(url, headers);
   }
 
   async deletePrestation(prestationId) {
@@ -232,21 +226,15 @@ class AdminService {
     return true;
   }
 
-  // Gestion des besoins
+  // Gestion des besoins (toutes les pages)
   async getAllDemandes() {
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/besoins/`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch besoins');
-    }
-    
-    return response.json();
+    const url = `${API_ENDPOINTS.SERVICES.BESOINS.replace('besoins/', '')}admin/besoins/`;
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+    return this.fetchAllPaginated(url, headers);
   }
 
   async deleteDemande(demandeId) {
@@ -646,6 +634,7 @@ class AdminService {
       'pending': 'En attente',
       'ouverte': 'Ouverte',
       'fermee': 'Fermée',
+      'pourvue': 'Pourvu',
       'en_cours': 'En cours',
       'terminee': 'Terminée',
       'annulee': 'Annulée'

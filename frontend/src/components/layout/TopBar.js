@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { FiSearch, FiLogOut, FiMenu, FiSun, FiMoon, FiUser, FiSettings, FiChevronDown, FiActivity } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../NotificationBell';
+import AppBrand from '../AppBrand';
 
 const TopBar = ({ toggleSidebar, sidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -80,28 +81,22 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
   };
 
   return (
-    <header className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-40">
+    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
       <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Left side - Menu toggle and Logo */}
-          <div className="flex items-center">
+        <div className="flex h-[4.25rem] items-center justify-between">
+          {/* Mobile : menu + logo — desktop : branding uniquement dans la SideBar */}
+          <div className="flex items-center lg:flex-1 lg:min-w-0">
             <button
+              type="button"
               onClick={toggleSidebar}
               className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500 lg:hidden transition-colors"
+              aria-label="Ouvrir le menu"
             >
               <FiMenu className="h-6 w-6" />
             </button>
-           {/*  <div className="flex items-center ml-4 lg:ml-0">
-              <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-primary-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">SC</span>
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">ServiceConnect</h1>
-                  <p className="text-xs text-gray-500">Tableau de bord</p>
-                </div>
-              </div>
-            </div> */}
+            <div className="ml-2 min-w-0 flex-1 lg:hidden">
+              <AppBrand to={getDashboardLink()} size="sm" subtitle="Tableau de bord" />
+            </div>
           </div>
 
           {/* Right side - Theme, Search, Notifications, Profile */}

@@ -10,6 +10,10 @@ import {
   FiTag,
   FiX,
   FiSearch as FiSearchMatch,
+  FiRefreshCw,
+  FiGrid,
+  FiList,
+  FiMapPin,
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import adminService from '../../services/adminService';
@@ -19,6 +23,28 @@ const truncateCell = (text, max = 48) => {
   if (text == null || text === '') return '—';
   const s = String(text);
   return s.length <= max ? s : `${s.slice(0, max)}…`;
+};
+
+const statusPillClass = (statut) => {
+  switch (statut) {
+    case 'active':
+    case 'ouverte':
+      return 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80';
+    case 'inactive':
+    case 'fermee':
+      return 'bg-slate-100 text-slate-700 ring-1 ring-slate-200';
+    case 'pending':
+    case 'en_attente':
+      return 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/80';
+    case 'en_cours':
+      return 'bg-blue-50 text-blue-800 ring-1 ring-blue-200/80';
+    case 'terminee':
+      return 'bg-violet-50 text-violet-800 ring-1 ring-violet-200/80';
+    case 'annulee':
+      return 'bg-red-50 text-red-800 ring-1 ring-red-200/80';
+    default:
+      return 'bg-slate-100 text-slate-600 ring-1 ring-slate-200';
+  }
 };
 
 function ProviderProfileModal({ open, onClose }) {
@@ -343,49 +369,69 @@ const ManageServices = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('prestations');
+  const [prestationView, setPrestationView] = useState('liste');
+  const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState(null);
   const [detailOpen, setDetailOpen] = useState(null);
   const [providerProfileOpen, setProviderProfileOpen] = useState(null);
   const [providerLoadingId, setProviderLoadingId] = useState(null);
+  /** Totaux issus de l’agrégation serveur (alignés sur le tableau de bord admin). */
+  const [serverTotals, setServerTotals] = useState(null);
 
   useEffect(() => {
     const path = location.pathname || '';
     if (path.includes('/admin/besoins') || path.includes('/admin/demandes')) {
-      setActiveTab('demandes');
+      setActiveTab('besoins');
     } else {
       setActiveTab('prestations');
     }
   }, [location.pathname]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
+  const fetchData = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      else setRefreshing(true);
 
-        // Utiliser le service admin pour récupérer les données
-        const [prestationsData, demandesData] = await Promise.all([
-          adminService.getAllPrestations(),
-          adminService.getAllDemandes()
-        ]);
-        
-        setPrestations(prestationsData.results || prestationsData);
-        setDemandes(demandesData.results || demandesData);
-        
-      } catch (error) {
-        console.error('Erreur lors du chargement des services:', error);
-        setToast({
-          message: 'Erreur lors du chargement des services',
-          type: 'error'
+      const [prestationsList, besoinsList, serverStats] = await Promise.all([
+        adminService.getAllPrestations(),
+        adminService.getAllDemandes(),
+        adminService.getDetailedStatistics().catch(() => null),
+      ]);
+
+      setPrestations(Array.isArray(prestationsList) ? prestationsList : []);
+      setDemandes(Array.isArray(besoinsList) ? besoinsList : []);
+      if (serverStats?.prestations || serverStats?.besoins) {
+        setServerTotals({
+          totalPrestations: serverStats.prestations?.total_prestations,
+          prestationsActives: serverStats.prestations?.active_prestations,
+          totalBesoins: serverStats.besoins?.total_besoins,
+          besoinsOuverts: serverStats.besoins?.ouvertes_besoins,
         });
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Erreur lors du chargement:', error);
+      setToast({
+        message: 'Impossible de charger les prestations et besoins',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
+  useEffect(() => {
     if (user?.type_utilisateur === 'administrateur') {
       fetchData();
     }
   }, [user]);
+
+  const switchTab = (tab) => {
+    setActiveTab(tab);
+    setFilter('all');
+    setSearchTerm('');
+    navigate(tab === 'prestations' ? '/admin/prestations' : '/admin/besoins');
+  };
 
   const handleDeletePrestation = async (id) => {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette prestation ?')) {
@@ -409,7 +455,7 @@ const ManageServices = () => {
   };
 
   const handleDeleteDemande = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette demande ?')) {
+    if (!window.confirm('Supprimer ce besoin ? Cette action est irréversible.')) {
       return;
     }
 
@@ -417,31 +463,19 @@ const ManageServices = () => {
       await adminService.deleteDemande(id);
       setDemandes(prev => prev.filter(d => d.id !== id));
       setToast({
-        message: 'Demande supprimée avec succès',
-        type: 'success'
+        message: 'Besoin supprimé avec succès',
+        type: 'success',
       });
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
       setToast({
-        message: 'Erreur lors de la suppression de la demande',
+        message: 'Erreur lors de la suppression du besoin',
         type: 'error'
       });
     }
   };
 
-  const getStatusColor = (statut) => {
-    switch (statut) {
-      case 'active': case 'ouverte': return 'bg-green-100 text-green-800';
-      case 'inactive': case 'fermee': return 'bg-gray-100 text-gray-800';
-      case 'pending': case 'en_attente': return 'bg-yellow-100 text-yellow-800';
-      case 'en_cours': return 'bg-blue-100 text-blue-800';
-      case 'terminee': return 'bg-purple-100 text-purple-800';
-      case 'annulee': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const filteredPrestations = prestations.filter(prestation => {
+  const filteredPrestations = prestations.filter((prestation) => {
     const matchesSearch = 
       prestation.intitule?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       prestation.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -450,7 +484,7 @@ const ManageServices = () => {
     if (filter === 'all') return matchesSearch;
     if (filter === 'active') return prestation.statut === 'active' && matchesSearch;
     if (filter === 'inactive') return prestation.statut === 'inactive' && matchesSearch;
-    if (filter === 'pending') return prestation.statut === 'pending' && matchesSearch;
+    if (filter === 'en_cours') return prestation.statut === 'en_cours' && matchesSearch;
     
     return matchesSearch;
   });
@@ -483,7 +517,7 @@ const ManageServices = () => {
     }).sort((a, b) => a.type.localeCompare(b.type, 'fr'))
   ), [filteredPrestations]);
 
-  const filteredDemandes = demandes.filter(demande => {
+  const filteredBesoins = demandes.filter((demande) => {
     const matchesSearch = 
       demande.intitule?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       demande.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -491,18 +525,28 @@ const ManageServices = () => {
     
     if (filter === 'all') return matchesSearch;
     if (filter === 'ouverte') return demande.statut === 'ouverte' && matchesSearch;
-    if (filter === 'fermee') return demande.statut === 'fermee' && matchesSearch;
+    if (filter === 'pourvue') return demande.statut === 'pourvue' && matchesSearch;
+    if (filter === 'annulee') return demande.statut === 'annulee' && matchesSearch;
     if (filter === 'en_cours') return demande.statut === 'en_cours' && matchesSearch;
     
     return matchesSearch;
   });
 
-  const stats = {
+  const statsFromList = {
     totalPrestations: prestations.length,
-    prestationsActives: prestations.filter(p => p.statut === 'active').length,
-    totalDemandes: demandes.length,
-    demandesOuvertes: demandes.filter(d => d.statut === 'ouverte').length
+    prestationsActives: prestations.filter((p) => p.statut === 'active').length,
+    totalBesoins: demandes.length,
+    besoinsOuverts: demandes.filter((d) => d.statut === 'ouverte').length,
   };
+
+  const stats = serverTotals
+    ? {
+        totalPrestations: serverTotals.totalPrestations ?? statsFromList.totalPrestations,
+        prestationsActives: serverTotals.prestationsActives ?? statsFromList.prestationsActives,
+        totalBesoins: serverTotals.totalBesoins ?? statsFromList.totalBesoins,
+        besoinsOuverts: serverTotals.besoinsOuverts ?? statsFromList.besoinsOuverts,
+      }
+    : statsFromList;
 
   const handleOpenProviderProfile = async (offer) => {
     try {
@@ -530,12 +574,22 @@ const ManageServices = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-between">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gestion des Services</h1>
-            <p className="text-gray-600 mt-1">Gérez toutes les prestations et demandes</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">Administration</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">Prestations &amp; Besoins</h1>
+            <p className="mt-1 text-sm text-slate-600">Offres fournisseurs et besoins clients</p>
           </div>
+          <button
+            type="button"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          >
+            <FiRefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
         </div>
       </div>
 
@@ -571,8 +625,8 @@ const ManageServices = () => {
               <FiFileText className="h-5 w-5 text-purple-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Total Demandes</p>
-              <p className="text-xl font-semibold text-gray-900">{stats.totalDemandes}</p>
+              <p className="text-sm font-medium text-gray-600">Total Besoins</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.totalBesoins}</p>
             </div>
           </div>
         </div>
@@ -583,8 +637,8 @@ const ManageServices = () => {
               <FiCalendar className="h-5 w-5 text-yellow-600" />
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-600">Demandes Ouvertes</p>
-              <p className="text-xl font-semibold text-gray-900">{stats.demandesOuvertes}</p>
+              <p className="text-sm font-medium text-gray-600">Besoins ouverts</p>
+              <p className="text-xl font-semibold text-gray-900">{stats.besoinsOuverts}</p>
             </div>
           </div>
         </div>
@@ -603,7 +657,7 @@ const ManageServices = () => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher un service..."
+                placeholder={activeTab === 'prestations' ? 'Intitulé, fournisseur…' : 'Intitulé, client…'}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
               />
             </div>
@@ -623,13 +677,14 @@ const ManageServices = () => {
                 <>
                   <option value="active">Prestations actives</option>
                   <option value="inactive">Prestations inactives</option>
-                  <option value="pending">En attente</option>
+                  <option value="en_cours">En cours</option>
                 </>
               ) : (
                 <>
-                  <option value="ouverte">Demandes ouvertes</option>
-                  <option value="fermee">Demandes fermées</option>
+                  <option value="ouverte">Besoins ouverts</option>
+                  <option value="pourvue">Pourvus</option>
                   <option value="en_cours">En cours</option>
+                  <option value="annulee">Annulés</option>
                 </>
               )}
             </select>
@@ -643,10 +698,7 @@ const ManageServices = () => {
           <nav className="flex -mb-px">
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('prestations');
-                navigate('/admin/prestations');
-              }}
+              onClick={() => switchTab('prestations')}
               className={`py-2 px-4 border-b-2 font-medium text-sm ${
                 activeTab === 'prestations'
                   ? 'border-primary-500 text-primary-600'
@@ -657,36 +709,123 @@ const ManageServices = () => {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('demandes');
-                navigate('/admin/besoins');
-              }}
+              onClick={() => switchTab('besoins')}
               className={`py-2 px-4 border-b-2 font-medium text-sm ${
-                activeTab === 'demandes'
+                activeTab === 'besoins'
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              Demandes ({demandes.length})
+              Besoins ({demandes.length})
             </button>
           </nav>
         </div>
 
-        {/* Contenu des onglets — tableaux */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
+          <p className="text-sm text-slate-600">
+            {activeTab === 'prestations'
+              ? `${filteredPrestations.length} prestation(s)`
+              : `${filteredBesoins.length} besoin(s)`}
+          </p>
+          {activeTab === 'prestations' && (
+            <div className="flex rounded-lg border border-slate-200 p-0.5">
+              <button
+                type="button"
+                onClick={() => setPrestationView('liste')}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
+                  prestationView === 'liste' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <FiList className="h-3.5 w-3.5" />
+                Liste
+              </button>
+              <button
+                type="button"
+                onClick={() => setPrestationView('type')}
+                className={`inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium ${
+                  prestationView === 'type' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <FiGrid className="h-3.5 w-3.5" />
+                Par type
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="p-0">
           {activeTab === 'prestations' ? (
             <div className="overflow-x-auto">
-              {prestationsByType.length === 0 ? (
+              {prestationView === 'liste' ? (
+                filteredPrestations.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-gray-500">
+                    {prestations.length === 0 ? 'Aucune prestation' : 'Aucune prestation ne correspond aux filtres'}
+                  </div>
+                ) : (
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Intitulé</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Fournisseur</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Catégorie</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Tarifs</th>
+                        <th className="px-4 py-3 text-left font-semibold text-gray-700">Statut</th>
+                        <th className="px-4 py-3 text-right font-semibold text-gray-700">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {filteredPrestations.map((p) => (
+                        <tr key={p.id} className="hover:bg-gray-50/80">
+                          <td className="max-w-[12rem] px-4 py-3 font-medium text-gray-900" title={p.intitule}>
+                            {truncateCell(p.intitule, 48)}
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">{truncateCell(p.fournisseur_nom, 28)}</td>
+                          <td className="px-4 py-3 text-gray-600">{truncateCell(p.categorie_nom, 24)}</td>
+                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-gray-700">
+                            {p.tarif_min != null || p.tarif_max != null
+                              ? `${p.tarif_min != null ? Number(p.tarif_min).toLocaleString('fr-FR') : '—'} – ${p.tarif_max != null ? Number(p.tarif_max).toLocaleString('fr-FR') : '—'} FCFA`
+                              : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(p.statut)}`}>
+                              {adminService.formatServiceStatus(p.statut)}
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-4 py-3 text-right">
+                            <div className="flex justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => setDetailOpen({ kind: 'prestation', data: p })}
+                                className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+                              >
+                                <FiEye className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePrestation(p.id)}
+                                className="inline-flex items-center rounded-lg border border-red-100 px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                              >
+                                <FiTrash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
+              ) : prestationsByType.length === 0 ? (
                 <div className="px-6 py-12 text-center text-gray-500">
-                  {prestations.length === 0 ? 'Aucune prestation trouvée' : 'Aucune prestation correspondant aux filtres'}
+                  {prestations.length === 0 ? 'Aucune prestation' : 'Aucune prestation ne correspond aux filtres'}
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Type de prestation</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Type</th>
                       <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Catégories</th>
-                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Nombre de fournisseurs</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Offres</th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">Fournisseurs</th>
                       <th scope="col" className="px-4 py-3 text-right font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
@@ -697,16 +836,18 @@ const ManageServices = () => {
                         <td className="max-w-[14rem] px-4 py-3 text-gray-700" title={typeGroup.categories.join(', ')}>
                           {truncateCell(typeGroup.categories.join(', ') || '—', 60)}
                         </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {typeGroup.offers.length} <span className="text-gray-400">({typeGroup.actifs} actives)</span>
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-gray-700">{typeGroup.fournisseurs.length}</td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
                           <button
                             type="button"
                             onClick={() => setDetailOpen({ kind: 'type_group', data: typeGroup })}
                             className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-50"
-                            title="Voir fournisseurs"
                           >
                             <FiEye className="h-3.5 w-3.5" />
-                            Voir fournisseurs
+                            Détail
                           </button>
                         </td>
                       </tr>
@@ -717,9 +858,9 @@ const ManageServices = () => {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              {filteredDemandes.length === 0 ? (
+              {filteredBesoins.length === 0 ? (
                 <div className="px-6 py-12 text-center text-gray-500">
-                  {demandes.length === 0 ? 'Aucune demande trouvée' : 'Aucune demande correspondant aux filtres'}
+                  {demandes.length === 0 ? 'Aucun besoin trouvé' : 'Aucun besoin ne correspond aux filtres'}
                 </div>
               ) : (
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -737,6 +878,9 @@ const ManageServices = () => {
                       <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
                         Catégorie
                       </th>
+                      <th scope="col" className="px-4 py-3 text-left font-semibold text-gray-700">
+                        Lieu
+                      </th>
                       <th scope="col" className="px-4 py-3 text-right font-semibold text-gray-700">
                         Budget
                       </th>
@@ -752,7 +896,7 @@ const ManageServices = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
-                    {filteredDemandes.map((demande) => (
+                    {filteredBesoins.map((demande) => (
                       <tr key={demande.id} className="hover:bg-gray-50/80">
                         <td className="whitespace-nowrap px-4 py-3 text-gray-600">{demande.id}</td>
                         <td className="max-w-[14rem] px-4 py-3">
@@ -766,12 +910,18 @@ const ManageServices = () => {
                         <td className="max-w-[9rem] px-4 py-3 text-gray-700" title={demande.categorie_nom}>
                           {truncateCell(demande.categorie_nom, 24)}
                         </td>
+                        <td className="max-w-[8rem] px-4 py-3 text-gray-600" title={demande.lieu_intervention}>
+                          <span className="inline-flex items-center gap-1">
+                            <FiMapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            {truncateCell(demande.lieu_intervention, 18)}
+                          </span>
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-gray-800">
                           {demande.budget != null ? `${Number(demande.budget).toLocaleString('fr-FR')} FCFA` : '—'}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <span
-                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${getStatusColor(demande.statut)}`}
+                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusPillClass(demande.statut)}`}
                           >
                             {adminService.formatServiceStatus(demande.statut)}
                           </span>
@@ -788,7 +938,6 @@ const ManageServices = () => {
                               title="Détail"
                             >
                               <FiEye className="h-3.5 w-3.5" />
-                              Détail
                             </button>
                             <Link
                               to={`/admin/correspondances/besoin/${demande.id}`}
@@ -796,7 +945,6 @@ const ManageServices = () => {
                               title="Voir les correspondances"
                             >
                               <FiSearchMatch className="h-3.5 w-3.5" />
-                              Matching
                             </Link>
                             <button
                               type="button"

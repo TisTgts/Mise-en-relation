@@ -21,6 +21,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { API_ENDPOINTS } from '../config/api';
 import categoriesService from '../services/categoriesService';
 import prestationsService from '../services/prestationsService';
+import AuthLayout from '../components/auth/AuthLayout';
+import StepIndicator from '../components/auth/StepIndicator';
+import { inputWithIconClass } from '../components/auth/authUi';
 
 const emptyPrestationLine = () => ({
   key: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -447,8 +450,7 @@ const Register = () => {
     }
   };
 
-  const inputClassName =
-    'block w-full rounded-xl border border-slate-300 px-3 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100';
+  const fieldClass = inputWithIconClass;
 
   const fournisseurStepIndex =
     phase === 'account' ? 1 : phase === 'fournisseur-prestations' ? 2 : phase === 'fournisseur-profil' ? 3 : 0;
@@ -459,100 +461,44 @@ const Register = () => {
     geoPosition &&
     `https://www.openstreetmap.org/export/embed.html?bbox=${geoPosition.longitude - 0.02}%2C${geoPosition.latitude - 0.02}%2C${geoPosition.longitude + 0.02}%2C${geoPosition.latitude + 0.02}&layer=mapnik&marker=${geoPosition.latitude}%2C${geoPosition.longitude}`;
 
+  const registerSubtitle =
+    phase === 'choose-type'
+      ? 'Comment souhaitez-vous utiliser la plateforme ?'
+      : userType === 'client'
+        ? 'Complétez votre profil client.'
+        : 'Complétez votre profil fournisseur.';
+
   return (
-    <div className="min-h-screen bg-slate-50 py-8">
-      <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-8 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
-        <aside className="rounded-2xl bg-gradient-to-br from-indigo-700 to-blue-800 p-8 text-white shadow-sm">
-          <p className="inline-flex rounded-full border border-white/30 px-3 py-1 text-xs uppercase tracking-wide text-indigo-100">
-            Inscription
-          </p>
-          <h1 className="mt-4 text-3xl font-bold leading-tight">Un parcours clair, adapté à votre rôle.</h1>
-          <p className="mt-4 text-indigo-100">
-            Choisissez le type de compte, puis suivez les étapes : client en deux temps, fournisseur en trois temps
-            avec prestations et finalisation.
-          </p>
+    <AuthLayout
+      badge="Inscription gratuite"
+      title="Un parcours adapté à votre profil"
+      description="Clients et fournisseurs s'inscrivent en quelques minutes, étape par étape."
+      formTitle="Créer un compte"
+      formSubtitle={registerSubtitle}
+      features={[
+        { icon: FiLayers, title: 'Parcours guidé', description: 'Informations regroupées par intention.' },
+        { icon: FiCheckCircle, title: 'Client — 2 étapes', description: 'Identité puis sécurisation du compte.' },
+        { icon: FiCheckCircle, title: 'Fournisseur — 3 étapes', description: 'Compte, prestations et zones.' },
+      ]}
+      alternateLink={
+        <p className="text-sm text-slate-600">
+          Déjà inscrit ?{' '}
+          <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
+            Se connecter
+          </Link>
+        </p>
+      }
+    >
+      {(phase === 'client-step1' || phase === 'client-step2') && (
+        <StepIndicator current={clientStepIndex} steps={[{ label: 'Identité' }, { label: 'Sécurité' }]} />
+      )}
 
-          <div className="mt-8 space-y-4">
-            <div className="flex items-start gap-3 rounded-xl border border-white/20 bg-white/10 p-4">
-              <FiLayers className="mt-0.5 h-5 w-5 text-indigo-100" />
-              <div>
-                <p className="font-semibold">Étapes modulaires</p>
-                <p className="text-sm text-indigo-100">Moins de charge cognitive, champs regroupés par intention.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-xl border border-white/20 bg-white/10 p-4">
-              <FiCheckCircle className="mt-0.5 h-5 w-5 text-indigo-100" />
-              <div>
-                <p className="font-semibold">Client en 2 étapes</p>
-                <p className="text-sm text-indigo-100">Identité et contact, puis mot de passe et validation.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 rounded-xl border border-white/20 bg-white/10 p-4">
-              <FiCheckCircle className="mt-0.5 h-5 w-5 text-indigo-100" />
-              <div>
-                <p className="font-semibold">Fournisseur en 3 temps</p>
-                <p className="text-sm text-indigo-100">Compte, prestations liées au catalogue, puis finalisation.</p>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        <main className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div className="mb-7">
-            <h2 className="text-3xl font-bold text-slate-900">Créer un compte</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Déjà inscrit ?{' '}
-              <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
-                Se connecter
-              </Link>
-            </p>
-          </div>
-
-          {(phase === 'client-step1' || phase === 'client-step2') && (
-            <div className="mb-8 flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-              {[1, 2].map((n) => (
-                <div key={n} className="flex flex-1 flex-col items-center gap-1">
-                  <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                      clientStepIndex === n
-                        ? 'bg-indigo-600 text-white'
-                        : clientStepIndex > n
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {clientStepIndex > n ? '✓' : n}
-                  </span>
-                  <span className="hidden text-center text-[10px] font-medium text-slate-600 sm:block">
-                    {n === 1 ? 'Identité' : 'Sécurité'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {userType === 'fournisseur' && phase !== 'choose-type' && (
-            <div className="mb-8 flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="flex flex-1 flex-col items-center gap-1">
-                  <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${
-                      fournisseurStepIndex === n
-                        ? 'bg-indigo-600 text-white'
-                        : fournisseurStepIndex > n
-                          ? 'bg-emerald-500 text-white'
-                          : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {fournisseurStepIndex > n ? '✓' : n}
-                  </span>
-                  <span className="hidden text-center text-[10px] font-medium text-slate-600 sm:block">
-                    {n === 1 ? 'Compte' : n === 2 ? 'Prestations' : 'Finalisation'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+      {userType === 'fournisseur' && phase !== 'choose-type' && (
+        <StepIndicator
+          current={fournisseurStepIndex}
+          steps={[{ label: 'Compte' }, { label: 'Prestations' }, { label: 'Profil' }]}
+        />
+      )}
 
           {phase === 'choose-type' && (
             <div className="space-y-6">
@@ -561,24 +507,34 @@ const Register = () => {
                 <button
                   type="button"
                   onClick={() => selectAccountType('client')}
-                  className={`flex flex-col items-start gap-3 rounded-2xl border-2 p-6 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 ${
-                    userType === 'client' ? 'border-indigo-600 bg-indigo-50/60' : 'border-slate-200'
+                  className={`group relative flex flex-col items-start gap-3 overflow-hidden rounded-2xl border-2 p-6 text-left shadow-sm transition hover:border-indigo-400 hover:shadow-md ${
+                    userType === 'client' ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-100' : 'border-slate-200 bg-white'
                   }`}
                 >
-                  <FiShoppingBag className="h-8 w-8 text-indigo-600" />
-                  <span className="text-lg font-bold text-slate-900">Client</span>
-                  <span className="text-sm text-slate-600">Je publie des besoins et je choisis des prestataires.</span>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 transition group-hover:bg-indigo-600 group-hover:text-white">
+                    <FiShoppingBag className="h-6 w-6" />
+                  </div>
+                  <span className="text-lg font-bold text-slate-900">Je suis client</span>
+                  <span className="text-sm leading-relaxed text-slate-600">
+                    Je publie un besoin et je trouve le bon prestataire.
+                  </span>
+                  <span className="text-xs font-medium text-indigo-600">2 étapes · ~2 min</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => selectAccountType('fournisseur')}
-                  className={`flex flex-col items-start gap-3 rounded-2xl border-2 p-6 text-left transition hover:border-indigo-400 hover:bg-indigo-50/40 ${
-                    userType === 'fournisseur' ? 'border-indigo-600 bg-indigo-50/60' : 'border-slate-200'
+                  className={`group relative flex flex-col items-start gap-3 overflow-hidden rounded-2xl border-2 p-6 text-left shadow-sm transition hover:border-emerald-400 hover:shadow-md ${
+                    userType === 'fournisseur' ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-100' : 'border-slate-200 bg-white'
                   }`}
                 >
-                  <FiBriefcase className="h-8 w-8 text-indigo-600" />
-                  <span className="text-lg font-bold text-slate-900">Fournisseur</span>
-                  <span className="text-sm text-slate-600">Je propose des prestations et je réponds aux besoins.</span>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition group-hover:bg-emerald-600 group-hover:text-white">
+                    <FiBriefcase className="h-6 w-6" />
+                  </div>
+                  <span className="text-lg font-bold text-slate-900">Je suis fournisseur</span>
+                  <span className="text-sm leading-relaxed text-slate-600">
+                    Je propose mes services et je réponds aux besoins clients.
+                  </span>
+                  <span className="text-xs font-medium text-emerald-700">3 étapes · catalogue inclus</span>
                 </button>
               </div>
               {(searchParams.get('type') === 'client' || searchParams.get('type') === 'fournisseur') && (
@@ -618,7 +574,7 @@ const Register = () => {
                       type="text"
                       autoComplete="given-name"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Prénom"
                       value={formData.firstName}
                       onChange={handleChange}
@@ -637,7 +593,7 @@ const Register = () => {
                       type="text"
                       autoComplete="family-name"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Nom"
                       value={formData.lastName}
                       onChange={handleChange}
@@ -658,7 +614,7 @@ const Register = () => {
                     type="email"
                     autoComplete="email"
                     required
-                    className={`${inputClassName} pl-9`}
+                    className={`${fieldClass}`}
                     placeholder="adresse@email.com"
                     value={formData.email}
                     onChange={handleChange}
@@ -677,7 +633,7 @@ const Register = () => {
                     name="phone"
                     type="tel"
                     autoComplete="tel"
-                    className={`${inputClassName} pl-9`}
+                    className={`${fieldClass}`}
                     placeholder="+226 xx xx xx xx"
                     value={formData.phone}
                     onChange={handleChange}
@@ -738,7 +694,7 @@ const Register = () => {
                       type="password"
                       autoComplete="new-password"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Mot de passe"
                       value={formData.password}
                       onChange={handleChange}
@@ -757,7 +713,7 @@ const Register = () => {
                       type="password"
                       autoComplete="new-password"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Confirmer"
                       value={formData.confirmPassword}
                       onChange={handleChange}
@@ -812,7 +768,7 @@ const Register = () => {
                       type="text"
                       autoComplete="given-name"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Prénom"
                       value={formData.firstName}
                       onChange={handleChange}
@@ -831,7 +787,7 @@ const Register = () => {
                       type="text"
                       autoComplete="family-name"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Nom"
                       value={formData.lastName}
                       onChange={handleChange}
@@ -852,7 +808,7 @@ const Register = () => {
                     type="email"
                     autoComplete="email"
                     required
-                    className={`${inputClassName} pl-9`}
+                    className={`${fieldClass}`}
                     placeholder="adresse@email.com"
                     value={formData.email}
                     onChange={handleChange}
@@ -871,7 +827,7 @@ const Register = () => {
                     name="phone"
                     type="tel"
                     autoComplete="tel"
-                    className={`${inputClassName} pl-9`}
+                    className={`${fieldClass}`}
                     placeholder="+226 xx xx xx xx"
                     value={formData.phone}
                     onChange={handleChange}
@@ -892,7 +848,7 @@ const Register = () => {
                       type="password"
                       autoComplete="new-password"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Mot de passe"
                       value={formData.password}
                       onChange={handleChange}
@@ -911,7 +867,7 @@ const Register = () => {
                       type="password"
                       autoComplete="new-password"
                       required
-                      className={`${inputClassName} pl-9`}
+                      className={`${fieldClass}`}
                       placeholder="Confirmer"
                       value={formData.confirmPassword}
                       onChange={handleChange}
@@ -982,7 +938,7 @@ const Register = () => {
                           <label className="mb-2 block text-sm font-medium text-slate-700">Catégorie</label>
                           <select
                             required
-                            className={inputClassName}
+                            className={fieldClass}
                             value={row.categorieId}
                             onChange={(e) => updateLine(row.key, { categorieId: e.target.value })}
                           >
@@ -999,7 +955,7 @@ const Register = () => {
                           <select
                             required
                             disabled={!row.categorieId || sousList.length === 0}
-                            className={inputClassName}
+                            className={fieldClass}
                             value={row.sousCategorieId}
                             onChange={(e) => {
                               const sousId = e.target.value;
@@ -1031,7 +987,7 @@ const Register = () => {
                           <input
                             type="text"
                             required
-                            className={inputClassName}
+                            className={fieldClass}
                             placeholder="Ex. Transport express Ouagadougou"
                             value={row.intitule}
                             onChange={(e) => updateLine(row.key, { intitule: e.target.value })}
@@ -1042,7 +998,7 @@ const Register = () => {
                           <textarea
                             required
                             rows={3}
-                            className={inputClassName}
+                            className={fieldClass}
                             placeholder="Décrivez ce que vous proposez dans cette sous-catégorie."
                             value={row.description}
                             onChange={(e) => updateLine(row.key, { description: e.target.value })}
@@ -1095,7 +1051,7 @@ const Register = () => {
                 <input
                   id="raison_sociale"
                   type="text"
-                  className={inputClassName}
+                  className={fieldClass}
                   placeholder="Ex. SARL Transport XYZ"
                   value={profilFournisseur.raison_sociale}
                   onChange={(e) =>
@@ -1238,9 +1194,7 @@ const Register = () => {
               </button>
             </form>
           )}
-        </main>
-      </div>
-    </div>
+    </AuthLayout>
   );
 };
 

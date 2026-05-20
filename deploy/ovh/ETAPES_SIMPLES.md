@@ -1,6 +1,6 @@
 # OVHcloud — guide simple (première fois)
 
-Projet **ServiceConnect** (Django + React).  
+Projet **AppName** (Django + React).  
 Ne lisez pas tout d’un coup : **une étape à la fois**.
 
 **Exemples utilisés dans ce guide** (remplacez par les vôtres) :
@@ -256,7 +256,7 @@ sudo chown ubuntu:ubuntu /var/log/plateforme
 
 sudo tee /etc/systemd/system/plateforme.service > /dev/null << 'EOF'
 [Unit]
-Description=ServiceConnect Django
+Description=AppName Django
 After=network.target
 
 [Service]

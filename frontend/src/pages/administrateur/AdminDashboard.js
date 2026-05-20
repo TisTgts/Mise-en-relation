@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { APP_NAME } from '../../config/branding';
 import adminService from '../../services/adminService';
 import {
   FiUsers,
@@ -142,8 +143,7 @@ const AdminDashboard = () => {
       setError(null);
       const data = await adminService.getDetailedStatistics();
       setStats(data);
-      const besoinsData = await adminService.getAllDemandes();
-      const besoinsList = besoinsData.results || besoinsData || [];
+      const besoinsList = await adminService.getAllDemandes();
       setAdminBesoins(Array.isArray(besoinsList) ? besoinsList : []);
       const matchingData = await adminService.getAllMatchingScores();
       setMatchingScores(Array.isArray(matchingData) ? matchingData : []);
@@ -408,7 +408,7 @@ const AdminDashboard = () => {
                   <span className="font-medium text-slate-800">{user.first_name || user.username}</span>
                 </>
               ) : (
-                "Vue d'ensemble de la plateforme"
+                `Vue d'ensemble de ${APP_NAME}`
               )}
             </p>
           </div>

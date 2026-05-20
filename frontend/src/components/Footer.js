@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { APP_NAME, APP_CONTACT_EMAIL } from '../config/branding';
 
 const Footer = () => {
   return (
@@ -7,7 +8,7 @@ const Footer = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div>
-            <h3 className="text-xl font-bold mb-4">ServiceConnect</h3>
+            <h3 className="text-xl font-bold mb-4">{APP_NAME}</h3>
             <p className="text-gray-300">
               Plateforme de mise en relation pour tous types de services entre professionnels.
             </p>
@@ -26,7 +27,7 @@ const Footer = () => {
             <h4 className="text-lg font-semibold mb-4">Contact</h4>
             <p className="text-gray-300">
               Ouagadougou, Burkina Faso<br />
-              Email: contact@serviceconnect.bf<br />
+              Email: {APP_CONTACT_EMAIL}<br />
               Téléphone: +226 XX XX XX XX
             </p>
           </div>
@@ -34,7 +35,7 @@ const Footer = () => {
         
         <div className="border-t border-gray-700 mt-8 pt-8 text-center">
           <p className="text-gray-300">
-            © 2024 ServiceConnect. Tous droits réservés.
+            © 2024 {APP_NAME}. Tous droits réservés.
           </p>
         </div>
       </div>

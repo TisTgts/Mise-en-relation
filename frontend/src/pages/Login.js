@@ -1,31 +1,73 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiAlertCircle, FiArrowRight, FiEye, FiEyeOff, FiLock, FiMail, FiShield } from 'react-icons/fi';
+import {
+  FiArrowRight,
+  FiEye,
+  FiEyeOff,
+  FiLock,
+  FiMail,
+  FiShield,
+  FiUsers,
+  FiZap,
+} from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
+import AuthLayout from '../components/auth/AuthLayout';
+import AuthError from '../components/auth/AuthError';
+import { inputWithIconClass, labelClass, primaryBtnClass } from '../components/auth/authUi';
+
+const DEMO_PASSWORD = 'demo1234';
+
+const DEMO_ACCOUNT_GROUPS = [
+  {
+    role: 'Administrateurs',
+    tone: 'bg-violet-50 border-violet-200 hover:border-violet-300',
+    accounts: [
+      { label: 'Mamadou Kaboré', email: 'admin@demo.local' },
+      { label: 'Salimata Ouédraogo', email: 'admin2@demo.local' },
+    ],
+  },
+  {
+    role: 'Clients',
+    tone: 'bg-blue-50 border-blue-200 hover:border-blue-300',
+    accounts: [
+      { label: 'Ibrahim Zongo', email: 'client@demo.local' },
+      { label: 'Aïssata Traoré', email: 'client2@demo.local' },
+      { label: 'Moussa Compaoré', email: 'client_bulk_03@demo.local' },
+      { label: 'Aminata Savadogo', email: 'client_bulk_04@demo.local' },
+      { label: 'Issa Sanou', email: 'client_bulk_05@demo.local' },
+      { label: 'Mariam Koné', email: 'client_bulk_06@demo.local' },
+    ],
+  },
+  {
+    role: 'Fournisseurs',
+    tone: 'bg-emerald-50 border-emerald-200 hover:border-emerald-300',
+    accounts: [
+      { label: 'Amadou Sawadogo', email: 'fournisseur@demo.local' },
+      { label: 'Fatou Bance (Presta SARL)', email: 'contact@presta-sarl.demo' },
+      { label: 'Boubacar Zoungrana', email: 'fournisseur_bulk_03@demo.local' },
+      { label: 'Clarisse Pare', email: 'fournisseur_bulk_04@demo.local' },
+      { label: 'Hamidou Bado', email: 'fournisseur_bulk_05@demo.local' },
+      { label: 'Kadidia Somé', email: 'fournisseur_bulk_06@demo.local' },
+    ],
+  },
+];
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
-  const demoAccounts = [
-    { label: 'Admin', email: 'admin@demo.local', password: 'demo1234' },
-    { label: 'Client', email: 'client@demo.local', password: 'demo1234' },
-    { label: 'Fournisseur', email: 'fournisseur@demo.local', password: 'demo1234' }
-  ];
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    // Clear error when user starts typing
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     if (error) setError('');
+  };
+
+  const fillDemo = (email) => {
+    setFormData({ email, password: DEMO_PASSWORD });
+    setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -53,155 +95,141 @@ const Login = () => {
       } else {
         setError(result.error || 'Email ou mot de passe incorrect');
       }
-    } catch (_error) {
-      setError('Erreur de connexion');
+    } catch {
+      setError('Erreur de connexion. Vérifiez votre connexion réseau.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 lg:grid-cols-2">
-        <aside className="hidden bg-gradient-to-br from-indigo-700 to-blue-800 p-12 text-white lg:flex lg:flex-col lg:justify-between">
-          <div>
-            <p className="mb-4 inline-flex rounded-full border border-white/30 px-3 py-1 text-xs uppercase tracking-wide text-indigo-100">
-              Plateforme Burkina Faso
-            </p>
-            <h1 className="text-4xl font-bold leading-tight">
-              Reprenez vos collaborations là où vous les avez laissées.
-            </h1>
-            <p className="mt-4 max-w-md text-indigo-100">
-              Connectez-vous pour gérer vos besoins, vos prestations et vos discussions client-fournisseur.
-            </p>
+    <AuthLayout
+      badge="Connexion"
+      title="Bienvenue sur votre espace"
+      description="Connectez-vous pour gérer vos besoins, vos prestations et vos échanges avec vos partenaires."
+      formTitle="Connexion"
+      formSubtitle="Entrez vos identifiants pour continuer."
+      features={[
+        {
+          icon: FiShield,
+          title: 'Accès sécurisé',
+          description: 'Authentification protégée et espaces séparés par rôle.',
+        },
+        {
+          icon: FiZap,
+          title: 'Redirection intelligente',
+          description: 'Accès direct à votre tableau de bord client, fournisseur ou admin.',
+        },
+        {
+          icon: FiUsers,
+          title: 'Mise en relation',
+          description: 'Clients et prestataires sur une même plateforme.',
+        },
+      ]}
+      alternateLink={
+        <p className="text-sm text-slate-600">
+          Pas encore de compte ?{' '}
+          <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-700">
+            Créer un compte gratuitement
+          </Link>
+        </p>
+      }
+    >
+      <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+        <div>
+          <label htmlFor="email" className={labelClass}>
+            Adresse email
+          </label>
+          <div className="relative">
+            <FiMail className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              className={inputWithIconClass}
+              placeholder="vous@exemple.bf"
+              value={formData.email}
+              onChange={handleChange}
+            />
           </div>
-          <div className="space-y-4 rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-sm">
-            <div className="flex items-start gap-3">
-              <FiShield className="mt-0.5 h-5 w-5 text-indigo-100" />
-              <div>
-                <p className="font-semibold">Accès sécurisé</p>
-                <p className="text-sm text-indigo-100">Authentification JWT et rôles séparés.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <FiArrowRight className="mt-0.5 h-5 w-5 text-indigo-100" />
-              <div>
-                <p className="font-semibold">Navigation rapide</p>
-                <p className="text-sm text-indigo-100">Redirection automatique selon votre profil.</p>
-              </div>
-            </div>
+        </div>
+
+        <div>
+          <label htmlFor="password" className={labelClass}>
+            Mot de passe
+          </label>
+          <div className="relative">
+            <FiLock className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              required
+              className={`${inputWithIconClass} pr-11`}
+              placeholder="••••••••"
+              value={formData.password}
+              onChange={handleChange}
+            />
+            <button
+              type="button"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-slate-400 hover:text-slate-600"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {showPassword ? <FiEyeOff className="h-5 w-5" /> : <FiEye className="h-5 w-5" />}
+            </button>
           </div>
-        </aside>
+        </div>
 
-        <main className="flex items-center px-4 py-10 sm:px-6 lg:px-12">
-          <div className="mx-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <div className="mb-8 text-center">
-              <h2 className="text-3xl font-bold text-slate-900">Connexion</h2>
-              <p className="mt-2 text-sm text-slate-600">Accédez à votre espace personnel.</p>
-            </div>
+        <AuthError message={error} />
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <div>
-                <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
-                  Adresse email
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <FiMail className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    className="block w-full rounded-xl border border-slate-300 py-3 pl-10 pr-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                    placeholder="exemple@email.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                  />
+        <button type="submit" disabled={loading} className={primaryBtnClass}>
+          {loading ? (
+            'Connexion en cours…'
+          ) : (
+            <>
+              Se connecter
+              <FiArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      </form>
+
+      {process.env.NODE_ENV === 'development' && (
+        <details className="mt-8 rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-4">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Comptes de démonstration
+          </summary>
+          <p className="mt-2 mb-3 text-xs text-slate-500">
+            Mot de passe pour tous : <span className="font-mono font-medium text-slate-700">{DEMO_PASSWORD}</span>
+            — cliquez sur un compte pour remplir le formulaire.
+          </p>
+          <div className="max-h-64 space-y-4 overflow-y-auto pr-1">
+            {DEMO_ACCOUNT_GROUPS.map((group) => (
+              <div key={group.role}>
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group.role}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {group.accounts.map((account) => (
+                    <button
+                      key={account.email}
+                      type="button"
+                      onClick={() => fillDemo(account.email)}
+                      className={`rounded-lg border p-2.5 text-left text-xs transition ${group.tone}`}
+                    >
+                      <p className="font-semibold text-slate-800">{account.label}</p>
+                      <p className="mt-0.5 truncate text-slate-600">{account.email}</p>
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              <div>
-                <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-700">
-                  Mot de passe
-                </label>
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <FiLock className="h-5 w-5 text-slate-400" />
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    className="block w-full rounded-xl border border-slate-300 py-3 pl-10 pr-10 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                    placeholder="••••••••"
-                    value={formData.password}
-                    onChange={handleChange}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3"
-                    onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                  >
-                    {showPassword ? (
-                      <FiEyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
-                    ) : (
-                      <FiEye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="flex items-center rounded-xl border border-red-200 bg-red-50 p-3">
-                  <FiAlertCircle className="mr-2 h-4 w-4 text-red-500" />
-                  <span className="text-sm text-red-700">{error}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {loading ? 'Connexion en cours...' : 'Se connecter'}
-              </button>
-
-              <p className="text-center text-sm text-slate-600">
-                Pas encore de compte ?{' '}
-                <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-700">
-                  Créer un compte
-                </Link>
-              </p>
-            </form>
-
-            <div className="mt-8 border-t border-slate-200 pt-5">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                Comptes de test (clic pour remplir)
-              </p>
-              <div className="space-y-2 text-xs text-slate-700">
-                {demoAccounts.map((account) => (
-                  <button
-                    key={account.label}
-                    type="button"
-                    onClick={() => setFormData({ email: account.email, password: account.password })}
-                    className="block w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
-                  >
-                    <p><span className="font-semibold">{account.label} :</span> {account.email}</p>
-                    <p><span className="font-semibold">Mot de passe :</span> {account.password}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
+            ))}
           </div>
-        </main>
-      </div>
-    </div>
+        </details>
+      )}
+    </AuthLayout>
   );
 };
 
