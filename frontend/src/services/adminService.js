@@ -16,16 +16,16 @@ class AdminService {
     }
   }
 
-  // Gestion des utilisateurs
+  // Gestion des utilisateurs (API admin — inclut statut Premium client)
   async getAllUsers() {
     const token = localStorage.getItem('access_token');
-    const url = '/api/accounts/users/';
+    const base = API_ENDPOINTS.SERVICES.PRESTATIONS.replace('prestations/', '');
+    const url = `${base}admin/users/`;
     const headers = {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
     };
-    const data = await this.fetchAllPaginated(url, headers);
-    return data;
+    return this.fetchAllPaginated(url, headers);
   }
 
   async getAllMatchingScores() {

@@ -104,7 +104,10 @@ const TransactionDetail = () => {
     return <div className="p-8 text-sm text-slate-600">Transaction introuvable.</div>;
   }
 
-  const isQuoteFlow = transaction.besoin_mode_budget === 'sur_devis' || transaction.devis_statut !== 'non_requis';
+  const isQuoteFlow =
+    transaction.besoin_mode_budget === 'sur_devis' ||
+    transaction.prestation_mode_tarification === 'devis' ||
+    transaction.devis_statut !== 'non_requis';
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-10">

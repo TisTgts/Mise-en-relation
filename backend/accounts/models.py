@@ -54,7 +54,12 @@ class User(AbstractUser):
 
 class ProfileClient(models.Model):
     """Profil détaillé pour les clients qui expriment les besoins"""
-    
+
+    ABONNEMENT_CHOICES = [
+        ("standard", "Standard"),
+        ("premium", "Premium"),
+    ]
+
     user = models.OneToOneField(
         User, 
         on_delete=models.CASCADE, 
@@ -74,6 +79,26 @@ class ProfileClient(models.Model):
         default=dict,
         blank=True,
         verbose_name="Emplacement (géolocalisation)"
+    )
+    abonnement_type = models.CharField(
+        max_length=20,
+        choices=ABONNEMENT_CHOICES,
+        default="standard",
+        verbose_name="Type de compte client",
+    )
+    abonnement_actif = models.BooleanField(
+        default=False,
+        verbose_name="Abonnement premium actif",
+    )
+    abonnement_debut = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Début abonnement premium",
+    )
+    abonnement_fin = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Fin abonnement premium",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Date de création")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Date de mise à jour")
@@ -106,6 +131,19 @@ class ProfileClient(models.Model):
     @property
     def request_frequency(self):
         return self.frequence_besoins
+
+    def can_self_launch_matching(self):
+        """Premium actif : le client peut lancer le matching de ses besoins lui-même."""
+        from django.utils import timezone
+
+        if not self.abonnement_actif or self.abonnement_type != "premium":
+            return False
+        today = timezone.localdate()
+        if self.abonnement_debut and today < self.abonnement_debut:
+            return False
+        if self.abonnement_fin and today > self.abonnement_fin:
+            return False
+        return True
 
 class ProfileFournisseur(models.Model):
     """Profil détaillé pour les fournisseurs qui offrent les services"""

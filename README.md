@@ -2,7 +2,7 @@
 
 Plateforme web pour mettre en relation **clients** (besoins) et **fournisseurs** (prestations), avec **matching automatique**, administration et statistiques.
 
-> Ce README est **enrichi au fil du projet**. Pour les rappels techniques détaillés (prompts, URLs matching, snippets), voir aussi **`PROMPTS_ET_REFERENCE.md`**.
+> Ce README est **enrichi au fil du projet**. Documentation détaillée : **`docs/GUIDE_DEVELOPPEUR.md`**, guides utilisateur dans **`docs/GUIDE_UTILISATEURS.md`**, repères rapides dans **`PROMPTS_ET_REFERENCE.md`**.
 
 ---
 

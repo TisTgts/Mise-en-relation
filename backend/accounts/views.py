@@ -1,10 +1,16 @@
 from rest_framework import status, generics, permissions
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
 from django.contrib.auth import get_user_model
 from django_filters.rest_framework import DjangoFilterBackend
 from accounts.permissions import IsAdministrator
+from accounts.throttling import (
+    LoginRateThrottle,
+    RegisterRateThrottle,
+    TokenRefreshRateThrottle,
+)
 from .models import ProfileClient, ProfileFournisseur
 from .serializers import (
     UserRegistrationSerializer,
@@ -47,6 +53,7 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [RegisterRateThrottle]
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -64,6 +71,7 @@ class RegisterView(generics.CreateAPIView):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_view(request):
     """Vue pour la connexion des utilisateurs"""
     serializer = UserLoginSerializer(data=request.data, context={'request': request})
@@ -133,9 +141,19 @@ class CurrentUserView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
-        return self.request.user
+        user = self.request.user
+        if user.type_utilisateur == 'client':
+            ProfileClient.objects.get_or_create(user=user)
+            return User.objects.select_related('profile_client').get(pk=user.pk)
+        return user
 
     def get_serializer_class(self):
         if self.request.method in ('PUT', 'PATCH'):
             return UserUpdateSerializer
         return UserProfileSerializer
+
+
+class ThrottledTokenRefreshView(TokenRefreshView):
+    """Renouvellement JWT avec limitation de débit."""
+
+    throttle_classes = [TokenRefreshRateThrottle]

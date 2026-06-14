@@ -74,4 +74,9 @@ urlpatterns = [
         views.client_confirmer_match,
         name="client-confirmer-match",
     ),
+    path(
+        "besoin/<int:besoin_id>/sync-devis-opportunities/",
+        views.sync_devis_opportunities_besoin,
+        name="sync-devis-opportunities-besoin",
+    ),
 ]

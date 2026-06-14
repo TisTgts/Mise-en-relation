@@ -82,15 +82,48 @@ class UserLoginSerializer(serializers.Serializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer pour le profil utilisateur"""
-    
+    matching_self_service = serializers.SerializerMethodField()
+    client_abonnement_type = serializers.SerializerMethodField()
+    client_abonnement_actif = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'telephone', 'type_utilisateur', 'photo_profil', 'est_verifie',
-            'created_at'
+            'created_at', 'matching_self_service', 'client_abonnement_type',
+            'client_abonnement_actif',
         ]
-        read_only_fields = ['id', 'username', 'type_utilisateur', 'created_at']
+        read_only_fields = [
+            'id', 'username', 'type_utilisateur', 'created_at',
+            'matching_self_service', 'client_abonnement_type', 'client_abonnement_actif',
+        ]
+
+    def get_matching_self_service(self, obj):
+        if obj.type_utilisateur != 'client':
+            return None
+        profile = getattr(obj, 'profile_client', None)
+        if profile is None:
+            profile = ProfileClient.objects.filter(user=obj).first()
+        if profile is None:
+            return False
+        return profile.can_self_launch_matching()
+
+    def get_client_abonnement_type(self, obj):
+        if obj.type_utilisateur != 'client':
+            return None
+        profile = getattr(obj, 'profile_client', None)
+        if profile is None:
+            profile = ProfileClient.objects.filter(user=obj).first()
+        return profile.abonnement_type if profile else 'standard'
+
+    def get_client_abonnement_actif(self, obj):
+        if obj.type_utilisateur != 'client':
+            return None
+        profile = getattr(obj, 'profile_client', None)
+        if profile is None:
+            profile = ProfileClient.objects.filter(user=obj).first()
+        return bool(profile.abonnement_actif) if profile else False
 
 class ProfileFournisseurSerializer(serializers.ModelSerializer):
     """Profil détaillé du fournisseur de services (offreur)."""
@@ -126,9 +159,20 @@ class ProfileClientSerializer(serializers.ModelSerializer):
             'user', 'raison_sociale', 'secteur_activite', 'taille_entreprise',
             'besoins_services', 'fournisseurs_preferes', 'plage_budget',
             'frequence_besoins', 'contact_principal', 'mode_paiement_preferes', 'emplacement',
+            'abonnement_type', 'abonnement_actif', 'abonnement_debut', 'abonnement_fin',
+            'matching_self_service',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = [
+            'created_at', 'updated_at',
+            'abonnement_type', 'abonnement_actif', 'abonnement_debut', 'abonnement_fin',
+            'matching_self_service',
+        ]
+
+    matching_self_service = serializers.SerializerMethodField()
+
+    def get_matching_self_service(self, obj):
+        return obj.can_self_launch_matching()
 
 class ProfileFournisseurUpdateSerializer(serializers.ModelSerializer):
     """Mise à jour du profil fournisseur."""

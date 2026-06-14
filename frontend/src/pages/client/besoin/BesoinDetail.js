@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiDollarSign, FiClock, FiUser, FiTag, FiSearch } from 'react-icons/fi';
 import demandesService from '../../../services/demandesService';
+import { useAuth } from '../../../contexts/AuthContext';
+import { clientCanSelfLaunchMatching } from '../../../utils/clientPremium';
 import {
   formatMoneyFcfa,
   formatDateShort,
@@ -15,6 +17,8 @@ import {
 const BesoinDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canLaunchMatching = clientCanSelfLaunchMatching(user);
   const [besoin, setBesoin] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -104,7 +108,7 @@ const BesoinDetail = () => {
                 className="inline-flex items-center rounded-lg border border-indigo-200 bg-white px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
               >
                 <FiSearch className="mr-2 h-4 w-4" />
-                Matching
+                {canLaunchMatching ? 'Matching' : 'Correspondances'}
               </Link>
               <Link
                 to={`/client/besoins/${besoin.id}/edit`}

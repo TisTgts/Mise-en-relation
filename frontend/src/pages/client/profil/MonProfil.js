@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUser, FiMail, FiPhone, FiBriefcase, FiSave, FiCamera, FiPlus, FiX } from 'react-icons/fi';
+import { Link, useLocation } from 'react-router-dom';
+import { FiUser, FiMail, FiPhone, FiBriefcase, FiSave, FiCamera, FiPlus, FiX, FiSettings } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
@@ -48,6 +49,8 @@ const parseEmplacement = (raw) => {
 
 const MonProfil = () => {
   const { user, logout, updateUser, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const isParametres = location.pathname.includes('/parametres');
   const [loading, setLoading] = useState(true);
   const [savingAccount, setSavingAccount] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -312,22 +315,47 @@ const MonProfil = () => {
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">Mon profil</h1>
-            <p className="mt-1 text-sm text-slate-600">Compte utilisateur et informations entreprise</p>
+            <h1 className="text-2xl font-bold text-slate-900">
+              {isParametres ? 'Paramètres du compte' : 'Mon profil entreprise'}
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              {isParametres
+                ? 'Identité, contact et photo de profil'
+                : 'Informations entreprise pour affiner le matching'}
+            </p>
+            <Link
+              to={isParametres ? '/client/profil' : '/client/parametres'}
+              className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+            >
+              {isParametres ? (
+                <>
+                  <FiBriefcase className="h-4 w-4" />
+                  Profil entreprise
+                </>
+              ) : (
+                <>
+                  <FiSettings className="h-4 w-4" />
+                  Paramètres du compte
+                </>
+              )}
+            </Link>
           </div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <FiUser className="mr-2 h-4 w-4" />
-            Déconnexion
-          </button>
+          {isParametres && (
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <FiUser className="mr-2 h-4 w-4" />
+              Déconnexion
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className={`grid grid-cols-1 gap-6 ${isParametres ? 'lg:grid-cols-3' : ''}`}>
+        <div className={`space-y-6 ${isParametres ? 'lg:col-span-2' : ''}`}>
+          {isParametres && (
           <form onSubmit={handleSaveAccount} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Compte</h2>
             <p className="text-sm text-slate-500">Prénom, nom, téléphone et photo (enregistrés via l&apos;API compte).</p>
@@ -392,7 +420,9 @@ const MonProfil = () => {
               </button>
             </div>
           </form>
+          )}
 
+          {!isParametres && (
           <form onSubmit={handleSaveProfile} className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-900">Profil entreprise (client)</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -654,8 +684,10 @@ const MonProfil = () => {
               </button>
             </div>
           </form>
+          )}
         </div>
 
+        {isParametres && (
         <div className="space-y-6">
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="mb-4 text-lg font-semibold text-slate-900">Photo de profil</h3>
@@ -712,6 +744,7 @@ const MonProfil = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   );

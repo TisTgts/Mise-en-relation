@@ -1,24 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { FiSearch, FiLogOut, FiMenu, FiSun, FiMoon, FiUser, FiSettings, FiChevronDown, FiActivity } from 'react-icons/fi';
+import { FiSearch, FiLogOut, FiMenu, FiUser, FiSettings, FiChevronDown, FiActivity } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../NotificationBell';
 import AppBrand from '../AppBrand';
 
 const TopBar = ({ toggleSidebar, sidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const { user, logout } = useAuth();
   const profileMenuRef = useRef(null);
-
-  useEffect(() => {
-    // Vérifier le thème préféré de l'utilisateur
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
 
   useEffect(() => {
     // Fermer les menus quand on clique en dehors
@@ -33,19 +23,6 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    
-    if (newTheme) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  };
 
   const handleLogout = () => {
     logout();
@@ -80,6 +57,20 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
     }
   };
 
+  const getSettingsLink = () => {
+    if (!user) return '/login';
+    switch (user.type_utilisateur) {
+      case 'fournisseur':
+        return '/fournisseur/parametres';
+      case 'client':
+        return '/client/parametres';
+      case 'administrateur':
+        return '/admin/settings';
+      default:
+        return '/login';
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
       <div className="px-4 sm:px-6 lg:px-8">
@@ -99,21 +90,8 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
             </div>
           </div>
 
-          {/* Right side - Theme, Search, Notifications, Profile */}
+          {/* Right side - Search, Notifications, Profile */}
           <div className="flex items-center space-x-3">
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
-              title={isDarkMode ? "Passer en mode jour" : "Passer en mode nuit"}
-            >
-              {isDarkMode ? (
-                <FiSun className="h-5 w-5 text-yellow-500" />
-              ) : (
-                <FiMoon className="h-5 w-5 text-gray-600" />
-              )}
-            </button>
-
             {/* Search Bar */}
             <div className="relative hidden md:block">
               <input
@@ -175,7 +153,7 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
                       Mon Profil
                     </Link>
                     <Link
-                      to="/settings"
+                      to={getSettingsLink()}
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
                       onClick={() => setShowProfileMenu(false)}
                     >

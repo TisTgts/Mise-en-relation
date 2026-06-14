@@ -461,10 +461,9 @@ const PrestationCreate = () => {
                   onChange={handleChange}
                   className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
                 >
-                  <option value="fixe">Tarif fixe</option>
-                  <option value="forfait">Forfait</option>
-                  <option value="horaire">Horaire</option>
-                  <option value="devis">Devis</option>
+                  <option value="forfait">Forfait (prix package)</option>
+                  <option value="horaire">À l&apos;heure</option>
+                  <option value="devis">Sur devis (chiffrage après étude)</option>
                 </select>
               </div>
 

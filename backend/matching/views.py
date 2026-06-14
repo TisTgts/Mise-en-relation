@@ -6,9 +6,17 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from accounts.models import User
+from accounts.client_premium import client_can_self_launch_matching
 from services.models import Besoin, Prestation, TransactionService, Message
 from services.serializers import BesoinSerializer, PrestationSerializer
 
+from .devis_matching import (
+    build_quote_context,
+    initiate_quote_request_for_match,
+    load_transactions_for_pairs,
+    match_requires_quote,
+    process_quote_opportunities_after_matching,
+)
 from .models import MatchingRun
 from .presentation import match_payload_from_besoin, match_payload_from_prestation
 from .services import MatchingService
@@ -54,6 +62,19 @@ def trouver_correspondances_pour_besoin(request, besoin_id):
             status=status.HTTP_403_FORBIDDEN,
         )
 
+    if request.user.type_utilisateur == "client" and not client_can_self_launch_matching(request.user):
+        return Response(
+            {
+                "error": (
+                    "Le lancement du matching est réservé aux comptes client Premium. "
+                    "Contactez l'administrateur pour activer cette option."
+                ),
+                "code": "client_matching_premium_required",
+                "matching_self_service": False,
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     if request.user.type_utilisateur != "administrateur" and besoin.statut != "ouverte":
         return Response(
             {
@@ -69,15 +90,25 @@ def trouver_correspondances_pour_besoin(request, besoin_id):
         correspondence_entry(besoin.id, m["prestation"].id, m["score"], m["details"]) for m in matches
     ]
     create_matching_run(request.user, entries)
+    quote_opportunities = process_quote_opportunities_after_matching(besoin, matches)
 
     results = []
     for m in matches:
         payload = match_payload_from_besoin(m["prestation"], besoin, m["score"])
         payload["reasons"] = m.get("reasons", [])
         payload["score_details"] = m.get("details", {})
+        payload["quote"] = build_quote_context(besoin, m["prestation"])
         results.append(payload)
 
-    return Response({"besoin_id": besoin_id, "matches": results, "total_matches": len(results)})
+    return Response(
+        {
+            "besoin_id": besoin_id,
+            "matches": results,
+            "total_matches": len(results),
+            "besoin_sur_devis": besoin.mode_budget == "sur_devis",
+            "quote_opportunities": quote_opportunities,
+        }
+    )
 
 
 @api_view(["POST"])
@@ -151,6 +182,8 @@ def get_matching_scores(request):
     }
 
     matching_service = MatchingService()
+    pair_keys = list(merged.keys())
+    tx_by_pair = load_transactions_for_pairs(pair_keys)
     scores_payload = []
     for (bid, pid), entry in merged.items():
         prestation = prestations_map.get(pid)
@@ -169,6 +202,7 @@ def get_matching_scores(request):
         hard_match = bool(details.get("meta", {}).get("category_compatibility_level", 0) != 0)
         threshold = matching_service._score_threshold_for_pair(prestation, besoin)
         reasons = matching_service.build_match_reasons(score, details, hard_match, threshold)
+        quote_ctx = build_quote_context(besoin, prestation, tx_by_pair.get((bid, pid)))
         scores_payload.append(
             {
                 "id": entry["corr_ref"],
@@ -180,6 +214,7 @@ def get_matching_scores(request):
                 "calculated_at": parse_datetime_safe(entry.get("calculated_at")),
                 "prestation": PrestationSerializer(prestation).data,
                 "besoin": BesoinSerializer(besoin).data,
+                "quote": quote_ctx,
             }
         )
 
@@ -255,6 +290,7 @@ def lancer_matching_besoins_sans_matching(request):
             all_entries.append(
                 correspondence_entry(besoin.id, m["prestation"].id, m["score"], m["details"])
             )
+        process_quote_opportunities_after_matching(besoin, matches)
         details.append(
             {
                 "besoin_id": besoin.id,
@@ -325,6 +361,7 @@ def lancer_matching_besoins_admin(request):
             all_entries.append(
                 correspondence_entry(besoin.id, m["prestation"].id, m["score"], m["details"])
             )
+        process_quote_opportunities_after_matching(besoin, matches)
         details.append(
             {
                 "besoin_id": besoin.id,
@@ -765,6 +802,53 @@ def client_profil_fournisseur_matche(request, fournisseur_id):
 
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
+def sync_devis_opportunities_besoin(request, besoin_id):
+    """Crée les opportunités devis pour les correspondances existantes d'un besoin."""
+    besoin = get_object_or_404(
+        Besoin.objects.select_related("client"),
+        id=besoin_id,
+    )
+    if request.user.type_utilisateur == "client" and besoin.client_id != request.user.id:
+        return Response(
+            {"error": "Accès non autorisé à ce besoin"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    if request.user.type_utilisateur not in ("client", "administrateur"):
+        return Response(
+            {"error": "Accès réservé au client ou à l'administrateur"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
+    merged = merge_effective_correspondences()
+    prestation_ids = [pid for (bid, pid) in merged.keys() if bid == besoin.id]
+    if not prestation_ids:
+        return Response(
+            {
+                "besoin_id": besoin.id,
+                "besoin_sur_devis": besoin.mode_budget == "sur_devis",
+                "quote_opportunities": [],
+                "message": "Aucune correspondance à synchroniser.",
+            }
+        )
+
+    prestations = list(
+        Prestation.objects.select_related("fournisseur").filter(id__in=prestation_ids)
+    )
+    matches = [{"prestation": p} for p in prestations]
+    summary = process_quote_opportunities_after_matching(besoin, matches)
+
+    return Response(
+        {
+            "besoin_id": besoin.id,
+            "besoin_sur_devis": besoin.mode_budget == "sur_devis",
+            "quote_opportunities": summary,
+            "synchronized": len(summary),
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([permissions.IsAuthenticated])
 def client_confirmer_match(request):
     """Confirme un match côté client et crée la collaboration associée."""
     if request.user.type_utilisateur != "client":
@@ -796,21 +880,60 @@ def client_confirmer_match(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    transaction, created = TransactionService.objects.get_or_create(
-        prestation=prestation,
-        besoin=besoin,
-        fournisseur=prestation.fournisseur,
-        client=besoin.client,
-        defaults={
-            "prix_final": prestation.tarif_min,
-            "statut": "en_cours",
-            "notes": "Transaction créée depuis la confirmation de matching client.",
-        },
-    )
+    quote_required = match_requires_quote(besoin, prestation)
+    transaction = TransactionService.objects.filter(
+        besoin=besoin, prestation=prestation
+    ).first()
 
-    if not created and transaction.statut in {"annulee", "en_attente", "acceptee"}:
+    if quote_required:
+        if not transaction or transaction.devis_statut != "accepte_client":
+            # Le client choisit ce fournisseur : on déclenche la demande de devis
+            # et on notifie UNIQUEMENT ce fournisseur. La collaboration ne démarre
+            # qu'après que le client ait accepté le devis proposé.
+            tx, notified = initiate_quote_request_for_match(besoin, prestation)
+            awaiting = (
+                "en_attente_client"
+                if tx.devis_statut == "en_attente_client"
+                else "a_proposer"
+            )
+            return Response(
+                {
+                    "message": (
+                        "Devis en attente de votre validation : acceptez-le pour lancer la collaboration."
+                        if awaiting == "en_attente_client"
+                        else "Fournisseur sélectionné. Une demande de devis lui a été envoyée."
+                    ),
+                    "awaiting_quote": True,
+                    "requires_quote": True,
+                    "notified": notified,
+                    "devis_statut": tx.devis_statut,
+                    "transaction_id": tx.id,
+                    "besoin_id": besoin.id,
+                    "prestation_id": prestation.id,
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+        created = False
         transaction.statut = "en_cours"
-        transaction.save(update_fields=["statut", "updated_at"])
+        if transaction.prix_final is None and transaction.devis_montant_propose is not None:
+            transaction.prix_final = transaction.devis_montant_propose
+        transaction.save(update_fields=["statut", "prix_final", "updated_at"])
+    else:
+        transaction, created = TransactionService.objects.get_or_create(
+            prestation=prestation,
+            besoin=besoin,
+            fournisseur=prestation.fournisseur,
+            client=besoin.client,
+            defaults={
+                "prix_final": prestation.tarif_min,
+                "statut": "en_cours",
+                "devis_statut": "non_requis",
+                "notes": "Transaction créée depuis la confirmation de matching client.",
+            },
+        )
+        if not created and transaction.statut in {"annulee", "en_attente", "acceptee"}:
+            transaction.statut = "en_cours"
+            transaction.save(update_fields=["statut", "updated_at"])
 
     if besoin.statut != "en_cours":
         besoin.statut = "en_cours"

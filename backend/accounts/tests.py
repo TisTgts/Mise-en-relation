@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -76,3 +77,28 @@ class AccountsApiTests(TestCase):
 
         self.assertEqual(me_response.status_code, status.HTTP_200_OK)
         self.assertEqual(me_response.data["username"], user.username)
+
+
+class AuthRateLimitTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.client_api = APIClient()
+        self.password = "TestPass123!!"
+        User.objects.create_user(
+            username="throttle_user",
+            email="throttle@example.com",
+            password=self.password,
+            type_utilisateur="client",
+        )
+
+    def test_login_rate_limit_retourne_429(self):
+        url = reverse("login")
+        payload = {"email": "throttle@example.com", "password": "wrong-password"}
+
+        for _ in range(5):
+            response = self.client_api.post(url, payload, format="json")
+            self.assertIn(response.status_code, (status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED))
+
+        blocked = self.client_api.post(url, payload, format="json")
+        self.assertEqual(blocked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
+        self.assertIn("detail", blocked.data)

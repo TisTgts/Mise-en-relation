@@ -177,7 +177,9 @@ def _get_transaction_for_actor(user, transaction_id):
 
 
 def _transaction_requires_quote_acceptance(transaction):
-    return transaction.besoin.mode_budget == 'sur_devis'
+    besoin = transaction.besoin
+    prestation = transaction.prestation
+    return besoin.mode_budget == 'sur_devis' or prestation.mode_tarification == 'devis'
 
 
 @api_view(['POST'])
@@ -210,8 +212,11 @@ def fournisseur_propose_quote(request, transaction_id):
         return Response({'error': 'Transaction introuvable.'}, status=status.HTTP_404_NOT_FOUND)
     if transaction.fournisseur_id != request.user.id:
         return Response({'error': 'Seul le fournisseur peut proposer un devis.'}, status=status.HTTP_403_FORBIDDEN)
-    if transaction.besoin.mode_budget != 'sur_devis':
-        return Response({'error': 'Ce besoin n’est pas en mode devis.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not _transaction_requires_quote_acceptance(transaction):
+        return Response(
+            {'error': 'Cette collaboration ne nécessite pas de devis.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     if transaction.statut in ['terminee', 'annulee']:
         return Response({'error': 'Transaction fermée, devis impossible.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -248,8 +253,11 @@ def client_respond_quote(request, transaction_id):
         return Response({'error': 'Transaction introuvable.'}, status=status.HTTP_404_NOT_FOUND)
     if transaction.client_id != request.user.id:
         return Response({'error': 'Seul le client peut répondre au devis.'}, status=status.HTTP_403_FORBIDDEN)
-    if transaction.besoin.mode_budget != 'sur_devis':
-        return Response({'error': 'Ce besoin n’est pas en mode devis.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not _transaction_requires_quote_acceptance(transaction):
+        return Response(
+            {'error': 'Cette collaboration ne nécessite pas de devis.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     if transaction.devis_statut != 'en_attente_client':
         return Response({'error': 'Aucun devis en attente de validation client.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -433,7 +441,7 @@ def create_transaction(request):
             )
         
         # Créer la transaction
-        quote_required = need.mode_budget == 'sur_devis'
+        quote_required = need.mode_budget == 'sur_devis' or offer.mode_tarification == 'devis'
         tx_fields = {
             'prestation': offer,
             'besoin': need,

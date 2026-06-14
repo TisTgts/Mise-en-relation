@@ -72,6 +72,8 @@ export const API_ENDPOINTS = {
     CLIENT_FOURNISSEUR_PROFIL_MATCHE: (fournisseurId) =>
       `${API_BASE_URL}/matching/client/fournisseurs/${fournisseurId}/profil/`,
     CLIENT_CONFIRMER_MATCH: `${API_BASE_URL}/matching/client/confirmer-match/`,
+    SYNC_DEVIS_OPPORTUNITIES: (besoinId) =>
+      `${API_BASE_URL}/matching/besoin/${besoinId}/sync-devis-opportunities/`,
     SCORE_DEBUG: (besoinId, prestationId) =>
       `${API_BASE_URL}/matching/score-debug/besoin/${besoinId}/prestation/${prestationId}/`,
     /** @deprecated utiliser FIND_MATCHES_FOR_BESOIN */

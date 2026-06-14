@@ -235,13 +235,6 @@ const MesCollaborations = () => {
     loadExchangeMessages(collaboration.id);
   };
 
-  const handleOpenExchangeModal = (collaboration) => {
-    setSelectedCollaboration(collaboration);
-    setShowExchangeModal(true);
-    setWorkspaceEntry({ type: 'info', title: '', content: '', fileUrl: '', file: null });
-    loadExchangeMessages(collaboration.id);
-  };
-
   const handleSendExchangeMessage = async () => {
     if (!selectedCollaboration?.id) return;
     if (!workspaceEntry.title.trim() || !workspaceEntry.content.trim()) return;

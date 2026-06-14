@@ -1,5 +1,4 @@
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
 from . import views, dashboard_views
 
 urlpatterns = [
@@ -9,7 +8,7 @@ urlpatterns = [
     path('profile/', views.ProfileView.as_view(), name='profile'),
     path('user/', views.user_profile_view, name='user_profile'),
     path('me/', views.CurrentUserView.as_view(), name='current_user'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', views.ThrottledTokenRefreshView.as_view(), name='token_refresh'),
     
     # Admin endpoints
     path('users/', views.UserListView.as_view(), name='users_list'),

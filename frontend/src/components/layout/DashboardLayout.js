@@ -5,9 +5,20 @@ import { APP_NAME } from '../../config/branding';
 
 const DashboardLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => localStorage.getItem('sidebarCollapsed') === 'true'
+  );
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+
+  const toggleSidebarCollapsed = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebarCollapsed', String(next));
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -29,7 +40,12 @@ const DashboardLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar - toujours visible sur desktop */}
-      <SideBar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} />
+      <SideBar
+        isOpen={sidebarOpen}
+        toggleSidebar={toggleSidebar}
+        collapsed={sidebarCollapsed}
+        toggleCollapsed={toggleSidebarCollapsed}
+      />
       
       {/* Conteneur principal avec TopBar et contenu */}
       <div className="flex-1 flex flex-col h-screen">

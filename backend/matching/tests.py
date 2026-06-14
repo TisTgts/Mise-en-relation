@@ -80,7 +80,9 @@ class MatchingBaseTestCase(TestCase):
 
         profile_c, _ = ProfileClient.objects.get_or_create(user=self.client_user)
         profile_c.emplacement = {"latitude": 14.7300, "longitude": -17.4500}
-        profile_c.save(update_fields=["emplacement"])
+        profile_c.abonnement_type = "premium"
+        profile_c.abonnement_actif = True
+        profile_c.save(update_fields=["emplacement", "abonnement_type", "abonnement_actif"])
 
         self.api_client = APIClient()
 
@@ -307,6 +309,21 @@ class MatchingServiceTests(MatchingBaseTestCase):
 
 
 class MatchingApiTests(MatchingBaseTestCase):
+    def test_endpoint_correspondances_refuse_client_standard(self):
+        profile = ProfileClient.objects.get(user=self.client_user)
+        profile.abonnement_type = "standard"
+        profile.abonnement_actif = False
+        profile.save(update_fields=["abonnement_type", "abonnement_actif"])
+
+        self.api_client.force_authenticate(user=self.client_user)
+        response = self.api_client.post(
+            reverse("trouver-correspondances-besoin", kwargs={"besoin_id": self.besoin.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data.get("code"), "client_matching_premium_required")
+        self.assertEqual(MatchingRun.objects.count(), 0)
+
     def test_endpoint_correspondances_besoin_retourne_resultats(self):
         self.api_client.force_authenticate(user=self.client_user)
 
@@ -363,3 +380,68 @@ class MatchingApiTests(MatchingBaseTestCase):
         self.assertIn("reasons", first)
         self.assertIn("accepted", first)
         self.assertIn("threshold", first)
+        self.assertIn("quote", first)
+
+
+class MatchingDevisFlowTestCase(MatchingBaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self.besoin.mode_budget = "sur_devis"
+        self.besoin.budget = None
+        self.besoin.save(update_fields=["mode_budget", "budget"])
+        self.api_client = APIClient()
+
+    def test_matching_sur_devis_ne_notifie_pas_les_fournisseurs(self):
+        from services.models import Message
+
+        from matching.devis_matching import NOTIFICATION_SUBJECT
+
+        self.api_client.force_authenticate(user=self.client_user)
+        response = self.api_client.post(
+            reverse("trouver-correspondances-besoin", kwargs={"besoin_id": self.besoin.id})
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("besoin_sur_devis"))
+        self.assertTrue(len(response.data.get("quote_opportunities") or []) >= 1)
+
+        # Aucune notification de devis ne doit partir au moment du matching.
+        self.assertFalse(
+            Message.objects.filter(
+                destinataire=self.fournisseur_user, sujet=NOTIFICATION_SUBJECT
+            ).exists()
+        )
+
+        scores = self.api_client.get(reverse("matching-scores"))
+        self.assertEqual(scores.status_code, status.HTTP_200_OK)
+        row = next((s for s in scores.data if s["besoin"]["id"] == self.besoin.id), None)
+        self.assertIsNotNone(row)
+        self.assertTrue(row["quote"]["match_requires_quote"])
+
+    def test_confirmer_match_declenche_demande_devis_au_fournisseur_choisi(self):
+        from services.models import Message
+
+        from matching.devis_matching import NOTIFICATION_SUBJECT
+
+        self.api_client.force_authenticate(user=self.client_user)
+        self.api_client.post(
+            reverse("trouver-correspondances-besoin", kwargs={"besoin_id": self.besoin.id})
+        )
+        confirm = self.api_client.post(
+            reverse("client-confirmer-match"),
+            {
+                "besoin_id": self.besoin.id,
+                "prestation_id": self.prestation.id,
+            },
+            format="json",
+        )
+        self.assertEqual(confirm.status_code, status.HTTP_202_ACCEPTED)
+        self.assertTrue(confirm.data.get("awaiting_quote"))
+        self.assertTrue(confirm.data.get("requires_quote"))
+        self.assertEqual(confirm.data.get("devis_statut"), "a_proposer")
+
+        # Le fournisseur choisi reçoit la notification de devis.
+        self.assertTrue(
+            Message.objects.filter(
+                destinataire=self.fournisseur_user, sujet=NOTIFICATION_SUBJECT
+            ).exists()
+        )

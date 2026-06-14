@@ -449,9 +449,10 @@ const PrestationEdit = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
                 >
                   <option value="fixe">Tarif fixe</option>
-                  <option value="horaire">Tarif horaire</option>
-                  <option value="forfait">Forfait</option>
-                  <option value="devis">Sur devis</option>
+                  <option value="forfait">Forfait (prix package)</option>
+                  <option value="fixe">Forfait (tarif fixe)</option>
+                  <option value="horaire">À l&apos;heure</option>
+                  <option value="devis">Sur devis (chiffrage après étude)</option>
                 </select>
               </div>
 

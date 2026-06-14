@@ -161,6 +161,13 @@ function App() {
               </ProtectedPage>
             </FournisseurRoute>
           } />
+          <Route path="/fournisseur/parametres" element={
+            <FournisseurRoute>
+              <ProtectedPage>
+                <MonProfil />
+              </ProtectedPage>
+            </FournisseurRoute>
+          } />
           <Route path="/fournisseur/mes-collaborations" element={
             <FournisseurRoute>
               <ProtectedPage>
@@ -246,6 +253,13 @@ function App() {
             </ClientRoute>
           } />
           <Route path="/client/profil" element={
+            <ClientRoute>
+              <ProtectedPage>
+                <ClientProfil />
+              </ProtectedPage>
+            </ClientRoute>
+          } />
+          <Route path="/client/parametres" element={
             <ClientRoute>
               <ProtectedPage>
                 <ClientProfil />
@@ -401,6 +415,13 @@ function App() {
             </FournisseurRoute>
           } />
           <Route path="/fournisseur/profil" element={
+            <FournisseurRoute>
+              <ProtectedPage>
+                <MonProfil />
+              </ProtectedPage>
+            </FournisseurRoute>
+          } />
+          <Route path="/fournisseur/parametres" element={
             <FournisseurRoute>
               <ProtectedPage>
                 <MonProfil />

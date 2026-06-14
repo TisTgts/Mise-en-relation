@@ -14,6 +14,12 @@ deactivate
 
 echo "=== Frontend ==="
 cd ../frontend
+if [ ! -f .env.production ]; then
+  echo "ERREUR: frontend/.env.production absent."
+  echo "Exemple: echo 'REACT_APP_API_URL=https://toghinis.net/api' > .env.production"
+  exit 1
+fi
+echo "API frontend: $(grep REACT_APP_API_URL .env.production || true)"
 npm ci
 npm run build
 

@@ -5,6 +5,7 @@ import demandesService from '../../../services/demandesService';
 import categoriesService from '../../../services/categoriesService';
 import { useAuth } from '../../../contexts/AuthContext';
 import Toast from '../../../components/Toast';
+import { clientCanSelfLaunchMatching, clientMatchingPremiumMessage } from '../../../utils/clientPremium';
 import {
   formatMoneyFcfa,
   formatDateShort,
@@ -17,6 +18,7 @@ import {
 
 const MesBesoins = () => {
   const { user } = useAuth();
+  const canLaunchMatching = clientCanSelfLaunchMatching(user);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [demandes, setDemandes] = useState([]);
@@ -221,8 +223,9 @@ const MesBesoins = () => {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-indigo-900">Étape suivante : correspondances</p>
             <p className="mt-1 text-sm text-slate-600">
-              Découvrez les prestations suggérées pour votre besoin. Vous pouvez aussi lancer le matching depuis la ligne du
-              tableau.
+              {canLaunchMatching
+                ? 'Découvrez les prestations suggérées pour votre besoin. Vous pouvez aussi lancer le matching depuis la ligne du tableau.'
+                : 'Consultez les correspondances déjà calculées par l\'administrateur (lancement réservé au compte Premium).'}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -498,7 +501,7 @@ const MesBesoins = () => {
                         <Link
                           to={`/client/besoins/${demande.id}/matching`}
                           className="inline-flex items-center rounded-lg border border-indigo-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
-                          title="Voir les correspondances"
+                          title={canLaunchMatching ? 'Voir et lancer le matching' : 'Voir les correspondances'}
                         >
                           <FiSearch className="h-4 w-4" />
                         </Link>

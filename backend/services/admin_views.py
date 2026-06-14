@@ -11,7 +11,7 @@ from datetime import timedelta
 from rest_framework import serializers
 
 from accounts.permissions import IsAdministrator
-from accounts.models import User
+from accounts.models import User, ProfileClient
 from .models import CategorieService, SousCategorieService, Prestation, Besoin, TransactionService, Message
 from .serializers import (
     PrestationSerializer,
@@ -47,20 +47,88 @@ class TransactionServiceSerializer(serializers.ModelSerializer):
 
 # Serializer pour les utilisateurs (créé ici pour éviter les imports circulaires)
 class UserSerializer(serializers.ModelSerializer):
-    """Serializer pour les utilisateurs"""
+    """Serializer pour les utilisateurs (admin)."""
     full_name = serializers.SerializerMethodField()
-    
+    raison_sociale = serializers.SerializerMethodField()
+    client_abonnement_type = serializers.ChoiceField(
+        choices=ProfileClient.ABONNEMENT_CHOICES,
+        required=False,
+        allow_null=True,
+    )
+    client_abonnement_actif = serializers.BooleanField(required=False)
+    client_abonnement_debut = serializers.DateField(required=False, allow_null=True)
+    client_abonnement_fin = serializers.DateField(required=False, allow_null=True)
+    client_matching_self_service = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'full_name',
             'type_utilisateur', 'is_active', 'date_joined', 'last_login',
-            'telephone', 'raison_sociale'
+            'telephone', 'raison_sociale',
+            'client_abonnement_type', 'client_abonnement_actif',
+            'client_abonnement_debut', 'client_abonnement_fin',
+            'client_matching_self_service',
         ]
-        read_only_fields = ['id', 'date_joined', 'last_login']
-    
+        read_only_fields = ['id', 'date_joined', 'last_login', 'client_matching_self_service']
+
     def get_full_name(self, obj):
         return f"{obj.first_name} {obj.last_name}".strip()
+
+    def _client_profile(self, obj):
+        return getattr(obj, 'profile_client', None)
+
+    def get_raison_sociale(self, obj):
+        if obj.type_utilisateur == 'client':
+            profile = self._client_profile(obj)
+            return profile.raison_sociale if profile else ''
+        if obj.type_utilisateur == 'fournisseur':
+            profile = getattr(obj, 'profile_fournisseur', None)
+            return profile.raison_sociale if profile else ''
+        return ''
+
+    def get_client_matching_self_service(self, obj):
+        if obj.type_utilisateur != 'client':
+            return None
+        profile = self._client_profile(obj)
+        return profile.can_self_launch_matching() if profile else False
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.type_utilisateur == 'client':
+            profile = self._client_profile(instance)
+            if profile:
+                data['client_abonnement_type'] = profile.abonnement_type
+                data['client_abonnement_actif'] = profile.abonnement_actif
+                data['client_abonnement_debut'] = profile.abonnement_debut
+                data['client_abonnement_fin'] = profile.abonnement_fin
+        else:
+            data.pop('client_abonnement_type', None)
+            data.pop('client_abonnement_actif', None)
+            data.pop('client_abonnement_debut', None)
+            data.pop('client_abonnement_fin', None)
+        return data
+
+    def update(self, instance, validated_data):
+        client_premium_data = {}
+        for field in (
+            'client_abonnement_type',
+            'client_abonnement_actif',
+            'client_abonnement_debut',
+            'client_abonnement_fin',
+        ):
+            if field in validated_data:
+                client_premium_data[field.replace('client_', '')] = validated_data.pop(field)
+
+        instance = super().update(instance, validated_data)
+
+        if client_premium_data and instance.type_utilisateur == 'client':
+            profile, _ = ProfileClient.objects.get_or_create(user=instance)
+            for attr, value in client_premium_data.items():
+                setattr(profile, attr, value)
+            profile.save()
+
+        return instance
 
 class AdminUserListView(generics.ListAPIView):
     """Vue pour lister tous les utilisateurs (admin uniquement)"""

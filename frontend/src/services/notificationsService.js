@@ -24,6 +24,24 @@ function clientTxNotification(tx) {
     href: `/client/transactions/${tx.id}`,
     sortAt: new Date(tx.updated_at || tx.created_at || 0).getTime(),
   };
+  const quoteNeeded =
+    tx.besoin_mode_budget === 'sur_devis' || tx.prestation_mode_tarification === 'devis';
+  if (quoteNeeded && tx.devis_statut === 'en_attente_client') {
+    return {
+      ...base,
+      title: 'Devis à valider',
+      subtitle: tx.besoin_intitule || `Transaction #${tx.id}`,
+      dotClass: 'bg-violet-500',
+    };
+  }
+  if (quoteNeeded && tx.statut === 'en_attente' && tx.devis_statut === 'a_proposer') {
+    return {
+      ...base,
+      title: 'Devis en attente fournisseur',
+      subtitle: tx.prestation_intitule || `Transaction #${tx.id}`,
+      dotClass: 'bg-slate-400',
+    };
+  }
   if (tx.validation_admin_statut === 'en_attente') {
     return {
       ...base,
@@ -57,9 +75,26 @@ function clientTxNotification(tx) {
 
 function fournisseurTxNotification(tx) {
   if (tx.statut === 'terminee' || tx.statut === 'annulee') return null;
+  const baseTime = new Date(tx.updated_at || tx.created_at || 0).getTime();
+  const quoteNeeded =
+    tx.besoin_mode_budget === 'sur_devis' || tx.prestation_mode_tarification === 'devis';
+  if (
+    quoteNeeded &&
+    tx.statut === 'en_attente' &&
+    ['a_proposer', 'rejete_client'].includes(tx.devis_statut)
+  ) {
+    return {
+      id: `tx-four-devis-${tx.id}`,
+      kind: 'transaction',
+      title: 'Proposer un devis',
+      subtitle: tx.besoin_intitule || `Transaction #${tx.id}`,
+      href: `/fournisseur/transactions/${tx.id}`,
+      dotClass: 'bg-violet-500',
+      sortAt: baseTime,
+    };
+  }
   const livraisonPossible = ['acceptee', 'en_cours'].includes(tx.statut);
   if (!livraisonPossible) return null;
-  const baseTime = new Date(tx.updated_at || tx.created_at || 0).getTime();
   if (!tx.travail_fournisseur_termine) {
     return {
       id: `tx-four-${tx.id}`,

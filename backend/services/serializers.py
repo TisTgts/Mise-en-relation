@@ -282,12 +282,17 @@ class TransactionServiceSerializer(serializers.ModelSerializer):
     client_nom = serializers.CharField(source='client.username', read_only=True)
     prestation_intitule = serializers.CharField(source='prestation.intitule', read_only=True)
     besoin_intitule = serializers.CharField(source='besoin.intitule', read_only=True)
+    besoin_mode_budget = serializers.CharField(source='besoin.mode_budget', read_only=True)
+    prestation_mode_tarification = serializers.CharField(
+        source='prestation.mode_tarification', read_only=True
+    )
     
     class Meta:
         model = TransactionService
         fields = [
             'id', 'prestation', 'besoin', 'fournisseur', 'client',
             'fournisseur_nom', 'client_nom', 'prestation_intitule', 'besoin_intitule',
+            'besoin_mode_budget', 'prestation_mode_tarification',
             'prix_final', 'statut', 'debut_confirme', 'fin_confirmee',
             'devis_montant_propose', 'devis_description', 'devis_statut',
             'devis_date_proposition', 'devis_date_reponse_client', 'devis_propose_par',

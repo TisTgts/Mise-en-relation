@@ -504,8 +504,8 @@ const BesoinCreate = () => {
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
-                  <option value="budget_fixe">Budget fixe</option>
-                  <option value="sur_devis">Sur devis (prix proposé par le fournisseur)</option>
+                  <option value="budget_fixe">Budget fixe — prix connu ou fourchette</option>
+                  <option value="sur_devis">Sur devis — les fournisseurs chiffrent avant validation</option>
                 </select>
               </div>
 
@@ -529,7 +529,8 @@ const BesoinCreate = () => {
                 )}
                 {formData.mode_budget === 'sur_devis' && (
                   <p className="mt-1 text-xs text-slate-500">
-                    Le fournisseur proposera un devis, puis vous validerez avant démarrage.
+                    Après le matching, chaque fournisseur pourra proposer un devis. Vous le comparerez
+                    puis validerez avant de confirmer la collaboration.
                   </p>
                 )}
               </div>

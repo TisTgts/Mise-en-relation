@@ -18,6 +18,11 @@ env = environ.Env(
     CORS_ALLOW_ALL_ORIGINS=(bool, True),
     JWT_ACCESS_TOKEN_LIFETIME=(int, 60),
     JWT_REFRESH_TOKEN_LIFETIME=(int, 1440),
+    THROTTLE_LOGIN=(str, "5/min"),
+    THROTTLE_REGISTER=(str, "3/min"),
+    THROTTLE_TOKEN_REFRESH=(str, "10/min"),
+    THROTTLE_ANON=(str, "100/hour"),
+    THROTTLE_USER=(str, "1000/hour"),
 )
 
 # Charge backend/.env en local (ignoré si absent)
@@ -120,6 +125,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "accounts.throttling.GlobalAnonRateThrottle",
+        "accounts.throttling.GlobalUserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "login": env("THROTTLE_LOGIN"),
+        "register": env("THROTTLE_REGISTER"),
+        "token_refresh": env("THROTTLE_TOKEN_REFRESH"),
+        "anon": env("THROTTLE_ANON"),
+        "user": env("THROTTLE_USER"),
+    },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
     "DEFAULT_FILTER_BACKENDS": [
@@ -155,6 +171,23 @@ EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+
+# Cache partagé (Redis) pour le rate limiting multi-workers Gunicorn
+if env("REDIS_URL", default=""):
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": env("REDIS_URL"),
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "transport-platform-throttle",
+        }
+    }
+
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]

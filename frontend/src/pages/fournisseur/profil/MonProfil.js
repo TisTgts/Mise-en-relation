@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiMail, FiPhone, FiBriefcase, FiAward, FiEdit2, FiSave, FiX } from 'react-icons/fi';
+import { Link, useLocation } from 'react-router-dom';
+import { FiMail, FiPhone, FiBriefcase, FiAward, FiEdit2, FiSave, FiX, FiSettings, FiUser } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
@@ -40,6 +41,8 @@ const parseEmplacement = (raw) => {
 
 const MonProfil = () => {
   const { user, updateUser, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const isParametres = location.pathname.includes('/parametres');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -291,8 +294,33 @@ const MonProfil = () => {
     <div className="mx-auto max-w-7xl space-y-6 pb-10">
       <div className="max-w-5xl rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-slate-900">Mon profil</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">
+                {isParametres ? 'Paramètres du compte' : 'Mon profil fournisseur'}
+              </h1>
+              <p className="mt-1 text-sm text-slate-600">
+                {isParametres
+                  ? 'Identité et coordonnées personnelles'
+                  : 'Activité, zones, tarifs et visibilité matching'}
+              </p>
+              <Link
+                to={isParametres ? '/fournisseur/profil' : '/fournisseur/parametres'}
+                className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800"
+              >
+                {isParametres ? (
+                  <>
+                    <FiBriefcase className="h-4 w-4" />
+                    Profil fournisseur
+                  </>
+                ) : (
+                  <>
+                    <FiSettings className="h-4 w-4" />
+                    Paramètres du compte
+                  </>
+                )}
+              </Link>
+            </div>
             {!editing && (
               <button
                 type="button"
@@ -308,6 +336,7 @@ const MonProfil = () => {
 
         <div className="p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {isParametres && (
             <div>
               <h2 className="mb-4 text-lg font-semibold text-slate-900">Informations personnelles</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -362,7 +391,9 @@ const MonProfil = () => {
                 </div>
               </div>
             </div>
+            )}
 
+            {!isParametres && (
             <div>
               <h2 className="mb-4 text-lg font-semibold text-slate-900">Profil fournisseur</h2>
               <div className="space-y-4">
@@ -646,6 +677,7 @@ const MonProfil = () => {
                 </div>
               </div>
             </div>
+            )}
 
             {editing && (
               <div className="flex items-center justify-end space-x-4 border-t border-slate-200 pt-6">

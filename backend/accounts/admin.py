@@ -22,5 +22,9 @@ class ProfileFournisseurAdmin(admin.ModelAdmin):
 
 @admin.register(ProfileClient)
 class ProfileClientAdmin(admin.ModelAdmin):
-    list_display = ['user', 'raison_sociale', 'secteur_activite', 'frequence_besoins']
+    list_display = [
+        'user', 'raison_sociale', 'secteur_activite', 'abonnement_type',
+        'abonnement_actif', 'frequence_besoins',
+    ]
+    list_filter = ['abonnement_type', 'abonnement_actif', 'secteur_activite']
     search_fields = ['user__username', 'raison_sociale', 'secteur_activite']

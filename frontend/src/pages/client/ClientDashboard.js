@@ -207,7 +207,7 @@ const ClientDashboard = () => {
       return {
         title: 'Étape suivante',
         description: `Vous avez ${openCount} besoin(s) ouvert(s). Consultez les correspondances ou complétez vos fiches depuis Mes besoins.`,
-        primaryLabel: 'Voir les correspondances',
+        primaryLabel: 'Voir mes matchings',
         onPrimary: () => navigate('/client/matchings'),
         secondaryLabel: 'Mes besoins',
         onSecondary: () => {
@@ -462,7 +462,7 @@ const ClientDashboard = () => {
                     onClick={() => navigate('/client/matchings')}
                     className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-indigo-200 text-sm text-indigo-700 hover:bg-indigo-50"
                   >
-                    Mes besoins matchés
+                    Mes matchings
                     <FiChevronRight className="w-4 h-4" />
                   </button>
                 </div>
