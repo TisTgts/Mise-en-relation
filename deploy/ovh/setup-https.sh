@@ -8,6 +8,7 @@ DOMAIN="${DOMAIN:-toghinis.net}"
 WWW_DOMAIN="www.${DOMAIN}"
 VPS_IP="${VPS_IP:-144.217.82.132}"
 CERT_NAME="${CERT_NAME:-$DOMAIN}"
+CHALLENGE_DIR="$APP_DIR/certbot/.well-known/acme-challenge"
 
 cd "$APP_DIR"
 
@@ -22,15 +23,19 @@ fi
 
 RESOLVED_IP="$(dig +short "$DOMAIN" A 2>/dev/null | tail -1 || true)"
 if [ -n "$RESOLVED_IP" ] && [ "$RESOLVED_IP" != "$VPS_IP" ]; then
-  echo "ATTENTION: $DOMAIN pointe vers $RESOLVED_IP (attendu $VPS_IP)."
+  echo "ERREUR: $DOMAIN pointe vers $RESOLVED_IP (attendu $VPS_IP)."
   echo "Corrigez la zone DNS OVH avant de continuer."
   exit 1
 fi
 
 AAAA_RECORD="$(dig +short "$DOMAIN" AAAA 2>/dev/null | head -1 || true)"
 if [ -n "$AAAA_RECORD" ]; then
-  echo "ATTENTION: enregistrement AAAA détecté ($AAAA_RECORD)."
-  echo "Supprimez-le dans OVH si l'IPv6 ne pointe pas vers ce VPS (sinon HTTPS peut échouer pour certains clients)."
+  echo ""
+  echo "ERREUR: enregistrement AAAA actif ($AAAA_RECORD)."
+  echo "Let's Encrypt peut valider via IPv6 et recevoir une mauvaise réponse (parking OVH)."
+  echo "Supprimez les entrées AAAA pour @ et www dans OVH → Zone DNS, attendez 5 min, relancez."
+  echo ""
+  exit 1
 fi
 
 echo "=== Pare-feu (port 443) ==="
@@ -39,7 +44,8 @@ if command -v ufw >/dev/null; then
 fi
 
 echo "=== Préparation certbot webroot ==="
-sudo mkdir -p "$APP_DIR/certbot/.well-known/acme-challenge"
+sudo rm -rf "$CHALLENGE_DIR"
+sudo mkdir -p "$CHALLENGE_DIR"
 sudo chown -R ubuntu:ubuntu "$APP_DIR/certbot"
 
 echo "=== Nginx HTTP (défi ACME) ==="
@@ -49,21 +55,59 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
 
-echo "=== Certificat Let's Encrypt ==="
-sudo apt-get install -y certbot
+echo "=== Test défi ACME (avant certbot) ==="
+TEST_FILE="preflight-$(date +%s)"
+echo "ok-acme-test" > "$CHALLENGE_DIR/$TEST_FILE"
+LOCAL="$(curl -fsS "http://127.0.0.1/.well-known/acme-challenge/$TEST_FILE" -H "Host: $DOMAIN" || true)"
+REMOTE4="$(curl -4fsS "http://$DOMAIN/.well-known/acme-challenge/$TEST_FILE" || true)"
+rm -f "$CHALLENGE_DIR/$TEST_FILE"
 
-if [ ! -f "/etc/letsencrypt/live/$CERT_NAME/fullchain.pem" ]; then
+if [ "$LOCAL" != "ok-acme-test" ] || [ "$REMOTE4" != "ok-acme-test" ]; then
+  echo "ERREUR: Nginx ne sert pas correctement /.well-known/acme-challenge/"
+  echo "  local  : '$LOCAL'"
+  echo "  distant: '$REMOTE4'"
+  echo "Vérifiez /etc/nginx/sites-available/plateforme"
+  exit 1
+fi
+echo "Test ACME OK (IPv4)"
+
+request_certificate() {
   sudo certbot certonly --webroot \
     -w "$APP_DIR/certbot" \
     -d "$DOMAIN" \
     -d "$WWW_DOMAIN" \
     --non-interactive \
     --agree-tos \
-    --register-unsafely-without-email \
-    || {
-      echo "ERREUR certbot. Vérifiez : DNS A, port 80 ouvert, bloc /.well-known/ dans nginx."
+    --register-unsafely-without-email
+}
+
+request_certificate_standalone() {
+  echo "=== Fallback : certbot standalone (arrêt nginx temporaire) ==="
+  sudo systemctl stop nginx
+  sudo certbot certonly --standalone \
+    -d "$DOMAIN" \
+    -d "$WWW_DOMAIN" \
+    --non-interactive \
+    --agree-tos \
+    --register-unsafely-without-email
+  sudo systemctl start nginx
+}
+
+echo "=== Certificat Let's Encrypt ==="
+sudo apt-get install -y certbot
+
+if [ ! -f "/etc/letsencrypt/live/$CERT_NAME/fullchain.pem" ]; then
+  sudo rm -rf "$CHALLENGE_DIR"/*
+  sudo mkdir -p "$CHALLENGE_DIR"
+  sudo chown -R ubuntu:ubuntu "$APP_DIR/certbot"
+
+  if ! request_certificate; then
+    echo "Webroot échoué — nouvel essai en mode standalone..."
+    request_certificate_standalone || {
+      echo "ERREUR certbot. Consultez : sudo tail -30 /var/log/letsencrypt/letsencrypt.log"
       exit 1
     }
+  fi
 else
   echo "Certificat déjà présent : /etc/letsencrypt/live/$CERT_NAME/"
   sudo certbot renew --dry-run || true
@@ -119,12 +163,10 @@ sudo systemctl reload nginx
 
 echo "=== Vérification ==="
 sleep 2
-curl -sI "https://$DOMAIN/" | head -5 || true
-curl -sI "https://$DOMAIN/api/services/categories/" | head -5 || true
+curl -4sI "https://$DOMAIN/" | head -5 || true
+curl -4sI "https://$DOMAIN/api/services/categories/" | head -5 || true
 
 echo ""
 echo "=== HTTPS activé ==="
 echo "  Site : https://$DOMAIN"
 echo "  API  : https://$DOMAIN/api/"
-echo ""
-echo "Si le navigateur échoue encore : videz le cache ou testez en navigation privée."
