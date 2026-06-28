@@ -5,15 +5,11 @@ import demandesService from '../../../services/demandesService';
 import categoriesService from '../../../services/categoriesService';
 import { useAuth } from '../../../contexts/AuthContext';
 import Toast from '../../../components/Toast';
-import { clientCanSelfLaunchMatching, clientMatchingPremiumMessage } from '../../../utils/clientPremium';
+import { clientCanSelfLaunchMatching } from '../../../utils/clientPremium';
 import {
   formatMoneyFcfa,
-  formatDateShort,
   besoinStatutPillClass,
   besoinStatutLabel,
-  besoinStepsFromStatut,
-  urgencePillClass,
-  urgenceLabel,
 } from '../clientUi';
 
 const MesBesoins = () => {
@@ -192,7 +188,7 @@ const MesBesoins = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     );
   }

@@ -5,6 +5,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import prestationsService from '../../../services/prestationsService';
 import categoriesService from '../../../services/categoriesService';
 import Toast from '../../../components/Toast';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 import {
   formatMoneyFcfa,
   prestationStatutPillClass,
@@ -13,6 +14,7 @@ import {
 
 const MesPrestations = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [prestations, setPrestations] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -56,24 +58,28 @@ const MesPrestations = () => {
   }, [user]);
 
   const handleDeletePrestation = async (id) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette prestation ?')) {
-      try {
-        setLoading(true);
-        await prestationsService.deletePrestation(id);
-        setPrestations((prev) => prev.filter((p) => p.id !== id));
-        setToast({
-          message: 'Prestation supprimée avec succès',
-          type: 'success',
-        });
-      } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
-        setToast({
-          message: 'Erreur lors de la suppression de la prestation',
-          type: 'error',
-        });
-      } finally {
-        setLoading(false);
-      }
+    const ok = await confirm({
+      title: 'Supprimer cette prestation ?',
+      message: 'Cette action est irréversible.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
+    try {
+      setLoading(true);
+      await prestationsService.deletePrestation(id);
+      setPrestations((prev) => prev.filter((p) => p.id !== id));
+      setToast({
+        message: 'Prestation supprimée avec succès',
+        type: 'success',
+      });
+    } catch (error) {
+      setToast({
+        message: 'Erreur lors de la suppression de la prestation',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -139,7 +145,7 @@ const MesPrestations = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { FiFilter, FiCalendar, FiUser, FiStar, FiBriefcase, FiAlertCircle, FiChevronDown, FiEye, FiClock, FiCheckCircle, FiSend, FiX, FiPaperclip } from 'react-icons/fi';
+import { FiFilter, FiCalendar, FiUser, FiStar, FiBriefcase, FiAlertCircle, FiChevronDown, FiEye, FiClock, FiCheckCircle } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { requestNotificationsRefresh } from '../../../contexts/NotificationContext';
 import Toast from '../../../components/Toast';
@@ -20,71 +20,18 @@ const MesCollaborations = () => {
   const [toast, setToast] = useState(null);
   const [selectedCollaboration, setSelectedCollaboration] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
-  const [showExchangeModal, setShowExchangeModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewData, setReviewData] = useState({
     rating: 5,
     comment: '',
     collaboration_id: null
   });
-  const [exchangeMessages, setExchangeMessages] = useState([]);
-  const [loadingExchange, setLoadingExchange] = useState(false);
-  const [workspaceEntry, setWorkspaceEntry] = useState({
-    type: 'info',
-    title: '',
-    content: '',
-    fileUrl: '',
-    file: null,
-  });
-  const [sendingExchange, setSendingExchange] = useState(false);
   const [unreadByTransaction, setUnreadByTransaction] = useState({});
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
     Authorization: `Bearer ${localStorage.getItem('access_token')}`,
   });
-  const authOnlyHeaders = () => ({
-    Authorization: `Bearer ${localStorage.getItem('access_token')}`,
-  });
-
-  const WORKSPACE_PREFIX = '[WORKSPACE_ENTRY]';
-
-  const buildWorkspacePayload = (entry) =>
-    `${WORKSPACE_PREFIX}${JSON.stringify({
-      type: entry.type || 'info',
-      title: (entry.title || '').trim(),
-      content: (entry.content || '').trim(),
-      fileUrl: (entry.fileUrl || '').trim(),
-    })}`;
-
-  const parseWorkspaceEntry = (message) => {
-    const raw = message?.contenu || '';
-    if (raw.startsWith(WORKSPACE_PREFIX)) {
-      try {
-        const payload = JSON.parse(raw.slice(WORKSPACE_PREFIX.length));
-        return {
-          ...message,
-          workspace: {
-            type: payload.type || 'info',
-            title: payload.title || 'Information',
-            content: payload.content || '',
-            fileUrl: payload.fileUrl || '',
-          },
-        };
-      } catch {
-        // fallback texte simple
-      }
-    }
-    return {
-      ...message,
-      workspace: {
-        type: 'message',
-        title: 'Note',
-        content: raw,
-        fileUrl: '',
-      },
-    };
-  };
 
   const refreshUnreadIndicators = useCallback(async () => {
     if (!user?.id) return;
@@ -189,73 +136,9 @@ const MesCollaborations = () => {
     revenuTotal: filteredAndSortedCollaborations.reduce((sum, c) => sum + (c.budget || 0), 0)
   };
 
-  const loadExchangeMessages = async (transactionId) => {
-    if (!transactionId) {
-      setExchangeMessages([]);
-      return;
-    }
-    try {
-      setLoadingExchange(true);
-      const res = await fetch(`${API_ENDPOINTS.SERVICES.MESSAGES}?transaction=${transactionId}`, {
-        headers: authHeaders(),
-      });
-      if (!res.ok) throw new Error('load failed');
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : data.results || [];
-      list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-      setExchangeMessages(list);
-    } catch (error) {
-      setExchangeMessages([]);
-      setToast({
-        message: "Impossible de charger l'espace d'échange",
-        type: 'error',
-      });
-    } finally {
-      setLoadingExchange(false);
-    }
-  };
-
   const handleViewDetails = (collaboration) => {
     setSelectedCollaboration(collaboration);
     setShowDetails(true);
-  };
-
-  const handleSendExchangeMessage = async () => {
-    if (!selectedCollaboration?.id) return;
-    if (!workspaceEntry.title.trim() || !workspaceEntry.content.trim()) return;
-    const partenaireId = selectedCollaboration?.raw?.client;
-    if (!partenaireId) {
-      setToast({
-        message: 'Destinataire client introuvable pour cette collaboration.',
-        type: 'error',
-      });
-      return;
-    }
-    try {
-      setSendingExchange(true);
-      const form = new FormData();
-      form.append('destinataire', partenaireId);
-      form.append('transaction', selectedCollaboration.id);
-      form.append('sujet', `[Espace travail] ${workspaceEntry.type} - ${workspaceEntry.title.trim()}`);
-      form.append('contenu', buildWorkspacePayload(workspaceEntry));
-      if (workspaceEntry.file) {
-        form.append('piece_jointe', workspaceEntry.file);
-      }
-      const res = await fetch(API_ENDPOINTS.SERVICES.MESSAGES, {
-        method: 'POST',
-        headers: authOnlyHeaders(),
-        body: form,
-      });
-      if (!res.ok) throw new Error('send failed');
-      setWorkspaceEntry({ type: 'info', title: '', content: '', fileUrl: '', file: null });
-      await loadExchangeMessages(selectedCollaboration.id);
-      await refreshUnreadIndicators();
-      requestNotificationsRefresh();
-    } catch (error) {
-      setToast({ message: "Erreur lors de l'ajout dans l'espace de travail", type: 'error' });
-    } finally {
-      setSendingExchange(false);
-    }
   };
 
   const handleOpenReviewModal = (collaboration) => {
@@ -368,7 +251,7 @@ const MesCollaborations = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     );
   }
@@ -884,133 +767,6 @@ const MesCollaborations = () => {
                   </button>
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal espace d'échange rapide */}
-      {showExchangeModal && selectedCollaboration && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-            <div className="flex items-start justify-between border-b border-slate-200 p-4">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Espace d'échange</h2>
-                <p className="text-sm text-slate-600">
-                  {selectedCollaboration.titre} - {selectedCollaboration.fournisseur?.nom || 'Client'}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowExchangeModal(false)}
-                className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <FiX className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto space-y-2 bg-slate-50 p-4">
-              {loadingExchange ? (
-                <p className="text-sm text-slate-500">Chargement des messages...</p>
-              ) : exchangeMessages.length === 0 ? (
-                <p className="text-sm text-slate-500">Aucun message pour cette collaboration.</p>
-              ) : (
-                exchangeMessages.map((m) => {
-                  const parsed = parseWorkspaceEntry(m);
-                  const isMine = (m.expediteur?.id ?? m.expediteur) === user?.id;
-                  return (
-                    <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`${isMine ? 'bg-indigo-600 text-white' : 'bg-white text-gray-900 border border-gray-200'} max-w-[90%] rounded-lg px-3 py-2`}>
-                        <div className="mb-1 flex items-center justify-between gap-3">
-                          <p className="text-xs font-semibold">{isMine ? 'Vous' : m.expediteur_nom || 'Partenaire'}</p>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] ${isMine ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-700'}`}>
-                            {parsed.workspace.type}
-                          </span>
-                        </div>
-                        <p className="text-sm font-semibold">{parsed.workspace.title}</p>
-                        <p className="mt-1 text-sm whitespace-pre-wrap">{parsed.workspace.content}</p>
-                        {parsed.workspace.fileUrl ? (
-                          <a
-                            href={parsed.workspace.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`mt-2 inline-flex items-center gap-1 text-xs underline ${isMine ? 'text-indigo-100' : 'text-indigo-700'}`}
-                          >
-                            <FiPaperclip className="h-3.5 w-3.5" />
-                            Ouvrir le fichier/lien
-                          </a>
-                        ) : null}
-                        {m.piece_jointe_url ? (
-                          <a
-                            href={m.piece_jointe_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className={`mt-2 block text-xs underline ${isMine ? 'text-indigo-100' : 'text-indigo-700'}`}
-                          >
-                            Fichier joint: {m.piece_jointe_nom || 'Télécharger'}
-                          </a>
-                        ) : null}
-                        <p className={`mt-2 text-[10px] ${isMine ? 'text-indigo-100' : 'text-gray-500'}`}>
-                          {new Date(m.created_at).toLocaleString('fr-FR')}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="space-y-2 border-t border-slate-200 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
-                Ajouter une information de travail
-              </p>
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                <select
-                  value={workspaceEntry.type}
-                  onChange={(e) => setWorkspaceEntry((prev) => ({ ...prev, type: e.target.value }))}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="info">Info</option>
-                  <option value="consigne">Consigne</option>
-                  <option value="livrable">Livrable</option>
-                  <option value="fichier">Fichier</option>
-                </select>
-                <input
-                  type="text"
-                  value={workspaceEntry.title}
-                  onChange={(e) => setWorkspaceEntry((prev) => ({ ...prev, title: e.target.value }))}
-                  placeholder="Titre (ex: Spécifications client)"
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 md:col-span-2"
-                />
-              </div>
-              <textarea
-                value={workspaceEntry.content}
-                onChange={(e) => setWorkspaceEntry((prev) => ({ ...prev, content: e.target.value }))}
-                rows={3}
-                placeholder="Instructions, points techniques, infos livrables..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <input
-                type="url"
-                value={workspaceEntry.fileUrl}
-                onChange={(e) => setWorkspaceEntry((prev) => ({ ...prev, fileUrl: e.target.value }))}
-                placeholder="Lien fichier (Drive, Dropbox, etc.) - optionnel"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              />
-              <input
-                type="file"
-                onChange={(e) => setWorkspaceEntry((prev) => ({ ...prev, file: e.target.files?.[0] || null }))}
-                className="block w-full text-xs text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-xs file:font-medium"
-              />
-              <button
-                type="button"
-                onClick={handleSendExchangeMessage}
-                disabled={sendingExchange || !workspaceEntry.title.trim() || !workspaceEntry.content.trim()}
-                className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                <FiSend className="h-4 w-4" />
-                <span className="ml-2">Publier</span>
-              </button>
             </div>
           </div>
         </div>

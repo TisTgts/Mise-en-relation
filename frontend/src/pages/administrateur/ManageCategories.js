@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch, FiChevronLeft } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
 
 const ManageCategories = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -112,7 +114,13 @@ const ManageCategories = () => {
   };
 
   const handleDeleteCategory = async (id) => {
-    if (!window.confirm('Supprimer cette catégorie ? Les sous-catégories liées seront aussi impactées.')) return;
+    const ok = await confirm({
+      title: 'Supprimer cette catégorie ?',
+      message: 'Les sous-catégories liées seront aussi impactées.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
     try {
       setSavingId(id);
       await adminService.deleteCategory(id);
@@ -199,7 +207,13 @@ const ManageCategories = () => {
   };
 
   const handleDeleteSubCategory = async (id) => {
-    if (!window.confirm('Supprimer cette sous-catégorie ?')) return;
+    const ok = await confirm({
+      title: 'Supprimer cette sous-catégorie ?',
+      message: 'Cette action est irréversible.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
     try {
       setSavingId(id);
       await adminService.deleteSubCategory(id);

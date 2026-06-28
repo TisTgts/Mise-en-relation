@@ -17,6 +17,7 @@ import {
   FiClock,
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
 
@@ -72,6 +73,7 @@ const iconBtnClass =
 
 const ManageUsers = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -223,13 +225,13 @@ const ManageUsers = () => {
   };
 
   const handleDeleteUser = async (userId) => {
-    if (
-      !window.confirm(
-        'Désactiver cet utilisateur ? Il ne pourra plus se connecter (suppression douce).'
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Désactiver cet utilisateur ?',
+      message: 'Il ne pourra plus se connecter (suppression douce, réversible).',
+      tone: 'warning',
+      confirmLabel: 'Désactiver',
+    });
+    if (!ok) return;
     setBusyId(userId);
     setBusyAction('delete');
     try {

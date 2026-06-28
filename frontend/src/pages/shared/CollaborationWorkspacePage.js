@@ -1,8 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FiArrowLeft, FiPaperclip, FiSend, FiUser, FiCalendar, FiBriefcase, FiX } from 'react-icons/fi';
+import {
+  FiArrowLeft,
+  FiPaperclip,
+  FiSend,
+  FiUser,
+  FiCalendar,
+  FiBriefcase,
+  FiX,
+  FiMessageSquare,
+  FiArrowRight,
+} from 'react-icons/fi';
 import transactionsService from '../../services/transactionsService';
 import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const WORKSPACE_PREFIX = '[WORKSPACE_ENTRY]';
 const DEVIS_TAG = '[DEVIS]';
@@ -61,10 +73,94 @@ const typeBadgeClass = (type) => {
   return 'bg-slate-100 text-slate-700';
 };
 
+const TYPE_LABELS = {
+  info: 'Info',
+  consigne: 'Consigne',
+  livrable: 'Livrable',
+  fichier: 'Fichier',
+  message: 'Note',
+};
+const typeLabel = (t) => TYPE_LABELS[t] || t || 'Note';
+
+const STATUT_LABELS = {
+  en_attente: 'En attente',
+  acceptee: 'Acceptée',
+  en_cours: 'En cours',
+  terminee: 'Terminée',
+  annulee: 'Annulée',
+};
+const statutLabel = (s) => STATUT_LABELS[s] || s || '—';
+const statutPillClass = (s) => {
+  switch (s) {
+    case 'en_cours':
+      return 'bg-blue-100 text-blue-800';
+    case 'terminee':
+      return 'bg-emerald-100 text-emerald-800';
+    case 'annulee':
+      return 'bg-rose-100 text-rose-700';
+    case 'acceptee':
+      return 'bg-indigo-100 text-indigo-800';
+    default:
+      return 'bg-slate-100 text-slate-700';
+  }
+};
+
+const DEVIS_LABELS = {
+  non_requis: 'Non requis',
+  a_proposer: 'À proposer par le fournisseur',
+  en_attente_client: 'En attente de réponse du client',
+  accepte_client: 'Accepté par le client',
+  rejete_client: 'Rejeté par le client',
+};
+const devisStatutLabel = (s) => DEVIS_LABELS[s] || s || '—';
+
+const getUserId = (u) => u?.id ?? u;
+
+const AVATAR_COLORS = [
+  'bg-indigo-500',
+  'bg-emerald-500',
+  'bg-rose-500',
+  'bg-amber-500',
+  'bg-sky-500',
+  'bg-violet-500',
+  'bg-teal-500',
+];
+const colorForKey = (key) => {
+  const s = String(key ?? '');
+  let hash = 0;
+  for (let i = 0; i < s.length; i += 1) hash = (hash * 31 + s.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+const initialsFor = (name) => {
+  const parts = String(name || '?').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+};
+const isSameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
+const dayLabel = (d) => {
+  const date = new Date(d);
+  const now = new Date();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameDay(date, now)) return "Aujourd'hui";
+  if (isSameDay(date, yesterday)) return 'Hier';
+  return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+};
+const timeLabel = (d) =>
+  d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+
 export default function CollaborationWorkspacePage({ role = 'client', backPath = '/' }) {
   const isAdmin = role === 'admin';
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const confirm = useConfirm();
+  const myId = user?.id;
+  const chatRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [tx, setTx] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -270,6 +366,12 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
     run();
   }, [id]);
 
+  useEffect(() => {
+    if (chatRef.current) {
+      chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    }
+  }, [entries]);
+
   const submitEntry = async () => {
     if (!partnerId || !form.title.trim() || !form.content.trim()) return;
     try {
@@ -461,7 +563,13 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
 
   const handleAdminInterruptConversation = async () => {
     if (!tx?.id) return;
-    if (!window.confirm('Interrompre cette conversation ? Les nouveaux messages seront bloqués.')) return;
+    const ok = await confirm({
+      title: 'Interrompre cette conversation ?',
+      message: 'Les nouveaux messages seront bloqués pour cette collaboration.',
+      tone: 'warning',
+      confirmLabel: 'Interrompre',
+    });
+    if (!ok) return;
     try {
       setActing(true);
       setError('');
@@ -479,23 +587,75 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
     await loadNeedDetail();
   };
 
+  const primaryAction = (() => {
+    if (!tx || isConversationClosed) return null;
+    if (role === 'fournisseur') {
+      if (isQuoteMode && (tx.devis_statut === 'a_proposer' || tx.devis_statut === 'rejete_client')) {
+        return { label: 'Proposez un devis au client dans l’espace devis ci-dessous.' };
+      }
+      if (!tx.travail_fournisseur_termine) {
+        return { label: 'Réalisez la mission puis déclarez le travail effectué.', cta: 'Travail effectué', onClick: handleFournisseurWorkDone };
+      }
+      if (tx.verification_client_validee && tx.validation_admin_statut !== 'en_attente' && tx.statut !== 'terminee') {
+        return { label: 'Le client a validé : confirmez la transaction.', cta: 'Confirmer', onClick: handleRequestAdminApproval };
+      }
+      return null;
+    }
+    if (role === 'client') {
+      if (isQuoteMode && tx.devis_statut === 'en_attente_client') {
+        return { label: 'Le fournisseur a proposé un devis : répondez dans l’espace devis ci-dessous.' };
+      }
+      if (tx.travail_fournisseur_termine && !tx.verification_client_effectuee) {
+        return { label: 'Le fournisseur a terminé : vérifiez le travail.', cta: 'Travail vérifié', onClick: handleClientVerifyWork };
+      }
+      if (tx.verification_client_validee && tx.statut !== 'terminee' && tx.validation_admin_statut !== 'en_attente') {
+        return { label: 'Confirmez que la transaction est effectuée.', cta: 'Transaction effectuée', onClick: handleClientConfirmTransaction };
+      }
+      return null;
+    }
+    if (isAdmin && tx.validation_admin_statut === 'en_attente') {
+      return { label: 'Une validation administrateur est en attente dans le suivi ci-dessous.' };
+    }
+    return null;
+  })();
+
   if (loading) return <div className="p-6">Chargement...</div>;
   if (!tx) return <div className="p-6 text-red-600">{error || 'Introuvable'}</div>;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-10">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">Espace de travail partagé</h1>
-            <p className="text-sm text-slate-600">Collaboration #{tx.id} - {partnerName}</p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">{workspaceStats.total} entrée(s)</span>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-emerald-800">{workspaceStats.livrables} livrable(s)</span>
-              <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-indigo-800">{workspaceStats.files} fichier(s)/lien(s)</span>
+    <div className="mx-auto max-w-6xl space-y-5 pb-10">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <FiBriefcase className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-slate-900">Espace de collaboration</h1>
+                <p className="truncate text-sm text-slate-600">#{tx.id} · {partnerName}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className={`rounded-full px-2.5 py-1 font-medium ${statutPillClass(tx.statut)}`}>
+                {statutLabel(tx.statut)}
+              </span>
+              {tx.prix_final != null ? (
+                <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">
+                  {Number(tx.prix_final).toLocaleString('fr-FR')} FCFA
+                </span>
+              ) : null}
+              {isQuoteMode ? (
+                <span className="rounded-full bg-indigo-100 px-2.5 py-1 font-medium text-indigo-800">
+                  Devis : {devisStatutLabel(tx.devis_statut)}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                {workspaceStats.total} échange(s)
+              </span>
             </div>
           </div>
-          <button onClick={() => navigate(backPath)} className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <button onClick={() => navigate(backPath)} className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-sm hover:bg-slate-50">
             <FiArrowLeft className="mr-2 h-4 w-4" />
             Retour
           </button>
@@ -511,6 +671,26 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
         ) : null}
       </div>
 
+      {primaryAction ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">Prochaine étape</p>
+            <p className="mt-0.5 text-sm font-medium text-slate-800">{primaryAction.label}</p>
+          </div>
+          {primaryAction.onClick ? (
+            <button
+              type="button"
+              onClick={primaryAction.onClick}
+              disabled={acting}
+              className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {primaryAction.cta}
+              <FiArrowRight className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-1">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -518,7 +698,7 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
             <p className="mt-2 text-sm"><FiBriefcase className="mr-1 inline" /> <span className="font-medium">{tx.besoin_intitule || '—'}</span></p>
             <p className="mt-1 text-sm"><FiUser className="mr-1 inline" /> {partnerName}</p>
             <p className="mt-1 text-sm"><FiCalendar className="mr-1 inline" /> Créée: {fmt(tx.created_at)}</p>
-            <p className="mt-1 text-sm">Statut: <span className="font-medium">{tx.statut || '—'}</span></p>
+            <p className="mt-1 text-sm">Statut : <span className="font-medium">{statutLabel(tx.statut)}</span></p>
             <p className="mt-1 text-sm">Montant: <span className="font-medium">{tx.prix_final != null ? `${Number(tx.prix_final).toLocaleString('fr-FR')} FCFA` : '—'}</span></p>
             <div className="mt-3 flex flex-wrap gap-2">
               <button
@@ -660,39 +840,75 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
           )}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:col-span-2">
-          <h2 className="text-sm font-semibold text-slate-900">Journal de collaboration</h2>
-          <div className="mt-3 space-y-3">
+        <div className="flex min-h-0 flex-col rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <div className="border-b border-slate-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-900">Échanges de la collaboration</h2>
+            <p className="text-xs text-slate-500">Messages, consignes, livrables et fichiers partagés.</p>
+          </div>
+          <div ref={chatRef} className="max-h-[56vh] min-h-[300px] space-y-1 overflow-y-auto bg-slate-50 p-4">
             {entries.length === 0 ? (
-              <p className="text-sm text-slate-500">Aucune information partagée pour le moment.</p>
+              <div className="flex min-h-[260px] flex-col items-center justify-center text-center text-slate-400">
+                <FiMessageSquare className="mb-2 h-10 w-10 text-slate-200" />
+                <p className="text-sm">Aucun échange pour le moment.</p>
+              </div>
             ) : (
-              entries.map((m) => (
-                <div key={m.id} className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-slate-700">{m.expediteur_nom || 'Partenaire'}</p>
-                    <p className="text-[11px] text-slate-500">{fmt(m.created_at)}</p>
-                  </div>
-                  <div className="mt-1">
-                    <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${typeBadgeClass(m.workspace.type)}`}>
-                      {m.workspace.type}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{m.workspace.title}</p>
-                  <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{m.workspace.content}</p>
-                  {m.workspace.fileUrl ? (
-                    <a href={m.workspace.fileUrl} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center text-xs text-indigo-700 underline">
-                      <FiPaperclip className="mr-1 h-3.5 w-3.5" />
-                      Lien partagé
-                    </a>
-                  ) : null}
-                  {m.piece_jointe_url ? (
-                    <a href={m.piece_jointe_url} target="_blank" rel="noreferrer" className="mt-2 ml-3 inline-flex items-center text-xs text-indigo-700 underline">
-                      <FiPaperclip className="mr-1 h-3.5 w-3.5" />
-                      {m.piece_jointe_nom || 'Télécharger fichier'}
-                    </a>
-                  ) : null}
-                </div>
-              ))
+              entries.map((m, idx) => {
+                const mine = !isAdmin && getUserId(m.expediteur) === myId;
+                const prev = entries[idx - 1];
+                const showDay = !prev || !isSameDay(new Date(prev.created_at), new Date(m.created_at));
+                const wtype = m.workspace.type;
+                const showBadge = ['consigne', 'livrable', 'fichier'].includes(wtype);
+                const showTitle = m.workspace.title && m.workspace.title !== 'Note';
+                return (
+                  <React.Fragment key={m.id}>
+                    {showDay ? (
+                      <div className="my-3 flex items-center justify-center">
+                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm ring-1 ring-slate-200">
+                          {dayLabel(m.created_at)}
+                        </span>
+                      </div>
+                    ) : null}
+                    <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div className="flex max-w-[88%] items-end gap-2">
+                        {!mine ? (
+                          <span className={`mb-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white ${colorForKey(getUserId(m.expediteur))}`}>
+                            {initialsFor(m.expediteur_nom || partnerName)}
+                          </span>
+                        ) : null}
+                        <div className={`rounded-2xl px-3.5 py-2.5 shadow-sm ${mine ? 'rounded-br-sm bg-indigo-600 text-white' : 'rounded-bl-sm border border-slate-200 bg-white text-slate-900'}`}>
+                          {!mine ? (
+                            <p className="mb-0.5 text-[11px] font-semibold text-slate-500">{m.expediteur_nom || partnerName}</p>
+                          ) : null}
+                          {showBadge ? (
+                            <span className={`mb-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${mine ? 'bg-white/20 text-white' : typeBadgeClass(wtype)}`}>
+                              {typeLabel(wtype)}
+                            </span>
+                          ) : null}
+                          {showTitle ? <p className="text-sm font-semibold">{m.workspace.title}</p> : null}
+                          {m.workspace.content ? (
+                            <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-relaxed">{m.workspace.content}</p>
+                          ) : null}
+                          {m.workspace.fileUrl ? (
+                            <a href={m.workspace.fileUrl} target="_blank" rel="noreferrer" className={`mt-1.5 inline-flex items-center text-xs underline ${mine ? 'text-indigo-100' : 'text-indigo-700'}`}>
+                              <FiPaperclip className="mr-1 h-3.5 w-3.5" />
+                              Lien partagé
+                            </a>
+                          ) : null}
+                          {m.piece_jointe_url ? (
+                            <a href={m.piece_jointe_url} target="_blank" rel="noreferrer" className={`mt-1.5 inline-flex items-center text-xs underline ${mine ? 'text-indigo-100' : 'text-indigo-700'} ${m.workspace.fileUrl ? 'ml-3' : ''}`}>
+                              <FiPaperclip className="mr-1 h-3.5 w-3.5" />
+                              {m.piece_jointe_nom || 'Télécharger'}
+                            </a>
+                          ) : null}
+                          <p className={`mt-1 text-right text-[10px] ${mine ? 'text-indigo-100' : 'text-slate-400'}`}>
+                            {timeLabel(m.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })
             )}
           </div>
         </div>
@@ -736,7 +952,7 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
           </p>
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
-              Statut devis: {tx.devis_statut || '—'}
+              Statut devis : {devisStatutLabel(tx.devis_statut)}
             </span>
             <span className="rounded-full bg-white px-2 py-0.5 text-slate-700">
               Montant proposé: {tx.devis_montant_propose != null ? `${Number(tx.devis_montant_propose).toLocaleString('fr-FR')} FCFA` : '—'}

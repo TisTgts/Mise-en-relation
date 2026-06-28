@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiMail, FiPhone, FiBriefcase, FiAward, FiEdit2, FiSave, FiX, FiSettings, FiUser } from 'react-icons/fi';
+import { FiMail, FiPhone, FiBriefcase, FiAward, FiEdit2, FiSave, FiX, FiSettings } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
@@ -280,7 +280,7 @@ const MonProfil = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
       </div>
     );
   }

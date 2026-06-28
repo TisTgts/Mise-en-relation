@@ -16,6 +16,7 @@ import {
   FiMapPin,
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
 
@@ -361,6 +362,7 @@ function ServiceDetailModal({ open, onClose, onOpenProviderProfile, providerLoad
 
 const ManageServices = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const location = useLocation();
   const navigate = useNavigate();
   const [prestations, setPrestations] = useState([]);
@@ -434,9 +436,13 @@ const ManageServices = () => {
   };
 
   const handleDeletePrestation = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette prestation ?')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Supprimer cette prestation ?',
+      message: 'Cette action est irréversible.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
 
     try {
       await adminService.deletePrestation(id);
@@ -455,9 +461,13 @@ const ManageServices = () => {
   };
 
   const handleDeleteDemande = async (id) => {
-    if (!window.confirm('Supprimer ce besoin ? Cette action est irréversible.')) {
-      return;
-    }
+    const ok = await confirm({
+      title: 'Supprimer ce besoin ?',
+      message: 'Cette action est irréversible.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
 
     try {
       await adminService.deleteDemande(id);
@@ -566,7 +576,7 @@ const ManageServices = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     );
   }

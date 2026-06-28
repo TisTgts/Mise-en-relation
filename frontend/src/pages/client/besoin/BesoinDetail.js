@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiDollarSign, FiClock, FiUser, FiTag, FiSearch } from 'react-icons/fi';
 import demandesService from '../../../services/demandesService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 import { clientCanSelfLaunchMatching } from '../../../utils/clientPremium';
 import {
   formatMoneyFcfa,
@@ -18,6 +19,7 @@ const BesoinDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const confirm = useConfirm();
   const canLaunchMatching = clientCanSelfLaunchMatching(user);
   const [besoin, setBesoin] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,21 +45,25 @@ const BesoinDetail = () => {
   }, [id]);
 
   const handleDelete = async () => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce besoin ? Cette action est irréversible.')) {
-      try {
-        await demandesService.deleteDemande(id);
-        navigate('/client/mes-besoins');
-      } catch (err) {
-        console.error('Erreur lors de la suppression:', err);
-        setError('Impossible de supprimer le besoin');
-      }
+    const ok = await confirm({
+      title: 'Supprimer ce besoin ?',
+      message: 'Cette action est irréversible.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
+    try {
+      await demandesService.deleteDemande(id);
+      navigate('/client/mes-besoins');
+    } catch (err) {
+      setError('Impossible de supprimer le besoin');
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     );
   }

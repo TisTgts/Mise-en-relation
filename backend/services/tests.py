@@ -8,7 +8,7 @@ from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import ProfileFournisseur
+from accounts.models import ProfileClient, ProfileFournisseur
 from services.models import Besoin, CategorieService, Prestation, TransactionService
 
 
@@ -445,3 +445,145 @@ class ServicesApiTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_devis_rejet_client_repasse_en_rejete(self):
+        tx = self._create_quote_transaction_fixture()
+        self.client_api.force_authenticate(user=self.fournisseur)
+        self.client_api.post(
+            reverse("transaction-fournisseur-propose-devis", kwargs={"transaction_id": tx.id}),
+            {"montant": "40000.00"},
+            format="json",
+        )
+
+        self.client_api.force_authenticate(user=self.client_user)
+        r = self.client_api.post(
+            reverse("transaction-client-respond-devis", kwargs={"transaction_id": tx.id}),
+            {"decision": "rejeter"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_200_OK)
+        tx.refresh_from_db()
+        self.assertEqual(tx.devis_statut, "rejete_client")
+        self.assertIsNone(tx.prix_final)
+
+    def test_devis_montant_invalide_refuse(self):
+        tx = self._create_quote_transaction_fixture()
+        self.client_api.force_authenticate(user=self.fournisseur)
+        r = self.client_api.post(
+            reverse("transaction-fournisseur-propose-devis", kwargs={"transaction_id": tx.id}),
+            {"montant": "-1000"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_seul_le_client_peut_repondre_au_devis(self):
+        tx = self._create_quote_transaction_fixture()
+        self.client_api.force_authenticate(user=self.fournisseur)
+        self.client_api.post(
+            reverse("transaction-fournisseur-propose-devis", kwargs={"transaction_id": tx.id}),
+            {"montant": "40000.00"},
+            format="json",
+        )
+        # Le fournisseur ne peut pas répondre à son propre devis.
+        r = self.client_api.post(
+            reverse("transaction-client-respond-devis", kwargs={"transaction_id": tx.id}),
+            {"decision": "accepter"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_client_ne_peut_pas_proposer_devis(self):
+        tx = self._create_quote_transaction_fixture()
+        self.client_api.force_authenticate(user=self.client_user)
+        r = self.client_api.post(
+            reverse("transaction-fournisseur-propose-devis", kwargs={"transaction_id": tx.id}),
+            {"montant": "40000.00"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_propose_devis_refuse_si_collaboration_sans_devis(self):
+        tx = self._create_transaction_fixture()  # forfait, mode_budget budget fixe
+        self.client_api.force_authenticate(user=self.fournisseur)
+        r = self.client_api.post(
+            reverse("transaction-fournisseur-propose-devis", kwargs={"transaction_id": tx.id}),
+            {"montant": "40000.00"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_repondre_devis_sans_devis_en_attente_refuse(self):
+        tx = self._create_quote_transaction_fixture()  # devis_statut a_proposer
+        self.client_api.force_authenticate(user=self.client_user)
+        r = self.client_api.post(
+            reverse("transaction-client-respond-devis", kwargs={"transaction_id": tx.id}),
+            {"decision": "accepter"},
+            format="json",
+        )
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+class AdminPremiumTests(TestCase):
+    """Activation/désactivation du statut Premium client par l'administrateur."""
+
+    def setUp(self):
+        self.api = APIClient()
+        self.admin = User.objects.create_user(
+            username="admin_premium",
+            email="admin_premium@example.com",
+            password="TestPass123!!",
+            type_utilisateur="administrateur",
+        )
+        self.client_user = User.objects.create_user(
+            username="client_premium_admin",
+            email="client_premium_admin@example.com",
+            password="TestPass123!!",
+            type_utilisateur="client",
+        )
+        ProfileClient.objects.get_or_create(user=self.client_user)
+
+    def _detail_url(self):
+        return reverse("admin-user-detail", kwargs={"pk": self.client_user.id})
+
+    def test_admin_active_le_premium_client(self):
+        self.api.force_authenticate(user=self.admin)
+        response = self.api.patch(
+            self._detail_url(),
+            {"client_abonnement_type": "premium", "client_abonnement_actif": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data.get("client_matching_self_service"))
+
+        profile = ProfileClient.objects.get(user=self.client_user)
+        self.assertEqual(profile.abonnement_type, "premium")
+        self.assertTrue(profile.abonnement_actif)
+        self.assertTrue(profile.can_self_launch_matching())
+
+    def test_admin_desactive_le_premium_client(self):
+        profile = ProfileClient.objects.get(user=self.client_user)
+        profile.abonnement_type = "premium"
+        profile.abonnement_actif = True
+        profile.save()
+
+        self.api.force_authenticate(user=self.admin)
+        response = self.api.patch(
+            self._detail_url(),
+            {"client_abonnement_actif": False},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data.get("client_matching_self_service"))
+        profile.refresh_from_db()
+        self.assertFalse(profile.can_self_launch_matching())
+
+    def test_client_ne_peut_pas_modifier_le_premium(self):
+        self.api.force_authenticate(user=self.client_user)
+        response = self.api.patch(
+            self._detail_url(),
+            {"client_abonnement_type": "premium", "client_abonnement_actif": True},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        profile = ProfileClient.objects.get(user=self.client_user)
+        self.assertFalse(profile.can_self_launch_matching())

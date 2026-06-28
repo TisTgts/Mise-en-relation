@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import { APP_NAME } from '../../config/branding';
 import adminService from '../../services/adminService';
 import {
@@ -76,6 +77,7 @@ const toneIcon = {
 
 const AdminDashboard = () => {
   const { user, isAuthenticated } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -306,7 +308,13 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteMatching = async (scoreId) => {
-    if (!window.confirm('Supprimer cette correspondance ?')) return;
+    const ok = await confirm({
+      title: 'Supprimer cette correspondance ?',
+      message: 'Le score de matching sera définitivement retiré.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
     try {
       await adminService.deleteMatchingScore(scoreId);
       setMatchingScores((prev) => prev.filter((s) => s.id !== scoreId));

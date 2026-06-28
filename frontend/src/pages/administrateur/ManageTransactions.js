@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FiSearch, FiChevronLeft, FiFilter, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import transactionsService from '../../services/transactionsService';
 import Toast from '../../components/Toast';
@@ -239,6 +240,7 @@ const TransactionDetailModal = ({ row, onClose, decidingId, onAdminDecision, onA
 
 const ManageTransactions = () => {
   const { user } = useAuth();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -330,7 +332,13 @@ const ManageTransactions = () => {
   };
 
   const handleAdminFinalize = async (transactionId) => {
-    if (!window.confirm('Clôturer cette transaction ? Le statut passera à « Terminée ».')) return;
+    const ok = await confirm({
+      title: 'Clôturer cette transaction ?',
+      message: 'Le statut passera à « Terminée ».',
+      tone: 'warning',
+      confirmLabel: 'Clôturer',
+    });
+    if (!ok) return;
     try {
       setDecidingId(transactionId);
       const updated = await transactionsService.adminFinalizeTransaction(transactionId);

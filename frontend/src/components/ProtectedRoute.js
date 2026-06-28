@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import PageLoader from './PageLoader';
 
 // Composant pour protéger les routes selon le type d'utilisateur
 const ProtectedRoute = ({ children, allowedTypes }) => {
@@ -8,11 +9,7 @@ const ProtectedRoute = ({ children, allowedTypes }) => {
 
   // Si le chargement est en cours, afficher un loader
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
+    return <PageLoader minHeight="min-h-screen" />;
   }
 
   // Si l'utilisateur n'est pas authentifié, rediriger vers login

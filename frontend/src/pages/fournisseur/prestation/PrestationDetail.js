@@ -3,10 +3,12 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FiArrowLeft, FiEdit, FiTrash2, FiCalendar, FiMapPin, FiDollarSign, FiUser, FiTag, FiCheck, FiX } from 'react-icons/fi';
 import prestationsService from '../../../services/prestationsService';
 import Toast from '../../../components/Toast';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 
 const PrestationDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const [prestation, setPrestation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -32,21 +34,25 @@ const PrestationDetail = () => {
   }, [id]);
 
   const handleDelete = async () => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette prestation ? Cette action est irréversible.')) {
-      try {
-        await prestationsService.deletePrestation(id);
-        navigate('/fournisseur/dashboard');
-        setToast({
-          message: 'Prestation supprimée avec succès',
-          type: 'success',
-        });
-      } catch (err) {
-        console.error('Erreur lors de la suppression:', err);
-        setToast({
-          message: 'Erreur lors de la suppression de la prestation',
-          type: 'error',
-        });
-      }
+    const ok = await confirm({
+      title: 'Supprimer cette prestation ?',
+      message: 'Cette action est irréversible.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
+    try {
+      await prestationsService.deletePrestation(id);
+      navigate('/fournisseur/dashboard');
+      setToast({
+        message: 'Prestation supprimée avec succès',
+        type: 'success',
+      });
+    } catch (err) {
+      setToast({
+        message: 'Erreur lors de la suppression de la prestation',
+        type: 'error',
+      });
     }
   };
 
@@ -102,7 +108,7 @@ const PrestationDetail = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"></div>
       </div>
     );
   }

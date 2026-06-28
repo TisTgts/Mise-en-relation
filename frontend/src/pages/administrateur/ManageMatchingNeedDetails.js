@@ -3,10 +3,12 @@ import { FiEye, FiTrash2, FiArrowLeft, FiX, FiInfo, FiCheckCircle } from 'react-
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
+import { useConfirm } from '../../contexts/ConfirmContext';
 
 const ManageMatchingNeedDetails = () => {
   const { besoinId } = useParams();
   const navigate = useNavigate();
+  const confirm = useConfirm();
   const location = useLocation();
   const [payload, setPayload] = useState(null);
   const [providerProfile, setProviderProfile] = useState(null);
@@ -55,7 +57,13 @@ const ManageMatchingNeedDetails = () => {
   };
 
   const removeScore = async (scoreId) => {
-    if (!window.confirm('Supprimer cette correspondance ?')) return;
+    const ok = await confirm({
+      title: 'Supprimer cette correspondance ?',
+      message: 'Le score de matching sera définitivement retiré.',
+      tone: 'danger',
+      confirmLabel: 'Supprimer',
+    });
+    if (!ok) return;
     try {
       await adminService.deleteMatchingScore(scoreId);
       setPayload((prev) => ({
@@ -83,7 +91,12 @@ const ManageMatchingNeedDetails = () => {
 
   const validateCollaboration = async (row) => {
     if (!row?.prestation_id || !besoin?.id) return;
-    if (!window.confirm('Valider cette correspondance et créer la collaboration ?')) return;
+    const ok = await confirm({
+      title: 'Valider cette correspondance ?',
+      message: 'Une collaboration (transaction) sera créée entre le client et le fournisseur.',
+      confirmLabel: 'Valider',
+    });
+    if (!ok) return;
     try {
       setValidatingMatchId(row.score_id);
       const res = await adminService.validateCollaborationFromMatching(besoin.id, row.prestation_id);
@@ -107,7 +120,7 @@ const ManageMatchingNeedDetails = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
       </div>
     );
   }

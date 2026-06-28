@@ -1,10 +1,14 @@
+from datetime import timedelta
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
+from accounts.client_premium import client_can_self_launch_matching
 from accounts.models import ProfileClient, ProfileFournisseur
 
 
@@ -102,3 +106,67 @@ class AuthRateLimitTests(TestCase):
         blocked = self.client_api.post(url, payload, format="json")
         self.assertEqual(blocked.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
         self.assertIn("detail", blocked.data)
+
+
+class ClientPremiumModelTests(TestCase):
+    """Logique d'éligibilité au lancement autonome du matching (Premium)."""
+
+    def setUp(self):
+        self.client_user = User.objects.create_user(
+            username="premium_client",
+            email="premium_client@example.com",
+            password="TestPass123!!",
+            type_utilisateur="client",
+        )
+        self.profile, _ = ProfileClient.objects.get_or_create(user=self.client_user)
+        self.today = timezone.localdate()
+
+    def _set_premium(self, **kwargs):
+        defaults = {
+            "abonnement_type": "premium",
+            "abonnement_actif": True,
+            "abonnement_debut": None,
+            "abonnement_fin": None,
+        }
+        defaults.update(kwargs)
+        for attr, value in defaults.items():
+            setattr(self.profile, attr, value)
+        self.profile.save()
+
+    def test_client_standard_ne_peut_pas_lancer_matching(self):
+        self._set_premium(abonnement_type="standard", abonnement_actif=False)
+        self.assertFalse(self.profile.can_self_launch_matching())
+        self.assertFalse(client_can_self_launch_matching(self.client_user))
+
+    def test_premium_actif_peut_lancer_matching(self):
+        self._set_premium()
+        self.assertTrue(self.profile.can_self_launch_matching())
+        self.assertTrue(client_can_self_launch_matching(self.client_user))
+
+    def test_premium_type_sans_activation_ne_peut_pas(self):
+        self._set_premium(abonnement_actif=False)
+        self.assertFalse(self.profile.can_self_launch_matching())
+
+    def test_premium_expire_ne_peut_pas_lancer(self):
+        self._set_premium(abonnement_fin=self.today - timedelta(days=1))
+        self.assertFalse(self.profile.can_self_launch_matching())
+
+    def test_premium_pas_encore_commence_ne_peut_pas_lancer(self):
+        self._set_premium(abonnement_debut=self.today + timedelta(days=2))
+        self.assertFalse(self.profile.can_self_launch_matching())
+
+    def test_premium_dans_la_fenetre_valide(self):
+        self._set_premium(
+            abonnement_debut=self.today - timedelta(days=1),
+            abonnement_fin=self.today + timedelta(days=30),
+        )
+        self.assertTrue(self.profile.can_self_launch_matching())
+
+    def test_utilitaire_refuse_un_fournisseur(self):
+        fournisseur = User.objects.create_user(
+            username="premium_fournisseur",
+            email="premium_fournisseur@example.com",
+            password="TestPass123!!",
+            type_utilisateur="fournisseur",
+        )
+        self.assertFalse(client_can_self_launch_matching(fournisseur))

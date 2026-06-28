@@ -5,6 +5,7 @@ import './index.css';
 // Import du contexte d'authentification
 import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
+import { ConfirmProvider } from './contexts/ConfirmContext';
 
 // Import des composants
 import Header from './components/Header';
@@ -89,6 +90,7 @@ function App() {
     <AuthProvider>
       <Router>
         <NotificationProvider>
+        <ConfirmProvider>
         <Routes>
           {/* Pages publiques */}
           <Route path="/" element={
@@ -454,6 +456,7 @@ function App() {
             </PublicPage>
           } />
         </Routes>
+        </ConfirmProvider>
         </NotificationProvider>
       </Router>
     </AuthProvider>

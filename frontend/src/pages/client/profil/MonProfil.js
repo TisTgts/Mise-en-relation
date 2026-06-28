@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiUser, FiMail, FiPhone, FiBriefcase, FiSave, FiCamera, FiPlus, FiX, FiSettings } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
 
@@ -49,6 +50,7 @@ const parseEmplacement = (raw) => {
 
 const MonProfil = () => {
   const { user, logout, updateUser, loading: authLoading } = useAuth();
+  const confirm = useConfirm();
   const location = useLocation();
   const isParametres = location.pathname.includes('/parametres');
   const [loading, setLoading] = useState(true);
@@ -265,10 +267,13 @@ const MonProfil = () => {
     }));
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir vous déconnecter ?')) {
-      logout();
-    }
+  const handleLogout = async () => {
+    const ok = await confirm({
+      title: 'Se déconnecter ?',
+      message: 'Vous devrez vous reconnecter pour accéder à votre espace.',
+      confirmLabel: 'Se déconnecter',
+    });
+    if (ok) logout();
   };
 
   const photoSrc =
@@ -298,7 +303,7 @@ const MonProfil = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600" />
       </div>
     );
   }
