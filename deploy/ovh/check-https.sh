@@ -1,6 +1,6 @@
 #!/bin/bash
 # Diagnostic HTTPS depuis le VPS ou en local (curl requis)
-DOMAIN="${1:-toghinis.net}"
+DOMAIN="${1:-toghinis.com}"
 VPS_IP="${2:-144.217.82.132}"
 
 echo "=== DNS ==="

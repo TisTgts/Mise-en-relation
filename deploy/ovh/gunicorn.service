@@ -1,23 +1,23 @@
-# Service systemd Gunicorn — dossier /var/www/plateforme
-# sudo cp gunicorn.service /etc/systemd/system/plateforme.service
-# sudo systemctl daemon-reload && sudo systemctl enable --now plateforme
+# Service systemd Gunicorn — toghinis.com (/var/www/plateforme-com, port 8001)
+# sudo cp gunicorn.service /etc/systemd/system/plateforme-com.service
+# sudo systemctl daemon-reload && sudo systemctl enable --now plateforme-com
 
 [Unit]
-Description=Plateforme TIS Django (Gunicorn)
+Description=Toghinis.com Django (Gunicorn)
 After=network.target postgresql.service
 
 [Service]
 User=ubuntu
 Group=ubuntu
-WorkingDirectory=/var/www/plateforme/backend
-EnvironmentFile=/var/www/plateforme/backend/.env
-ExecStart=/var/www/plateforme/venv/bin/gunicorn \
+WorkingDirectory=/var/www/plateforme-com/backend
+EnvironmentFile=/var/www/plateforme-com/backend/.env
+ExecStart=/var/www/plateforme-com/venv/bin/gunicorn \
     transport_platform.wsgi:application \
-    --bind 127.0.0.1:8000 \
+    --bind 127.0.0.1:8001 \
     --workers 2 \
     --timeout 120 \
-    --access-logfile /var/log/plateforme/access.log \
-    --error-logfile /var/log/plateforme/error.log
+    --access-logfile /var/log/plateforme-com/access.log \
+    --error-logfile /var/log/plateforme-com/error.log
 Restart=always
 RestartSec=5
 

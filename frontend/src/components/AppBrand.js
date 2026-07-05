@@ -27,7 +27,7 @@ const AppBrand = ({
   const content = (
     <div className={`flex min-w-0 items-center gap-2.5 sm:gap-3 ${className}`}>
       <div
-        className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-indigo-600 to-blue-700 font-bold text-white shadow-sm ${iconBox}`}
+        className={`flex shrink-0 items-center justify-center bg-gradient-to-br from-primary-600 to-primary-700 font-bold text-white shadow-sm ${iconBox}`}
         aria-hidden
       >
         {APP_INITIALS}
@@ -47,7 +47,7 @@ const AppBrand = ({
     return (
       <Link
         to={to}
-        className="block min-w-0 rounded-lg transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+        className="block min-w-0 rounded-lg transition-colors hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
       >
         {content}
       </Link>

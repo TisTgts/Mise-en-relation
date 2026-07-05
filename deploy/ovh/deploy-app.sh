@@ -1,7 +1,8 @@
 #!/bin/bash
-# Mise à jour de l'app après un git pull (à lancer sur le VPS)
+# Mise à jour toghinis.com après git pull (à lancer sur le VPS)
 set -e
-APP_DIR=/var/www/plateforme
+APP_DIR="${APP_DIR:-/var/www/plateforme-com}"
+SERVICE="${SERVICE:-plateforme-com}"
 cd "$APP_DIR"
 
 echo "=== Backend ==="
@@ -16,7 +17,7 @@ echo "=== Frontend ==="
 cd ../frontend
 if [ ! -f .env.production ]; then
   echo "ERREUR: frontend/.env.production absent."
-  echo "Exemple: echo 'REACT_APP_API_URL=https://toghinis.net/api' > .env.production"
+  echo "Exemple: echo 'REACT_APP_API_URL=https://toghinis.com/api' > .env.production"
   exit 1
 fi
 echo "API frontend: $(grep REACT_APP_API_URL .env.production || true)"
@@ -24,8 +25,8 @@ npm ci
 npm run build
 
 echo "=== Redémarrage API ==="
-sudo systemctl restart plateforme
+sudo systemctl restart "$SERVICE"
 sudo systemctl reload nginx
 
-echo "=== Déploiement terminé ==="
+echo "=== Déploiement terminé (toghinis.com) ==="
 echo "Pour repeupler la base demo : bash deploy/ovh/seed-db.sh"

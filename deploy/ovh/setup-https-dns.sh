@@ -3,11 +3,13 @@
 # Usage : cd /var/www/plateforme && bash deploy/ovh/setup-https-dns.sh
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/plateforme}"
-DOMAIN="${DOMAIN:-toghinis.net}"
+APP_DIR="${APP_DIR:-/var/www/plateforme-com}"
+DOMAIN="${DOMAIN:-toghinis.com}"
 WWW_DOMAIN="www.${DOMAIN}"
 CERT_NAME="${CERT_NAME:-$DOMAIN}"
 VPS_IP="${VPS_IP:-144.217.82.132}"
+NGINX_SITE="${NGINX_SITE:-plateforme-com}"
+SERVICE="${SERVICE:-plateforme-com}"
 
 cd "$APP_DIR"
 
@@ -47,10 +49,10 @@ if [ ! -f /etc/letsencrypt/ssl-dhparams.pem ]; then
 fi
 
 SSL_CONF="$APP_DIR/deploy/ovh/nginx-serviceconnect-ssl.conf"
-sudo cp "$SSL_CONF" /etc/nginx/sites-available/plateforme
-sudo sed -i "s/toghinis.net/$DOMAIN/g" /etc/nginx/sites-available/plateforme
-sudo sed -i "s/144.217.82.132/$VPS_IP/g" /etc/nginx/sites-available/plateforme
-sudo ln -sf /etc/nginx/sites-available/plateforme /etc/nginx/sites-enabled/plateforme
+sudo cp "$SSL_CONF" /etc/nginx/sites-available/$NGINX_SITE
+sudo sed -i "s/toghinis.com/$DOMAIN/g" /etc/nginx/sites-available/$NGINX_SITE
+sudo sed -i "s/144.217.82.132/$VPS_IP/g" /etc/nginx/sites-available/$NGINX_SITE
+sudo ln -sf /etc/nginx/sites-available/$NGINX_SITE /etc/nginx/sites-enabled/$NGINX_SITE
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -71,7 +73,7 @@ echo "REACT_APP_API_URL=https://$DOMAIN/api" > "$APP_DIR/frontend/.env.productio
 cd "$APP_DIR/frontend"
 npm run build
 
-sudo systemctl restart plateforme
+sudo systemctl restart "$SERVICE"
 sudo systemctl reload nginx
 
 echo ""

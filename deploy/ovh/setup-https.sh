@@ -3,11 +3,13 @@
 # À lancer sur le VPS : cd /var/www/plateforme && bash deploy/ovh/setup-https.sh
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/plateforme}"
-DOMAIN="${DOMAIN:-toghinis.net}"
+APP_DIR="${APP_DIR:-/var/www/plateforme-com}"
+DOMAIN="${DOMAIN:-toghinis.com}"
 WWW_DOMAIN="www.${DOMAIN}"
 VPS_IP="${VPS_IP:-144.217.82.132}"
 CERT_NAME="${CERT_NAME:-$DOMAIN}"
+NGINX_SITE="${NGINX_SITE:-plateforme-com}"
+SERVICE="${SERVICE:-plateforme-com}"
 CHALLENGE_DIR="$APP_DIR/certbot/.well-known/acme-challenge"
 
 cd "$APP_DIR"
@@ -49,8 +51,8 @@ sudo mkdir -p "$CHALLENGE_DIR"
 sudo chown -R ubuntu:ubuntu "$APP_DIR/certbot"
 
 echo "=== Nginx HTTP (défi ACME) ==="
-sudo cp "$APP_DIR/deploy/ovh/nginx-serviceconnect.conf" /etc/nginx/sites-available/plateforme
-sudo ln -sf /etc/nginx/sites-available/plateforme /etc/nginx/sites-enabled/plateforme
+sudo cp "$APP_DIR/deploy/ovh/nginx-serviceconnect.conf" /etc/nginx/sites-available/$NGINX_SITE
+sudo ln -sf /etc/nginx/sites-available/$NGINX_SITE /etc/nginx/sites-enabled/$NGINX_SITE
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
@@ -66,7 +68,7 @@ if [ "$LOCAL" != "ok-acme-test" ] || [ "$REMOTE4" != "ok-acme-test" ]; then
   echo "ERREUR: Nginx ne sert pas correctement /.well-known/acme-challenge/"
   echo "  local  : '$LOCAL'"
   echo "  distant: '$REMOTE4'"
-  echo "Vérifiez /etc/nginx/sites-available/plateforme"
+  echo "Vérifiez /etc/nginx/sites-available/$NGINX_SITE"
   exit 1
 fi
 echo "Test ACME OK (IPv4)"
@@ -126,9 +128,10 @@ if [ ! -f "$SSL_CONF" ]; then
   echo "ERREUR: $SSL_CONF introuvable."
   exit 1
 fi
-sudo cp "$SSL_CONF" /etc/nginx/sites-available/plateforme
-sudo sed -i "s/toghinis.net/$DOMAIN/g" /etc/nginx/sites-available/plateforme
-sudo sed -i "s/144.217.82.132/$VPS_IP/g" /etc/nginx/sites-available/plateforme
+sudo cp "$SSL_CONF" /etc/nginx/sites-available/$NGINX_SITE
+sudo sed -i "s/toghinis.com/$DOMAIN/g" /etc/nginx/sites-available/$NGINX_SITE
+sudo sed -i "s/144.217.82.132/$VPS_IP/g" /etc/nginx/sites-available/$NGINX_SITE
+sudo ln -sf /etc/nginx/sites-available/$NGINX_SITE /etc/nginx/sites-enabled/$NGINX_SITE
 sudo nginx -t
 sudo systemctl reload nginx
 
@@ -158,7 +161,7 @@ cd "$APP_DIR/frontend"
 npm ci
 npm run build
 
-sudo systemctl restart plateforme
+sudo systemctl restart "$SERVICE"
 sudo systemctl reload nginx
 
 echo "=== Vérification ==="
