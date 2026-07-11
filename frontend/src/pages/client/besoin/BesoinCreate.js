@@ -4,6 +4,7 @@ import { FiSave } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import categoriesService from '../../../services/categoriesService';
 import demandesService from '../../../services/demandesService';
+import { COPY } from '../../../pays';
 
 const normalizeCategoryName = (value = '') =>
   value
@@ -423,7 +424,7 @@ const BesoinCreate = () => {
                   className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
                     errors.lieu_intervention ? 'border-red-300' : 'border-slate-300'
                   }`}
-                  placeholder="Ex: Ouagadougou, Bobo-Dioulasso"
+                  placeholder={COPY.cities_placeholder || 'Ex: ville1, ville2'}
                 />
                 {errors.lieu_intervention && (
                   <p className="mt-1 text-sm text-red-600">{errors.lieu_intervention}</p>

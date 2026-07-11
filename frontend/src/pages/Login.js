@@ -14,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AuthLayout from '../components/auth/AuthLayout';
 import AuthError from '../components/auth/AuthError';
 import { inputWithIconClass, labelClass, primaryBtnClass } from '../components/auth/authUi';
+import { COUNTRY } from '../pays';
 
 const DEMO_PASSWORD = 'demo1234';
 
@@ -149,7 +150,7 @@ const Login = () => {
               autoComplete="email"
               required
               className={inputWithIconClass}
-              placeholder="vous@exemple.bf"
+              placeholder={`vous@${COUNTRY.email_domain_example || 'exemple.tg'}`}
               value={formData.email}
               onChange={handleChange}
             />

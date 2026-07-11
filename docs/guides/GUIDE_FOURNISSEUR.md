@@ -67,7 +67,7 @@ Un profil complet améliore votre **score de fiabilité** au matching.
 
 | Champ | Conseil |
 |-------|---------|
-| Intitulé | Court et précis (ex. « Dépannage plomberie urgent Ouaga ») |
+| Intitulé | Court et précis (ex. « Dépannage plomberie urgent Lomé ») |
 | Description | Détaillez le périmètre, délais, garanties |
 | Catégorie / sous-catégorie | Alignées sur le type de service |
 | Zones d’intervention | Villes où vous intervenez |

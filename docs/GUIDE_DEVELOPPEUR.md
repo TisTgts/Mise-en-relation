@@ -93,8 +93,8 @@ Données de démo (DEBUG uniquement) :
 
 ```bash
 python manage.py seed_db
-# ou
-python manage.py seed_burkina_demo
+# ou (pays actif via COUNTRY_CODE / pays/active.json)
+python manage.py seed_togo_demo
 ```
 
 ### Frontend
@@ -107,7 +107,14 @@ npm start                       # http://localhost:3000
 
 Le **`proxy`** dans `frontend/package.json` redirige vers `http://localhost:8000`. Les appels API utilisent donc `/api/...` sans host explicite en dev.
 
-**Production build :** définir `REACT_APP_API_URL` (voir `frontend/.env.production.example`).
+**Production build :** définir `REACT_APP_API_URL` et optionnellement `REACT_APP_COUNTRY` (voir `frontend/.env.production.example`).
+
+### Config pays
+
+- Source : dossier racine `pays/` (`tg.json`, `bf.json`, `active.json`)
+- Miroir frontend : `frontend/src/pays/data/` — synchroniser avec `node scripts/sync-pays.js`
+- Backend : `COUNTRY_CODE` → sinon `pays/active.json` → défaut `tg`
+- Endpoint : `GET /api/config/country/`
 
 ### Script Windows
 
@@ -131,6 +138,7 @@ mise_en_relation/
 │   └── .env.example
 ├── frontend/
 │   ├── src/
+│   │   ├── pays/               # Miroir UI de pays/*.json
 │   │   ├── App.js              # Routes
 │   │   ├── config/api.js       # API_ENDPOINTS
 │   │   ├── contexts/           # Auth, Notifications
@@ -139,6 +147,8 @@ mise_en_relation/
 │   │   ├── components/         # Layout, Header, auth…
 │   │   └── utils/              # tarification.js, api.js, …
 │   └── package.json
+├── pays/                       # Configs pays (tg, bf, active.json)
+├── scripts/sync-pays.js        # Sync pays/ → frontend/src/pays/data/
 ├── deploy/ovh/                 # VPS : nginx, gunicorn, scripts
 ├── docs/                       # Guides utilisateur + technique
 ├── README.md

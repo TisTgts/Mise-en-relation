@@ -188,7 +188,7 @@ class MatchingServiceTests(MatchingBaseTestCase):
         profile_f.save(update_fields=["emplacement"])
 
         profile_c, _ = ProfileClient.objects.get_or_create(user=self.client_user)
-        profile_c.emplacement = {"latitude": 11.1771, "longitude": -4.2979}  # Bobo
+        profile_c.emplacement = {"latitude": 8.9833, "longitude": 1.1333}  # Sokodé
         profile_c.save(update_fields=["emplacement"])
 
         self.assertFalse(service._is_hard_match(self.prestation, self.besoin))
@@ -293,13 +293,13 @@ class MatchingServiceTests(MatchingBaseTestCase):
     def test_zone_intervention_textuelle_accepte_hors_distance_sieges(self):
         """Un fournisseur peut couvrir une ville déclarée même si son siège est ailleurs."""
         service = MatchingService()
-        self.prestation.zones_intervention = ["Ouagadougou", "Bobo-Dioulasso"]
+        self.prestation.zones_intervention = ["Lomé", "Sokodé"]
         self.prestation.save(update_fields=["zones_intervention"])
-        self.besoin.lieu_intervention = "Ouagadougou — Patte d'Oie"
+        self.besoin.lieu_intervention = "Lomé — Tokoin"
         self.besoin.save(update_fields=["lieu_intervention"])
 
         profile_f, _ = ProfileFournisseur.objects.get_or_create(user=self.fournisseur_user)
-        profile_f.emplacement = {"latitude": 11.1771, "longitude": -4.2979}  # Bobo
+        profile_f.emplacement = {"latitude": 8.9833, "longitude": 1.1333}  # Sokodé
         profile_f.save(update_fields=["emplacement"])
         profile_c, _ = ProfileClient.objects.get_or_create(user=self.client_user)
         profile_c.emplacement = {"latitude": 12.3714, "longitude": -1.5197}  # Ouaga

@@ -1,0 +1,49 @@
+{
+  "code": "tg",
+  "name": "Togo",
+  "gentile": "togolais",
+  "timezone": "Africa/Lome",
+  "phone_prefix": "+228",
+  "phone_placeholder": "+228 xx xx xx xx",
+  "currency": "XOF",
+  "currency_label": "FCFA",
+  "email_domain_example": "exemple.tg",
+  "demo_email_domain": "demo.tg",
+  "cities": [
+    {
+      "name": "Lomé",
+      "primary": true,
+      "lat": 6.1319,
+      "lng": 1.2228,
+      "quartiers": ["Tokoin", "Bé", "Agoè", "Adidogomé", "Nyékonakpoè", "Kodjoviakopé"]
+    },
+    {
+      "name": "Sokodé",
+      "primary": true,
+      "lat": 8.9833,
+      "lng": 1.1333,
+      "quartiers": ["Kparatao", "Komah", "Tchawanda", "Centre", "Kpangalam", "Lama-Tessi"]
+    }
+  ],
+  "payment_methods": ["TMoney", "Flooz", "Virement"],
+  "copy": {
+    "home_badge": "Pensé pour le Togo — Lomé, Sokodé et environs",
+    "footer_city": "Lomé, Togo",
+    "footer_phone": "+228 XX XX XX XX",
+    "services_badge": "Togo",
+    "services_intro": "Togo",
+    "services_context": "contexte togolais",
+    "case_study_client": "Fatimata S. — commerçante à Lomé",
+    "case_study_zone": "Lomé, Tokoin",
+    "transport_examples": [
+      "Livraison marchandises Lomé",
+      "Déménagement Sokodé",
+      "Location camion + chauffeur"
+    ],
+    "cities_placeholder": "Ex: Lomé, Sokodé",
+    "express_placeholder": "Ex. Transport express Lomé",
+    "zones_help": "Cochez toutes les villes où vous intervenez (ex. Lomé et Sokodé).",
+    "zones_geo_note": "indépendant des zones Lomé / Sokodé, etc.",
+    "emplacement_example_adresse": "Lomé"
+  }
+}

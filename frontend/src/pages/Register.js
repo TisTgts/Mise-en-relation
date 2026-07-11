@@ -24,6 +24,7 @@ import prestationsService from '../services/prestationsService';
 import AuthLayout from '../components/auth/AuthLayout';
 import StepIndicator from '../components/auth/StepIndicator';
 import { inputWithIconClass } from '../components/auth/authUi';
+import { CITIES, COPY, PHONE_PLACEHOLDER, citiesHelpLabel } from '../pays';
 
 const emptyPrestationLine = () => ({
   key: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
@@ -34,16 +35,7 @@ const emptyPrestationLine = () => ({
 });
 
 /** Villes / zones prédéfinies pour la couverture (sélection multiple). */
-const ZONES_COUVERTURE_OPTIONS = [
-  'Ouagadougou',
-  'Bobo-Dioulasso',
-  'Koudougou',
-  'Ouahigouya',
-  'Banfora',
-  'Kaya',
-  'Dédougou',
-  "Fada N'Gourma",
-];
+const ZONES_COUVERTURE_OPTIONS = CITIES;
 
 const Register = () => {
   const [phase, setPhase] = useState('choose-type');
@@ -634,7 +626,7 @@ const Register = () => {
                     type="tel"
                     autoComplete="tel"
                     className={`${fieldClass}`}
-                    placeholder="+226 xx xx xx xx"
+                    placeholder={PHONE_PLACEHOLDER}
                     value={formData.phone}
                     onChange={handleChange}
                   />
@@ -828,7 +820,7 @@ const Register = () => {
                     type="tel"
                     autoComplete="tel"
                     className={`${fieldClass}`}
-                    placeholder="+226 xx xx xx xx"
+                    placeholder={PHONE_PLACEHOLDER}
                     value={formData.phone}
                     onChange={handleChange}
                   />
@@ -988,7 +980,7 @@ const Register = () => {
                             type="text"
                             required
                             className={fieldClass}
-                            placeholder="Ex. Transport express Ouagadougou"
+                            placeholder={COPY.express_placeholder || 'Ex. Transport express'}
                             value={row.intitule}
                             onChange={(e) => updateLine(row.key, { intitule: e.target.value })}
                           />
@@ -1063,7 +1055,7 @@ const Register = () => {
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4">
                 <p className="text-sm font-semibold text-slate-900">Zones de couverture</p>
                 <p className="mt-1 text-xs text-slate-600">
-                  Cochez <strong>toutes les villes</strong> où vous intervenez (ex. Ouagadougou et Bobo-Dioulasso).
+                  Cochez <strong>toutes les villes</strong> où vous intervenez (ex. {citiesHelpLabel()}).
                   Indépendant de la géolocalisation ci-dessous.
                 </p>
                 <fieldset className="mt-4">
@@ -1106,7 +1098,7 @@ const Register = () => {
                     <p className="text-sm font-semibold text-slate-800">Géolocalisation (à part)</p>
                     <p className="mt-1 text-xs text-slate-600">
                       Point GPS précis de l’appareil (WGS84), enregistré dans <strong>emplacement</strong> du profil —
-                      indépendant des zones Ouaga / Bobo, etc. HTTPS ou localhost requis pour le navigateur.
+                      {COPY.zones_geo_note || 'indépendant des zones couvertes'} HTTPS ou localhost requis pour le navigateur.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

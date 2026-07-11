@@ -32,9 +32,9 @@ async function creerPrestation(page, prefix = 'E2E Prestation') {
 
   // Zone d'intervention (au moins une est obligatoire).
   const zoneInput = page.getByPlaceholder('Ajouter une zone');
-  await zoneInput.fill('Ouagadougou');
+  await zoneInput.fill('Lomé');
   await zoneInput.locator('xpath=following-sibling::button').click();
-  await expect(page.getByText('Ouagadougou')).toBeVisible();
+  await expect(page.getByText('Lomé')).toBeVisible();
 
   await page.locator('#disponibilite_debut').fill('2030-06-01T08:00');
   await page.locator('#disponibilite_fin').fill('2030-12-31T18:00');

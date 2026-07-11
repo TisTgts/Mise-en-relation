@@ -1,0 +1,49 @@
+{
+  "code": "bf",
+  "name": "Burkina Faso",
+  "gentile": "burkinabè",
+  "timezone": "Africa/Ouagadougou",
+  "phone_prefix": "+226",
+  "phone_placeholder": "+226 xx xx xx xx",
+  "currency": "XOF",
+  "currency_label": "FCFA",
+  "email_domain_example": "exemple.bf",
+  "demo_email_domain": "demo.bf",
+  "cities": [
+    {
+      "name": "Ouagadougou",
+      "primary": true,
+      "lat": 12.3714,
+      "lng": -1.5197,
+      "quartiers": ["Patte d'Oie", "Gounghin", "Dassasgho", "Tampouy", "Pissy", "Koulouba"]
+    },
+    {
+      "name": "Bobo-Dioulasso",
+      "primary": true,
+      "lat": 11.1771,
+      "lng": -4.2979,
+      "quartiers": ["Sarfalao", "Colsama", "Belleville", "Accart-ville", "Kodeni", "Bindougousso"]
+    }
+  ],
+  "payment_methods": ["Orange Money", "Moov Money", "Virement"],
+  "copy": {
+    "home_badge": "Pensé pour le Burkina Faso — Ouagadougou, Bobo-Dioulasso et environs",
+    "footer_city": "Ouagadougou, Burkina Faso",
+    "footer_phone": "+226 XX XX XX XX",
+    "services_badge": "Burkina Faso",
+    "services_intro": "Burkina",
+    "services_context": "contexte burkinabè",
+    "case_study_client": "Fatimata S. — commerçante à Ouagadougou",
+    "case_study_zone": "Ouaga, secteur 15",
+    "transport_examples": [
+      "Livraison marchandises Ouagadougou",
+      "Déménagement Bobo-Dioulasso",
+      "Location camion + chauffeur"
+    ],
+    "cities_placeholder": "Ex: Ouagadougou, Bobo-Dioulasso",
+    "express_placeholder": "Ex. Transport express Ouagadougou",
+    "zones_help": "Cochez toutes les villes où vous intervenez (ex. Ouagadougou et Bobo-Dioulasso).",
+    "zones_geo_note": "indépendant des zones Ouaga / Bobo, etc.",
+    "emplacement_example_adresse": "Ouagadougou"
+  }
+}

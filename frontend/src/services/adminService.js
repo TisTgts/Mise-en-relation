@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '../config/api';
 import { fetchAllPaginated as apiFetchAllPaginated } from './apiClient';
+import { CURRENCY } from '../pays';
 
 class AdminService {
   async fetchAllPaginated(url, headers) {
@@ -645,7 +646,7 @@ class AdminService {
   formatCurrency(amount) {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'XAF',
+      currency: CURRENCY,
       minimumFractionDigits: 0
     }).format(amount || 0);
   }

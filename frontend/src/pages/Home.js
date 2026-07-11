@@ -14,6 +14,7 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import { APP_NAME } from '../config/branding';
+import { COPY } from '../pays';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -79,7 +80,7 @@ const Home = () => {
           <div className="mx-auto max-w-4xl text-center">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 text-sm text-indigo-50">
               <FiMapPin className="h-4 w-4" aria-hidden />
-              Pensé pour le Burkina Faso — Ouagadougou, Bobo-Dioulasso et environs
+              {COPY.home_badge}
             </p>
 
             <h1 className="text-4xl font-bold leading-tight tracking-tight md:text-5xl lg:text-6xl">
