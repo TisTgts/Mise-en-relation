@@ -38,7 +38,7 @@ async function creerBesoin(page, prefix = 'E2E Besoin') {
   await page.locator('label:has-text("Surface estimée (m²)") + input').fill('120');
   await page.locator('label:has-text("Matériaux fournis par") + select').selectOption('Client');
 
-  await page.locator('#lieu_intervention').fill('Ouagadougou');
+  await page.locator('#lieu_intervention').fill('Lomé');
   await page.locator('#date_souhaitee').fill('2030-06-01T09:00');
   await page.locator('#date_limite').fill('2030-07-01T09:00');
   await page.locator('#budget').fill('150000');

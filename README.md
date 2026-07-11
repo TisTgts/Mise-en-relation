@@ -29,7 +29,7 @@ Fichier : `backend/transport_platform/settings.py`
 | Paramètre | Valeur actuelle (dev) |
 |-----------|------------------------|
 | `LANGUAGE_CODE` | `fr-fr` |
-| `TIME_ZONE` | `Africa/Ouagadougou` |
+| `TIME_ZONE` | issu de `pays/*.json` (défaut `Africa/Lome` via `COUNTRY_CODE` / `pays/active.json`) |
 | `USE_TZ` | `True` |
 | Pagination DRF | **20** éléments par page (`PAGE_SIZE`) |
 | JWT access | ~**60** minutes |
@@ -149,8 +149,27 @@ Préfixe global : **`/api/`**
 | `python manage.py test matching` | Tests du module matching |
 | `python manage.py clear_matching --yes` | Supprime **toutes** les lignes **`MatchingRun`** |
 | `python manage.py seed_db` | Données de démo (implémentation projet) |
-| `python manage.py seed_burkina_demo` | Jeu de démo orienté Burkina Faso |
+| `python manage.py seed_togo_demo` | Jeu de démo du **pays actif** (`pays/*.json`) |
 | `python manage.py check_admins` | Vérification liée aux comptes administrateurs |
+
+---
+
+## Pays (multi-cibles)
+
+Configs dans **`pays/`** (source de vérité) : `tg.json`, `bf.json`, `active.json`.
+
+| Sélection | Variable / fichier |
+|-----------|-------------------|
+| Backend | `COUNTRY_CODE` (env) sinon `pays/active.json` |
+| Frontend | `REACT_APP_COUNTRY` sinon `frontend/src/pays/active.js` |
+
+Après modification des JSON racine :
+
+```bash
+node scripts/sync-pays.js
+```
+
+API lecture seule : `GET /api/config/country/`
 
 ---
 

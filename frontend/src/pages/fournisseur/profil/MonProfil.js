@@ -4,6 +4,10 @@ import { FiMail, FiPhone, FiBriefcase, FiAward, FiEdit2, FiSave, FiX, FiSettings
 import { useAuth } from '../../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
+import { getEmplacementExample } from '../../../pays';
+
+const EMPLACEMENT_EXAMPLE = getEmplacementExample();
+const EMPLACEMENT_EXAMPLE_JSON = JSON.stringify(EMPLACEMENT_EXAMPLE);
 
 const authHeadersJson = () => ({
   'Content-Type': 'application/json',
@@ -190,7 +194,7 @@ const MonProfil = () => {
         }
       } catch {
         setToast({
-          message: 'Emplacement : JSON objet invalide. Exemple: {"latitude": 12.34, "longitude": -1.23, "adresse": "Ouagadougou"}',
+          message: `Emplacement : JSON objet invalide. Exemple: ${EMPLACEMENT_EXAMPLE_JSON}`,
           type: 'error',
         });
         setSaving(false);
@@ -642,7 +646,7 @@ const MonProfil = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md font-mono text-sm focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Exemple: {"{"}"latitude": 12.36, "longitude": -1.53, "adresse": "Ouagadougou"{"}"}
+                    Exemple: {EMPLACEMENT_EXAMPLE_JSON}
                   </p>
                 </div>
 

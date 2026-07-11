@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { APP_NAME, APP_CONTACT_EMAIL } from '../config/branding';
+import { COPY } from '../pays';
 
 const Footer = () => {
   return (
@@ -26,9 +27,9 @@ const Footer = () => {
           <div>
             <h4 className="text-lg font-semibold mb-4">Contact</h4>
             <p className="text-gray-300">
-              Ouagadougou, Burkina Faso<br />
+              {COPY.footer_city}<br />
               Email: {APP_CONTACT_EMAIL}<br />
-              Téléphone: +226 XX XX XX XX
+              Téléphone: {COPY.footer_phone}
             </p>
           </div>
         </div>

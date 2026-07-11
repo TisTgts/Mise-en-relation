@@ -5,6 +5,10 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useConfirm } from '../../../contexts/ConfirmContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
+import { getEmplacementExample } from '../../../pays';
+
+const EMPLACEMENT_EXAMPLE = getEmplacementExample();
+const EMPLACEMENT_EXAMPLE_JSON = JSON.stringify(EMPLACEMENT_EXAMPLE);
 
 const authHeadersJson = () => ({
   'Content-Type': 'application/json',
@@ -230,7 +234,7 @@ const MonProfil = () => {
         }
         body.emplacement = emplacementObj;
       } catch {
-        throw new Error('Emplacement : JSON objet invalide. Exemple: {"latitude": 12.34, "longitude": -1.23, "adresse": "Ouagadougou"}');
+        throw new Error(`Emplacement : JSON objet invalide. Exemple: ${EMPLACEMENT_EXAMPLE_JSON}`);
       }
       const response = await fetch(API_ENDPOINTS.USER.PROFILE, {
         method: 'PATCH',
@@ -527,7 +531,7 @@ const MonProfil = () => {
                 className="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               <p className="mt-1 text-xs text-slate-500">
-                Exemple: {"{"}"latitude": 12.36, "longitude": -1.53, "adresse": "Ouagadougou"{"}"}
+                Exemple: {EMPLACEMENT_EXAMPLE_JSON}
               </p>
             </div>
 

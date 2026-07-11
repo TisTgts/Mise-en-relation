@@ -18,6 +18,7 @@ import {
 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_NAME, APP_TAGLINE } from '../config/branding';
+import { COPY, COUNTRY } from '../pays';
 
 const SERVICE_TYPES = [
   {
@@ -27,7 +28,11 @@ const SERVICE_TYPES = [
     tagline: 'Déplacer, livrer, organiser vos flux',
     description:
       'Mettez en relation clients et transporteurs pour des livraisons urbaines, du fret inter-villes ou la location de véhicules avec chauffeur. La plateforme tient compte des zones couvertes et des délais.',
-    examples: ['Livraison marchandises Ouagadougou', 'Déménagement Bobo-Dioulasso', 'Location camion + chauffeur'],
+    examples: COPY.transport_examples || [
+      'Livraison marchandises',
+      'Déménagement',
+      'Location camion + chauffeur',
+    ],
     forWho: 'Commerçants, PME, particuliers, exploitants de flotte',
   },
   {
@@ -46,7 +51,7 @@ const SERVICE_TYPES = [
     title: 'Informatique & digital',
     tagline: 'Sites web, apps, réseaux, accompagnement numérique',
     description:
-      'Connectez-vous à des prestataires pour création de sites, maintenance IT, formation bureautique ou déploiement d’outils métiers adaptés au contexte burkinabè.',
+      `Connectez-vous à des prestataires pour création de sites, maintenance IT, formation bureautique ou déploiement d’outils métiers adaptés au ${COPY.services_context || 'contexte local'}.`,
     examples: ['Site vitrine PME', 'Maintenance parc informatique', 'Community management'],
     forWho: 'Start-ups, associations, commerces, institutions',
   },
@@ -84,12 +89,12 @@ const SERVICE_TYPES = [
 
 const CASE_STUDY = {
   title: 'Cas pratique : de l’idée au chantier livré',
-  client: 'Fatimata S. — commerçante à Ouagadougou',
+  client: COPY.case_study_client,
   need: 'Rénover sa boutique (peinture, électricité, enseigne) avant la saison des fêtes, budget maîtrisé, délai 3 semaines.',
   steps: [
     {
       label: 'Besoin publié en 10 minutes',
-      detail: 'Fatimata décrit les travaux, joint des photos, indique son budget et la zone (Ouaga, secteur 15).',
+      detail: `Fatimata décrit les travaux, joint des photos, indique son budget et la zone (${COPY.case_study_zone}).`,
     },
     {
       label: '3 prestataires recommandés',
@@ -175,7 +180,7 @@ const Services = () => {
           <div>
             <p className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-indigo-100 backdrop-blur-sm">
               <FiMapPin className="h-3.5 w-3.5" aria-hidden />
-              Burkina Faso · {APP_TAGLINE}
+              {COPY.services_badge || COUNTRY.name} · {APP_TAGLINE}
             </p>
             <h1 className="mt-5 text-3xl font-bold leading-[1.15] tracking-tight sm:text-4xl lg:text-[2.75rem]">
               Tous les services,
@@ -184,8 +189,8 @@ const Services = () => {
               </span>
             </h1>
             <p className="mt-4 max-w-lg text-base leading-relaxed text-indigo-100/95 sm:text-lg">
-              {APP_NAME} couvre six grands univers de prestations. Explorez les domaines, parcourez un cas réel au
-              Burkina et voyez comment clients et fournisseurs y trouvent leur compte.
+              {APP_NAME} couvre six grands univers de prestations. Explorez les domaines, parcourez un cas réel au{' '}
+              {COPY.services_intro || COUNTRY.name} et voyez comment clients et fournisseurs y trouvent leur compte.
             </p>
             <ul className="mt-6 flex flex-wrap gap-2">
               {[

@@ -104,7 +104,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "fr-fr"
-TIME_ZONE = "Africa/Ouagadougou"
+# Timezone du pays actif (pays/*.json via COUNTRY_CODE ou pays/active.json)
+from transport_platform.country import get_timezone  # noqa: E402
+
+TIME_ZONE = get_timezone()
 USE_I18N = True
 USE_TZ = True
 
