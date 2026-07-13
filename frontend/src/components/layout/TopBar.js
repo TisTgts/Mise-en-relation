@@ -4,6 +4,7 @@ import { FiSearch, FiLogOut, FiMenu, FiUser, FiSettings, FiChevronDown, FiActivi
 import { useAuth } from '../../contexts/AuthContext';
 import NotificationBell from '../NotificationBell';
 import AppBrand from '../AppBrand';
+import { dashboardPathForRole } from '../../utils/roles';
 
 const TopBar = ({ toggleSidebar, sidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -31,16 +32,7 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
 
   const getDashboardLink = () => {
     if (!user) return '/';
-    switch (user.type_utilisateur) {
-      case 'administrateur':
-        return '/admin/dashboard';
-      case 'fournisseur':
-        return '/fournisseur/dashboard';
-      case 'client':
-        return '/client/dashboard';
-      default:
-        return '/';
-    }
+    return dashboardPathForRole(user.type_utilisateur);
   };
 
   const getProfileLink = () => {
@@ -50,6 +42,8 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
         return '/fournisseur/profil';
       case 'client':
         return '/client/profil';
+      case 'super_admin':
+        return '/super-admin/dashboard';
       case 'administrateur':
         return '/admin/dashboard';
       default:
@@ -64,6 +58,8 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
         return '/fournisseur/parametres';
       case 'client':
         return '/client/parametres';
+      case 'super_admin':
+        return '/super-admin/admins';
       case 'administrateur':
         return '/admin/settings';
       default:

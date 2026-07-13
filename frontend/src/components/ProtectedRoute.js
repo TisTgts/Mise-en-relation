@@ -25,6 +25,8 @@ const ProtectedRoute = ({ children, allowedTypes }) => {
         return <Navigate to="/fournisseur/dashboard" replace />;
       case 'client':
         return <Navigate to="/client/dashboard" replace />;
+      case 'super_admin':
+        return <Navigate to="/super-admin/dashboard" replace />;
       case 'administrateur':
         return <Navigate to="/admin/dashboard" replace />;
       default:
@@ -49,8 +51,17 @@ export const ClientRoute = ({ children }) => (
   </ProtectedRoute>
 );
 
+// L'espace admin est accessible aux administrateurs ET aux super administrateurs
+// (le super admin hérite de toutes les fonctions de l'admin).
 export const AdministrateurRoute = ({ children }) => (
-  <ProtectedRoute allowedTypes={['administrateur']}>
+  <ProtectedRoute allowedTypes={['administrateur', 'super_admin']}>
+    {children}
+  </ProtectedRoute>
+);
+
+// Espace réservé au super administrateur uniquement.
+export const SuperAdminRoute = ({ children }) => (
+  <ProtectedRoute allowedTypes={['super_admin']}>
     {children}
   </ProtectedRoute>
 );

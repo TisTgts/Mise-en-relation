@@ -19,11 +19,12 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from transport_platform.config_views import country_config
+from transport_platform.config_views import country_config, countries_list
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/config/country/', country_config, name='country-config'),
+    path('api/config/countries/', countries_list, name='countries-list'),
     path('api/accounts/', include('accounts.urls')),
     path('api/services/', include('services.urls')),
     path('api/matching/', include('matching.urls')),

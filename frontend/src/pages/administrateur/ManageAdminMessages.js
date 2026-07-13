@@ -10,6 +10,7 @@ import {
   FiSearch,
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { isAdminType } from '../../utils/roles';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
 
@@ -101,7 +102,7 @@ const ManageAdminMessages = () => {
   const [toast, setToast] = useState(null);
 
   const loadMessages = async ({ silent = false } = {}) => {
-    if (user?.type_utilisateur !== 'administrateur') return;
+    if (!isAdminType(user)) return;
     try {
       if (silent) setRefreshing(true);
       else setLoading(true);

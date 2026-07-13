@@ -14,6 +14,21 @@ export const API_ENDPOINTS = {
     PROFILE: `${API_BASE_URL}/accounts/profile/`,
     ME: `${API_BASE_URL}/accounts/me/`,
   },
+
+  // Super administrateur : gestion des comptes d'administration
+  SUPERADMIN: {
+    ADMINS: `${API_BASE_URL}/accounts/super-admin/admins/`,
+    SET_ROLE: (userId) => `${API_BASE_URL}/accounts/super-admin/users/${userId}/set-role/`,
+    TOGGLE_STATUS: (userId) => `${API_BASE_URL}/accounts/super-admin/users/${userId}/toggle-status/`,
+    COUNTRY: `${API_BASE_URL}/accounts/super-admin/country/`,
+    HEALTH: `${API_BASE_URL}/accounts/super-admin/health/`,
+  },
+
+  // Configuration publique (pays actif)
+  CONFIG: {
+    COUNTRY: `${API_BASE_URL}/config/country/`,
+    COUNTRIES: `${API_BASE_URL}/config/countries/`,
+  },
   
   // Services
   SERVICES: {

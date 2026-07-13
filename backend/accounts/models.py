@@ -8,8 +8,12 @@ class User(AbstractUser):
         ('client', 'Client - Exprime les besoins'),
         ('fournisseur', 'Fournisseur - Offre les services'),
         ('administrateur', 'Administrateur'),
+        ('super_admin', 'Super administrateur'),
     ]
-    
+
+    #: Rôles considérés comme « administration » (accès à l'espace admin).
+    ADMIN_TYPES = ('administrateur', 'super_admin')
+
     type_utilisateur = models.CharField(
         max_length=20, 
         choices=TYPES_UTILISATEUR, 
@@ -35,6 +39,16 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.username} ({self.get_type_utilisateur_display()})"
     
+    @property
+    def is_super_admin(self):
+        """Vrai si l'utilisateur est un super administrateur."""
+        return self.type_utilisateur == 'super_admin'
+
+    @property
+    def is_admin_type(self):
+        """Vrai pour un administrateur OU un super administrateur."""
+        return self.type_utilisateur in self.ADMIN_TYPES
+
     # Propriétés pour compatibilité
     @property
     def user_type(self):

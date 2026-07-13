@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FiHome, FiBriefcase, FiUsers, FiMessageSquare, FiSettings, FiBarChart, FiFileText, FiGrid, FiChevronDown, FiChevronUp, FiSearch, FiDollarSign, FiUser, FiChevronsLeft, FiChevronsRight } from 'react-icons/fi';
+import { FiHome, FiBriefcase, FiUsers, FiMessageSquare, FiSettings, FiBarChart, FiFileText, FiGrid, FiChevronDown, FiChevronUp, FiSearch, FiDollarSign, FiUser, FiChevronsLeft, FiChevronsRight, FiShield, FiGlobe, FiActivity } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import AppBrand from '../AppBrand';
 
@@ -22,6 +22,91 @@ const SideBar = ({ isOpen, toggleSidebar, collapsed = false, toggleCollapsed }) 
     }
 
     switch (user.type_utilisateur) {
+      case 'super_admin':
+        return [
+          {
+            name: 'Supervision',
+            icon: FiHome,
+            path: '/super-admin/dashboard',
+            section: 'main'
+          },
+          {
+            name: 'Administrateurs',
+            icon: FiShield,
+            path: '/super-admin/admins',
+            section: 'super admin'
+          },
+          {
+            name: 'Santé & Monitoring',
+            icon: FiActivity,
+            path: '/super-admin/sante',
+            section: 'super admin'
+          },
+          {
+            name: 'Pays de l\'application',
+            icon: FiGlobe,
+            path: '/super-admin/pays',
+            section: 'super admin'
+          },
+          {
+            name: 'Tableau de bord admin',
+            icon: FiGrid,
+            path: '/admin/dashboard',
+            section: 'administration'
+          },
+          {
+            name: 'Utilisateurs',
+            icon: FiUsers,
+            path: '/admin/users',
+            section: 'administration'
+          },
+          {
+            name: 'Catégories',
+            icon: FiGrid,
+            path: '/admin/categories',
+            section: 'administration'
+          },
+          {
+            name: 'Prestations & Besoins',
+            icon: FiBriefcase,
+            path: '/admin/prestations',
+            isActive: (p) => p === '/admin/prestations' || p === '/admin/besoins' || p === '/admin/demandes',
+            section: 'administration'
+          },
+          {
+            name: 'Collaborations',
+            icon: FiUsers,
+            path: '/admin/collaborations',
+            isActive: (p) => p === '/admin/collaborations' || p.startsWith('/admin/collaborations/'),
+            section: 'administration'
+          },
+          {
+            name: 'Transactions',
+            icon: FiBarChart,
+            path: '/admin/transactions',
+            section: 'administration'
+          },
+          {
+            name: 'Correspondances',
+            icon: FiSearch,
+            path: '/admin/correspondances',
+            isActive: (p) => p === '/admin/correspondances' || p.startsWith('/admin/correspondances/'),
+            section: 'administration'
+          },
+          {
+            name: 'Messages',
+            icon: FiMessageSquare,
+            path: '/admin/messages',
+            section: 'communication'
+          },
+          {
+            name: 'Paramètres',
+            icon: FiSettings,
+            path: '/admin/settings',
+            section: 'settings'
+          }
+        ];
+
       case 'administrateur':
         return [
           {
@@ -219,6 +304,8 @@ const SideBar = ({ isOpen, toggleSidebar, collapsed = false, toggleCollapsed }) 
   const getDashboardLink = () => {
     if (!user?.type_utilisateur) return '/';
     switch (user.type_utilisateur) {
+      case 'super_admin':
+        return '/super-admin/dashboard';
       case 'administrateur':
         return '/admin/dashboard';
       case 'fournisseur':

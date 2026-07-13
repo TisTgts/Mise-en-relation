@@ -27,14 +27,29 @@ class IsClientProvider(permissions.BasePermission):
 
 class IsAdministrator(permissions.BasePermission):
     """
-    Permission pour les administrateurs uniquement
+    Permission pour les administrateurs (et super administrateurs).
+
+    Le super administrateur hérite de tous les accès de l'administrateur : il
+    est donc autorisé partout où `IsAdministrator` est utilisé.
     """
-    
+
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
-        
-        return request.user.type_utilisateur == 'administrateur'
+
+        return request.user.type_utilisateur in ('administrateur', 'super_admin')
+
+
+class IsSuperAdmin(permissions.BasePermission):
+    """
+    Permission réservée aux super administrateurs uniquement.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        return request.user.type_utilisateur == 'super_admin'
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
@@ -121,7 +136,17 @@ def get_user_permissions(user):
             'can_view_all_statistics',
             'can_moderate_platform',
         ]
-    
+    elif user.type_utilisateur == 'super_admin':
+        permissions = [
+            'can_manage_all_users',
+            'can_manage_all_offers',
+            'can_manage_all_needs',
+            'can_view_all_statistics',
+            'can_moderate_platform',
+            'can_manage_administrators',
+            'can_manage_platform_settings',
+        ]
+
     return permissions
 
 class DynamicPermission(permissions.BasePermission):

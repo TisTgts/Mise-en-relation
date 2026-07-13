@@ -41,7 +41,8 @@ def _seed_users_json_path() -> Path:
 def _default_users_from_model() -> List[dict]:
     """Un compte de démo par type si seed_users.json est absent."""
     mapping = {
-        "administrateur": ("admin", "admin@demo.local", "Super", "Admin"),
+        "super_admin": ("superadmin", "superadmin@demo.local", "Super", "Admin"),
+        "administrateur": ("admin", "admin@demo.local", "Admin", "Démo"),
         "client": ("client_demo", "client@demo.local", "Client", "Démo"),
         "fournisseur": ("fournisseur_demo", "fournisseur@demo.local", "Fournisseur", "Démo"),
     }
@@ -133,13 +134,10 @@ def _ensure_user(
     user.last_name = last_name or ""
     user.is_active = True
     user.telephone = USER_PHONES.get(username, "")
-    user.est_verifie = utype != "administrateur"
-    if utype == "administrateur":
-        user.is_staff = True
-        user.is_superuser = True
-    else:
-        user.is_staff = False
-        user.is_superuser = False
+    is_admin_type = utype in ("administrateur", "super_admin")
+    user.est_verifie = not is_admin_type
+    user.is_staff = is_admin_type
+    user.is_superuser = utype == "super_admin"
     user.save()
     return user
 

@@ -17,6 +17,7 @@ import { APP_NAME } from '../config/branding';
 import { COPY } from '../pays';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { dashboardPathForRole } from '../utils/roles';
 
 const STEPS = [
   {
@@ -54,12 +55,7 @@ const Home = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
 
-  const dashboardPath =
-    user?.type_utilisateur === 'administrateur'
-      ? '/admin/dashboard'
-      : user?.type_utilisateur === 'fournisseur'
-        ? '/fournisseur/dashboard'
-        : '/client/dashboard';
+  const dashboardPath = dashboardPathForRole(user?.type_utilisateur);
 
   const handleSearch = (e) => {
     e.preventDefault();

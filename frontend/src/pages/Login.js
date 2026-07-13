@@ -20,6 +20,13 @@ const DEMO_PASSWORD = 'demo1234';
 
 const DEMO_ACCOUNT_GROUPS = [
   {
+    role: 'Super administrateur',
+    tone: 'bg-fuchsia-50 border-fuchsia-200 hover:border-fuchsia-300',
+    accounts: [
+      { label: 'Awa Ténin', email: 'superadmin@demo.local' },
+    ],
+  },
+  {
     role: 'Administrateurs',
     tone: 'bg-violet-50 border-violet-200 hover:border-violet-300',
     accounts: [
@@ -81,6 +88,9 @@ const Login = () => {
       if (result.success) {
         const userType = result.user?.type_utilisateur;
         switch (userType) {
+          case 'super_admin':
+            navigate('/super-admin/dashboard');
+            break;
           case 'administrateur':
             navigate('/admin/dashboard');
             break;
