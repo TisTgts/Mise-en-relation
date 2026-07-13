@@ -75,7 +75,7 @@ def trouver_correspondances_pour_besoin(request, besoin_id):
             status=status.HTTP_403_FORBIDDEN,
         )
 
-    if request.user.type_utilisateur != "administrateur" and besoin.statut != "ouverte":
+    if not request.user.is_admin_type and besoin.statut != "ouverte":
         return Response(
             {
                 "error": "Seuls les besoins au statut « ouverte » peuvent être mis en correspondance.",
@@ -262,7 +262,7 @@ def debug_matching_score(request, besoin_id, prestation_id):
 @permission_classes([permissions.IsAuthenticated])
 def lancer_matching_besoins_sans_matching(request):
     """Matching pour les besoins ouverts sans aucune correspondance effective."""
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -324,7 +324,7 @@ def lancer_matching_besoins_sans_matching(request):
 @permission_classes([permissions.IsAuthenticated])
 def lancer_matching_besoins_admin(request):
     """Lance le matching administrateur (ouvert ou sélection d'IDs)."""
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -457,7 +457,7 @@ def _build_grouped_admin_payload():
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def admin_lister_correspondances(request):
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -470,7 +470,7 @@ def admin_lister_correspondances(request):
 @permission_classes([permissions.IsAuthenticated])
 def admin_lister_correspondances_plates(request):
     """Liste plate des correspondances effectives (tableau de bord admin)."""
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -523,7 +523,7 @@ def admin_lister_correspondances_plates(request):
 @permission_classes([permissions.IsAuthenticated])
 def admin_lister_matching_runs(request):
     """Historique des exécutions : numéro (id), date, auteur, taille du tableau."""
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -547,7 +547,7 @@ def admin_lister_matching_runs(request):
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def admin_detail_correspondance(request, corr_ref):
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -581,7 +581,7 @@ def admin_detail_correspondance(request, corr_ref):
 @api_view(["DELETE"])
 @permission_classes([permissions.IsAuthenticated])
 def admin_supprimer_correspondance(request, corr_ref):
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -607,7 +607,7 @@ def admin_supprimer_correspondance(request, corr_ref):
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def admin_correspondances_pour_besoin(request, besoin_id):
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )
@@ -676,7 +676,7 @@ def admin_correspondances_pour_besoin(request, besoin_id):
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
 def admin_profil_fournisseur(request, fournisseur_id):
-    if request.user.type_utilisateur != "administrateur":
+    if not request.user.is_admin_type:
         return Response(
             {"error": "Accès réservé aux administrateurs"}, status=status.HTTP_403_FORBIDDEN
         )

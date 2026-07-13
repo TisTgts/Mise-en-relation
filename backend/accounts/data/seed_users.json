@@ -2,11 +2,19 @@
   "_readme": "Identifiants de connexion fixes (username + email). Modifiez first_name / last_name pour changer les personnes sans toucher aux logins. Mot de passe commun : champ password.",
   "password": "demo1234",
   "counts": {
+    "super_admin": 1,
     "administrateur": 2,
     "client": 10,
     "fournisseur": 10
   },
   "users": [
+    {
+      "type_utilisateur": "super_admin",
+      "username": "superadmin",
+      "email": "superadmin@demo.local",
+      "first_name": "Awa",
+      "last_name": "Ténin"
+    },
     {
       "type_utilisateur": "administrateur",
       "username": "admin",

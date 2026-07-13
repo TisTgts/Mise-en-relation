@@ -20,6 +20,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
+import { isAdminType } from '../../utils/roles';
 
 const FILTER_OPTIONS = [
   { id: 'all', label: 'Tous' },
@@ -39,6 +40,8 @@ const getUserTypeColor = (type) => {
       return 'bg-indigo-100 text-indigo-800';
     case 'administrateur':
       return 'bg-violet-100 text-violet-800';
+    case 'super_admin':
+      return 'bg-fuchsia-100 text-fuchsia-800';
     default:
       return 'bg-slate-100 text-slate-800';
   }
@@ -50,6 +53,7 @@ const getUserTypeIcon = (type) => {
       return FiBriefcase;
     case 'client':
       return FiUsers;
+    case 'super_admin':
     case 'administrateur':
       return FiShield;
     default:
@@ -101,7 +105,7 @@ const ManageUsers = () => {
   }, []);
 
   useEffect(() => {
-    if (user?.type_utilisateur === 'administrateur') {
+    if (isAdminType(user)) {
       loadUsers();
     } else {
       setLoading(false);
@@ -246,7 +250,7 @@ const ManageUsers = () => {
     }
   };
 
-  if (user?.type_utilisateur !== 'administrateur') {
+  if (!isAdminType(user)) {
     return (
       <div className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
         <FiShield className="mx-auto h-10 w-10 text-slate-400" />

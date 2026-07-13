@@ -23,6 +23,7 @@ const ROLE_LABELS = {
   client: 'Client',
   fournisseur: 'Fournisseur',
   administrateur: 'Administrateur',
+  super_admin: 'Super administrateur',
 };
 
 const NAV_LINKS = [
@@ -67,6 +68,8 @@ const Header = () => {
   const getDashboardLink = () => {
     if (!user) return '/';
     switch (user.type_utilisateur) {
+      case 'super_admin':
+        return '/super-admin/dashboard';
       case 'administrateur':
         return '/admin/dashboard';
       case 'fournisseur':
@@ -85,6 +88,8 @@ const Header = () => {
         return '/fournisseur/profil';
       case 'client':
         return '/client/profil';
+      case 'super_admin':
+        return '/super-admin/dashboard';
       case 'administrateur':
         return '/admin/dashboard';
       default:
@@ -94,6 +99,7 @@ const Header = () => {
 
   const getUserRoleIcon = () => {
     switch (user?.type_utilisateur) {
+      case 'super_admin':
       case 'administrateur':
         return <FiShield className="h-3.5 w-3.5" aria-hidden />;
       case 'fournisseur':
@@ -107,6 +113,8 @@ const Header = () => {
 
   const getUserRoleColor = () => {
     switch (user?.type_utilisateur) {
+      case 'super_admin':
+        return 'bg-fuchsia-100 text-fuchsia-800';
       case 'administrateur':
         return 'bg-violet-100 text-violet-800';
       case 'fournisseur':

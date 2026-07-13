@@ -146,7 +146,7 @@ class ServiceTransactionListView(generics.ListAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'administrateur':
+        if user.is_admin_type:
             return TransactionService.objects.all()
         return TransactionService.objects.filter(
             models.Q(fournisseur=user) | models.Q(client=user)
@@ -160,7 +160,7 @@ class ServiceTransactionDetailView(generics.RetrieveUpdateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'administrateur':
+        if user.is_admin_type:
             return TransactionService.objects.all()
         return TransactionService.objects.filter(
             models.Q(fournisseur=user) | models.Q(client=user)
@@ -169,7 +169,7 @@ class ServiceTransactionDetailView(generics.RetrieveUpdateAPIView):
 
 def _get_transaction_for_actor(user, transaction_id):
     qs = TransactionService.objects.select_related('fournisseur', 'client', 'prestation', 'besoin')
-    if user.type_utilisateur == 'administrateur':
+    if user.is_admin_type:
         return qs.filter(id=transaction_id).first()
     return qs.filter(id=transaction_id).filter(
         models.Q(fournisseur=user) | models.Q(client=user)
@@ -496,7 +496,7 @@ class MessageListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         user = self.request.user
-        if user.type_utilisateur == 'administrateur':
+        if user.is_admin_type:
             return Message.objects.all()
         return Message.objects.filter(
             models.Q(expediteur=user) | models.Q(destinataire=user)

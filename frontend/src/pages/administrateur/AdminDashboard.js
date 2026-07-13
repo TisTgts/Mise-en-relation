@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { isAdminType } from '../../utils/roles';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { APP_NAME } from '../../config/branding';
 import adminService from '../../services/adminService';
@@ -114,7 +115,7 @@ const AdminDashboard = () => {
   });
 
   useEffect(() => {
-    if (!isAuthenticated || user?.type_utilisateur !== 'administrateur') {
+    if (!isAuthenticated || !isAdminType(user)) {
       navigate('/login');
       return;
     }

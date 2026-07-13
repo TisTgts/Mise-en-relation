@@ -17,6 +17,7 @@ import {
   FiZap,
 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
+import { dashboardPathForRole } from '../utils/roles';
 import { APP_NAME, APP_TAGLINE } from '../config/branding';
 import { COPY, COUNTRY } from '../pays';
 
@@ -241,13 +242,7 @@ const Services = () => {
                 </>
               ) : (
                 <Link
-                  to={
-                    user?.type_utilisateur === 'fournisseur'
-                      ? '/fournisseur/dashboard'
-                      : user?.type_utilisateur === 'administrateur'
-                        ? '/admin/dashboard'
-                        : '/client/dashboard'
-                  }
+                  to={dashboardPathForRole(user?.type_utilisateur)}
                   className="inline-flex items-center gap-2 rounded-xl border border-white/30 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
                 >
                   Mon espace
@@ -465,13 +460,7 @@ const Services = () => {
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             {isAuthenticated ? (
               <Link
-                to={
-                  user?.type_utilisateur === 'fournisseur'
-                    ? '/fournisseur/dashboard'
-                    : user?.type_utilisateur === 'administrateur'
-                      ? '/admin/dashboard'
-                      : '/client/dashboard'
-                }
+                to={dashboardPathForRole(user?.type_utilisateur)}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-8 py-3.5 font-semibold text-indigo-800 transition hover:bg-indigo-50"
               >
                 Accéder à mon espace

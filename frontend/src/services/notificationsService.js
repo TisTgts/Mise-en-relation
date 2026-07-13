@@ -126,6 +126,8 @@ export function buildNotificationItems(user, messages, transactions) {
   const uid = user?.id;
   if (!type || uid == null) return items;
 
+  const isAdmin = type === 'administrateur' || type === 'super_admin';
+
   const messagesLink =
     type === 'client'
       ? '/client/messages'
@@ -133,7 +135,7 @@ export function buildNotificationItems(user, messages, transactions) {
         ? '/fournisseur/messages'
         : '/admin/messages';
 
-  if (type !== 'administrateur' && Array.isArray(messages)) {
+  if (!isAdmin && Array.isArray(messages)) {
     const unread = messages.filter((m) => getUserId(m.destinataire) === uid && !m.lu);
     if (unread.length > 0) {
       const latest = unread.reduce((a, b) =>
@@ -165,7 +167,7 @@ export function buildNotificationItems(user, messages, transactions) {
       const n = fournisseurTxNotification(tx);
       if (n) items.push(n);
     }
-  } else if (type === 'administrateur') {
+  } else if (isAdmin) {
     for (const tx of txs) {
       if (tx.validation_admin_statut === 'en_attente') {
         items.push({
@@ -194,7 +196,7 @@ export async function loadNotificationsData(user) {
   }
   const type = user.type_utilisateur;
   try {
-    if (type === 'administrateur') {
+    if (type === 'administrateur' || type === 'super_admin') {
       const transactions = await adminService.getAllTransactions();
       return { messages: [], transactions };
     }

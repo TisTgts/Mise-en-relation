@@ -22,6 +22,9 @@ const Dashboard = () => {
         case 'client':
           navigate('/client/dashboard');
           break;
+        case 'super_admin':
+          navigate('/super-admin/dashboard');
+          break;
         case 'administrateur':
           navigate('/admin/dashboard');
           break;

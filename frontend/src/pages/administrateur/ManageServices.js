@@ -16,6 +16,7 @@ import {
   FiMapPin,
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { isAdminType } from '../../utils/roles';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
@@ -423,7 +424,7 @@ const ManageServices = () => {
   };
 
   useEffect(() => {
-    if (user?.type_utilisateur === 'administrateur') {
+    if (isAdminType(user)) {
       fetchData();
     }
   }, [user]);

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views
+from . import views, dashboard_views, super_admin_views
 
 urlpatterns = [
     path('register/', views.RegisterView.as_view(), name='register'),
@@ -12,6 +12,13 @@ urlpatterns = [
     
     # Admin endpoints
     path('users/', views.UserListView.as_view(), name='users_list'),
+
+    # Super administrateur : gestion des comptes d'administration
+    path('super-admin/admins/', super_admin_views.SuperAdminAdminListCreateView.as_view(), name='superadmin_admins'),
+    path('super-admin/users/<int:user_id>/set-role/', super_admin_views.set_user_role, name='superadmin_set_role'),
+    path('super-admin/users/<int:user_id>/toggle-status/', super_admin_views.toggle_admin_status, name='superadmin_toggle_status'),
+    path('super-admin/country/', super_admin_views.active_country, name='superadmin_country'),
+    path('super-admin/health/', super_admin_views.system_health, name='superadmin_health'),
     
     # Endpoints pour les deux types d'utilisateurs
     path('providers/', views.ProviderListView.as_view(), name='providers_list'),

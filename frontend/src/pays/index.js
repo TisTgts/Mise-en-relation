@@ -1,6 +1,7 @@
 /**
  * Config pays active pour l'UI.
- * Priorité : REACT_APP_COUNTRY → DEFAULT_COUNTRY_CODE (active.js / pays/active.json).
+ * Priorité : REACT_APP_COUNTRY (build) → localStorage (dernier pays connu du
+ * serveur, permet le changement à chaud) → pays/active.json → défaut.
  */
 import { DEFAULT_COUNTRY_CODE } from './active';
 import activeJson from './data/active.json';
@@ -12,9 +13,25 @@ const CATALOG = {
   bf,
 };
 
+/** Clé localStorage : cache du code pays fourni par le backend. */
+export const COUNTRY_STORAGE_KEY = 'app_country_code';
+
+/** Codes disponibles dans le bundle (les données sont embarquées). */
+export const AVAILABLE_COUNTRY_CODES = Object.keys(CATALOG);
+
+function readStoredCode() {
+  try {
+    return (localStorage.getItem(COUNTRY_STORAGE_KEY) || '').trim().toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 function resolveCountryCode() {
   const fromEnv = (process.env.REACT_APP_COUNTRY || '').trim().toLowerCase();
   if (fromEnv && CATALOG[fromEnv]) return fromEnv;
+  const fromStorage = readStoredCode();
+  if (fromStorage && CATALOG[fromStorage]) return fromStorage;
   const fromActive = (activeJson?.code || DEFAULT_COUNTRY_CODE).trim().toLowerCase();
   if (CATALOG[fromActive]) return fromActive;
   return DEFAULT_COUNTRY_CODE;

@@ -76,5 +76,41 @@ def get_timezone() -> str:
     return get_country().get("timezone") or "UTC"
 
 
+def available_countries() -> list[dict[str, str]]:
+    """Liste des pays disponibles (un fichier pays/<code>.json = un pays)."""
+    result: list[dict[str, str]] = []
+    for path in sorted(pays_dir().glob("*.json")):
+        if path.name == "active.json":
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        code = (data.get("code") or path.stem).strip().lower()
+        result.append({"code": code, "name": data.get("name") or code.upper()})
+    return result
+
+
+def set_active_country(code: str) -> dict[str, Any]:
+    """
+    Définit le pays actif en écrivant pays/active.json.
+
+    Lève ValueError si le code ne correspond à aucun fichier pays connu.
+    Retourne la config du pays nouvellement actif.
+    """
+    normalized = (code or "").strip().lower()
+    valid_codes = {c["code"] for c in available_countries()}
+    if normalized not in valid_codes:
+        raise ValueError(f"Code pays inconnu : {code!r}")
+
+    active_path = pays_dir() / "active.json"
+    active_path.write_text(
+        json.dumps({"code": normalized}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    clear_country_cache()
+    return load_country(normalized)
+
+
 def clear_country_cache() -> None:
     load_country.cache_clear()

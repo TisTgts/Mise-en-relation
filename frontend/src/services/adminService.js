@@ -561,7 +561,7 @@ class AdminService {
       errors.push('L\'email n\'est pas valide');
     }
     
-    if (!userData.type_utilisateur || !['client', 'fournisseur', 'administrateur'].includes(userData.type_utilisateur)) {
+    if (!userData.type_utilisateur || !['client', 'fournisseur', 'administrateur', 'super_admin'].includes(userData.type_utilisateur)) {
       errors.push('Le type d\'utilisateur n\'est pas valide');
     }
     
@@ -623,7 +623,8 @@ class AdminService {
     const types = {
       'fournisseur': 'Fournisseur',
       'client': 'Client',
-      'administrateur': 'Administrateur'
+      'administrateur': 'Administrateur',
+      'super_admin': 'Super administrateur'
     };
     return types[type] || type;
   }

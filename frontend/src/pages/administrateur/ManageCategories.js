@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch, FiChevronLeft } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { isAdminType } from '../../utils/roles';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import Toast from '../../components/Toast';
@@ -23,7 +24,7 @@ const ManageCategories = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (user?.type_utilisateur !== 'administrateur') return;
+      if (!isAdminType(user)) return;
       try {
         setLoading(true);
         const data = await adminService.getAllCategoriesAll();

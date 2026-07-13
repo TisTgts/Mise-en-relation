@@ -9,6 +9,8 @@ import { useAuth } from '../contexts/AuthContext';
  */
 const dashboardFallback = (role) => {
   switch (role) {
+    case 'super_admin':
+      return '/super-admin/dashboard';
     case 'administrateur':
       return '/admin/dashboard';
     case 'fournisseur':

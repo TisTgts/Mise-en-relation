@@ -11,7 +11,7 @@ import { ConfirmProvider } from './contexts/ConfirmContext';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import DashboardLayout from './components/layout/DashboardLayout';
-import ProtectedRoute, { FournisseurRoute, ClientRoute, AdministrateurRoute } from './components/ProtectedRoute';
+import ProtectedRoute, { FournisseurRoute, ClientRoute, AdministrateurRoute, SuperAdminRoute } from './components/ProtectedRoute';
 
 // Import des pages
 import Home from './pages/Home';
@@ -62,6 +62,7 @@ import {
   ManageAdminMessages,
   AdminSettings,
 } from './pages/administrateur';
+import { SuperAdminDashboard, ManageAdmins, CountrySettings, SystemHealth } from './pages/super-admin';
 
 import TestDashboard from './pages/TestDashboard';
 
@@ -380,6 +381,36 @@ function App() {
                 <AdminSettings />
               </ProtectedPage>
             </AdministrateurRoute>
+          } />
+
+          {/* Espace super administrateur */}
+          <Route path="/super-admin/dashboard" element={
+            <SuperAdminRoute>
+              <ProtectedPage>
+                <SuperAdminDashboard />
+              </ProtectedPage>
+            </SuperAdminRoute>
+          } />
+          <Route path="/super-admin/admins" element={
+            <SuperAdminRoute>
+              <ProtectedPage>
+                <ManageAdmins />
+              </ProtectedPage>
+            </SuperAdminRoute>
+          } />
+          <Route path="/super-admin/pays" element={
+            <SuperAdminRoute>
+              <ProtectedPage>
+                <CountrySettings />
+              </ProtectedPage>
+            </SuperAdminRoute>
+          } />
+          <Route path="/super-admin/sante" element={
+            <SuperAdminRoute>
+              <ProtectedPage>
+                <SystemHealth />
+              </ProtectedPage>
+            </SuperAdminRoute>
           } />
           <Route path="/fournisseur/creer-prestation" element={
             <FournisseurRoute>

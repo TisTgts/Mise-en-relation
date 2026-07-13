@@ -18,6 +18,15 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'telephone', 'type_utilisateur', 'password', 'password_confirm'
         ]
     
+    def validate_type_utilisateur(self, value):
+        # L'inscription publique est réservée aux clients et fournisseurs.
+        # Les comptes d'administration sont créés par un super administrateur.
+        if value not in ('client', 'fournisseur'):
+            raise serializers.ValidationError(
+                "Type de compte non autorisé à l'inscription."
+            )
+        return value
+
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError(

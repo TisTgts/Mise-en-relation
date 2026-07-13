@@ -38,7 +38,7 @@ def admin_statistics(request):
     Vue API pour récupérer les statistiques administrateur
     Accessible uniquement aux utilisateurs authentifiés de type administrateur
     """
-    if request.user.type_utilisateur != 'administrateur':
+    if not request.user.is_admin_type:
         return Response({
             'success': False,
             'error': 'Accès non autorisé',

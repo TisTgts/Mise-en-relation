@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { FiSearch, FiChevronLeft, FiFilter, FiX } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { isAdminType } from '../../utils/roles';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import adminService from '../../services/adminService';
 import transactionsService from '../../services/transactionsService';
@@ -262,7 +263,7 @@ const ManageTransactions = () => {
 
   useEffect(() => {
     const load = async () => {
-      if (user?.type_utilisateur !== 'administrateur') return;
+      if (!isAdminType(user)) return;
       try {
         setLoading(true);
         const data = await adminService.getAllTransactions();
