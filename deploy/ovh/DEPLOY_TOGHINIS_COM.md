@@ -59,8 +59,8 @@ python manage.py migrate
 python manage.py collectstatic --no-input
 deactivate
 
-echo 'REACT_APP_API_URL=https://toghinis.com/api' > ../frontend/.env.production
-cd ../frontend && npm ci && npm run build
+    echo 'REACT_APP_API_URL=https://toghinis.com/api' > ../frontend/.env.production
+    cd ../frontend && npm ci && npm run build
 ```
 
 ## 5. Service Gunicorn (port 8001)

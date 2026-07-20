@@ -48,6 +48,7 @@ urlpatterns = [
     path('transactions/<int:transaction_id>/admin-decision/', views.admin_decide_transaction, name='transaction-admin-decision'),
     path('transactions/<int:transaction_id>/admin-finalize/', views.admin_finalize_transaction, name='transaction-admin-finalize'),
     path('transactions/<int:transaction_id>/besoin-details/', views.transaction_besoin_details, name='transaction-besoin-details'),
+    path('transactions/<int:transaction_id>/avis/', views.transaction_avis, name='transaction-avis'),
     
     # Messages
     path('messages/', views.MessageListCreateView.as_view(), name='message-list-create'),

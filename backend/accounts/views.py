@@ -11,7 +11,8 @@ from accounts.throttling import (
     RegisterRateThrottle,
     TokenRefreshRateThrottle,
 )
-from .models import ProfileClient, ProfileFournisseur
+from .models import ProfileClient, ProfileFournisseur, DevicePushToken
+from .password_reset import confirm_password_reset, request_password_reset
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -157,3 +158,51 @@ class ThrottledTokenRefreshView(TokenRefreshView):
     """Renouvellement JWT avec limitation de débit."""
 
     throttle_classes = [TokenRefreshRateThrottle]
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([LoginRateThrottle])
+def password_reset_request(request):
+    """Demande un code de réinitialisation (email)."""
+    email = request.data.get('email', '')
+    payload = request_password_reset(email)
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+@throttle_classes([LoginRateThrottle])
+def password_reset_confirm(request):
+    """Valide le code et définit le nouveau mot de passe."""
+    ok, message = confirm_password_reset(
+        request.data.get('email', ''),
+        request.data.get('code', ''),
+        request.data.get('password') or request.data.get('new_password', ''),
+    )
+    if not ok:
+        return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({'message': message}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def push_token_view(request):
+    """Enregistre ou retire un token Expo Push pour l'appareil courant."""
+    token = (request.data.get('token') or '').strip()
+    if not token:
+        return Response({'error': 'Token requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        DevicePushToken.objects.filter(user=request.user, token=token).delete()
+        return Response({'message': 'Token retiré.'}, status=status.HTTP_200_OK)
+
+    platform = (request.data.get('platform') or '')[:20]
+    obj, _ = DevicePushToken.objects.update_or_create(
+        token=token,
+        defaults={'user': request.user, 'platform': platform},
+    )
+    return Response(
+        {'id': obj.id, 'token': obj.token, 'platform': obj.platform},
+        status=status.HTTP_200_OK,
+    )

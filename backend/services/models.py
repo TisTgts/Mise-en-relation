@@ -528,6 +528,39 @@ class Message(models.Model):
     @property
     def content(self):
         return self.contenu
+
+class Avis(models.Model):
+    """Avis client sur un fournisseur après collaboration terminée."""
+
+    transaction = models.OneToOneField(
+        TransactionService,
+        on_delete=models.CASCADE,
+        related_name='avis',
+        verbose_name='Transaction',
+    )
+    auteur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='avis_rediges',
+        verbose_name='Auteur',
+    )
+    fournisseur = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='avis_recus',
+        verbose_name='Fournisseur',
+    )
+    note = models.PositiveSmallIntegerField(verbose_name='Note')
+    commentaire = models.TextField(blank=True, verbose_name='Commentaire')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Avis'
+        verbose_name_plural = 'Avis'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Avis {self.note}/5 — transaction #{self.transaction_id}'
     
     @property
     def is_read(self):

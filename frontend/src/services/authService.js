@@ -127,6 +127,36 @@ class AuthService {
     
     return data.access;
   }
+
+  async requestPasswordReset(email) {
+    const response = await fetch(API_ENDPOINTS.AUTH.PASSWORD_RESET, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || 'Demande impossible');
+    }
+    return data;
+  }
+
+  async confirmPasswordReset(email, code, password) {
+    const response = await fetch(API_ENDPOINTS.AUTH.PASSWORD_RESET_CONFIRM, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        code: String(code).trim(),
+        password,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || 'Réinitialisation impossible');
+    }
+    return data;
+  }
 }
 
 const authService = new AuthService();
