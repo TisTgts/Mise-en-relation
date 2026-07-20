@@ -8,7 +8,7 @@ from django.db import models
 from django.utils import timezone
 from accounts.permissions import IsAdministrator
 from accounts.permissions import IsServiceProvider, IsClientProvider
-from .models import CategorieService, Prestation, Demande, TransactionService, Message
+from .models import CategorieService, Prestation, Demande, TransactionService, Message, Avis
 from .serializers import (
     CategorieServiceSerializer,
     PrestationSerializer, 
@@ -18,8 +18,10 @@ from .serializers import (
     DemandeCreateSerializer,
     DemandeUpdateSerializer,
     TransactionServiceSerializer,
-    MessageSerializer
+    MessageSerializer,
+    AvisSerializer,
 )
+from .avis_utils import recalculate_fournisseur_rating
 
 class ServiceCategoryListView(generics.ListAPIView):
     """Vue pour lister les catégories de services"""
@@ -150,7 +152,7 @@ class ServiceTransactionListView(generics.ListAPIView):
             return TransactionService.objects.all()
         return TransactionService.objects.filter(
             models.Q(fournisseur=user) | models.Q(client=user)
-        )
+        ).select_related('avis', 'avis__auteur')
 
 
 class ServiceTransactionDetailView(generics.RetrieveUpdateAPIView):
@@ -164,11 +166,13 @@ class ServiceTransactionDetailView(generics.RetrieveUpdateAPIView):
             return TransactionService.objects.all()
         return TransactionService.objects.filter(
             models.Q(fournisseur=user) | models.Q(client=user)
-        )
+        ).select_related('avis', 'avis__auteur')
 
 
 def _get_transaction_for_actor(user, transaction_id):
-    qs = TransactionService.objects.select_related('fournisseur', 'client', 'prestation', 'besoin')
+    qs = TransactionService.objects.select_related(
+        'fournisseur', 'client', 'prestation', 'besoin', 'avis', 'avis__auteur'
+    )
     if user.is_admin_type:
         return qs.filter(id=transaction_id).first()
     return qs.filter(id=transaction_id).filter(
@@ -416,6 +420,53 @@ def transaction_besoin_details(request, transaction_id):
     return Response(DemandeSerializer(transaction.besoin).data, status=status.HTTP_200_OK)
 
 
+@api_view(['GET', 'POST'])
+@permission_classes([permissions.IsAuthenticated])
+def transaction_avis(request, transaction_id):
+    """Consulter ou publier un avis sur une collaboration terminée."""
+    transaction = _get_transaction_for_actor(request.user, transaction_id)
+    if not transaction:
+        return Response({'error': 'Transaction introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        try:
+            avis = transaction.avis
+        except Avis.DoesNotExist:
+            return Response(None, status=status.HTTP_200_OK)
+        return Response(AvisSerializer(avis).data, status=status.HTTP_200_OK)
+
+    if transaction.client_id != request.user.id:
+        return Response({'error': 'Seul le client peut laisser un avis.'}, status=status.HTTP_403_FORBIDDEN)
+    if transaction.statut != 'terminee':
+        return Response(
+            {'error': 'La collaboration doit être terminée pour laisser un avis.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if hasattr(transaction, 'avis') and transaction.avis is not None:
+        try:
+            transaction.avis
+            return Response({'error': 'Un avis existe déjà pour cette collaboration.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Avis.DoesNotExist:
+            pass
+    if Avis.objects.filter(transaction_id=transaction.id).exists():
+        return Response({'error': 'Un avis existe déjà pour cette collaboration.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    note = request.data.get('note') or request.data.get('rating')
+    commentaire = (request.data.get('commentaire') or request.data.get('comment') or '').strip()
+    if note is None:
+        return Response({'error': 'La note est requise (1 à 5).'}, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = AvisSerializer(data={'note': note, 'commentaire': commentaire})
+    serializer.is_valid(raise_exception=True)
+    avis = serializer.save(
+        transaction=transaction,
+        auteur=request.user,
+        fournisseur=transaction.fournisseur,
+    )
+    recalculate_fournisseur_rating(transaction.fournisseur_id)
+    return Response(AvisSerializer(avis).data, status=status.HTTP_201_CREATED)
+
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def create_transaction(request):
@@ -506,7 +557,23 @@ class MessageListCreateView(generics.ListCreateAPIView):
         transaction = serializer.validated_data.get('transaction')
         if transaction and transaction.statut in ['annulee', 'terminee']:
             raise ValidationError("Cette conversation est fermée. Aucun nouveau message n'est autorisé.")
-        serializer.save(expediteur=self.request.user, lu=False)
+        message = serializer.save(expediteur=self.request.user, lu=False)
+        try:
+            from accounts.push import send_expo_push
+            preview = (message.contenu or message.sujet or 'Nouveau message').strip()
+            if len(preview) > 120:
+                preview = preview[:117] + '…'
+            send_expo_push(
+                message.destinataire_id,
+                title='Nouveau message',
+                body=preview,
+                data={
+                    'screen': 'MessageThread',
+                    'transactionId': message.transaction_id,
+                },
+            )
+        except Exception:
+            pass
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])

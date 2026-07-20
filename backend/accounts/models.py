@@ -255,6 +255,53 @@ class ProfileFournisseur(models.Model):
     def availability(self):
         return self.disponibilites
 
+
+class PasswordResetCode(models.Model):
+    """Code à usage unique pour réinitialiser un mot de passe."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='password_reset_codes',
+        verbose_name='Utilisateur',
+    )
+    code = models.CharField(max_length=10, verbose_name='Code')
+    created_at = models.DateTimeField(auto_now_add=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(verbose_name='Expire le')
+
+    class Meta:
+        verbose_name = 'Code de réinitialisation'
+        verbose_name_plural = 'Codes de réinitialisation'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Reset {self.user.email} · {self.code}'
+
+
+class DevicePushToken(models.Model):
+    """Token Expo Push lié à un utilisateur (appareil mobile)."""
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='push_tokens',
+        verbose_name='Utilisateur',
+    )
+    token = models.CharField(max_length=255, unique=True, verbose_name='Token Expo')
+    platform = models.CharField(max_length=20, blank=True, verbose_name='Plateforme')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Token push'
+        verbose_name_plural = 'Tokens push'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'{self.user_id} · {self.token[:24]}…'
+
+
 # Alias pour compatibilité
-""" ServiceProfile = ProfileFournisseur
-ClientProfile = ProfileClient """
+ServiceProfile = ProfileFournisseur
+ClientProfile = ProfileClient

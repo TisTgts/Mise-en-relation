@@ -5,7 +5,7 @@
   "timezone": "Africa/Ouagadougou",
   "phone_prefix": "+226",
   "phone_placeholder": "+226 xx xx xx xx",
-  "currency": "XOF",
+  "currency": "FCFA",
   "currency_label": "FCFA",
   "email_domain_example": "exemple.bf",
   "demo_email_domain": "demo.bf",

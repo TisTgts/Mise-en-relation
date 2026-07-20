@@ -13,7 +13,9 @@ if (-not (Test-Path "..\venv")) {
 pip install -q -r requirements.txt
 python manage.py migrate --no-input 2>$null
 Write-Host ""
-Write-Host "Backend : http://127.0.0.1:8000" -ForegroundColor Green
-Write-Host "Ouvrez un 2e terminal et lancez : cd frontend ; npm start" -ForegroundColor Yellow
+Write-Host "Backend : http://127.0.0.1:8000 (et http://0.0.0.0:8000 pour telephone)" -ForegroundColor Green
+Write-Host "Frontend web : cd frontend ; npm start" -ForegroundColor Yellow
+Write-Host "Mobile Expo  : powershell -ExecutionPolicy Bypass -File demarrer-mobile.ps1" -ForegroundColor Yellow
 Write-Host ""
-python manage.py runserver
+# 0.0.0.0 : accessible depuis le telephone sur le meme Wi-Fi
+python manage.py runserver 0.0.0.0:8000

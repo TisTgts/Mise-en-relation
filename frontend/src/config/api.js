@@ -7,6 +7,8 @@ export const API_ENDPOINTS = {
     REGISTER: `${API_BASE_URL}/accounts/register/`,
     REFRESH: `${API_BASE_URL}/accounts/token/refresh/`,
     LOGOUT: `${API_BASE_URL}/accounts/logout/`,
+    PASSWORD_RESET: `${API_BASE_URL}/accounts/password-reset/`,
+    PASSWORD_RESET_CONFIRM: `${API_BASE_URL}/accounts/password-reset/confirm/`,
   },
   
   // Users et profils

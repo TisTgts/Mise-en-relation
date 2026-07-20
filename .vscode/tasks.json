@@ -2,44 +2,83 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "npm: démarrer le frontend (CRA)",
-      "type": "npm",
-      "script": "start",
-      "path": "frontend",
+      "label": "Mobile: Expo start (safe)",
+      "type": "shell",
+      "command": "npx expo start --lan --clear",
+      "options": {
+        "cwd": "${workspaceFolder}/mobile",
+        "env": {
+          "NODE_OPTIONS": ""
+        }
+      },
       "isBackground": true,
       "problemMatcher": {
-        "owner": "custom",
+        "owner": "expo",
         "pattern": { "regexp": "^$" },
         "background": {
           "activeOnStart": true,
           "beginsPattern": ".",
-          "endsPattern": "(Compiled successfully!|Compiled with warnings\\.|webpack compiled)"
-        }
-      },
-      "options": {
-        "env": {
-          "BROWSER": "none"
+          "endsPattern": "(Logs for your project will appear|Waiting on|exp://|› Metro:)"
         }
       },
       "presentation": {
-        "reveal": "silent",
+        "reveal": "always",
         "panel": "dedicated",
-        "focus": false
+        "focus": true,
+        "clear": true
       }
     },
     {
-      "label": "django: migrate",
+      "label": "Mobile: Expo start (Web)",
       "type": "shell",
-      "command": "python",
-      "args": ["manage.py", "migrate", "--noinput"],
+      "command": "npx expo start --web --clear",
       "options": {
-        "cwd": "${workspaceFolder}/backend",
-        "env": {}
+        "cwd": "${workspaceFolder}/mobile",
+        "env": {
+          "NODE_OPTIONS": ""
+        }
       },
-      "group": "build",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "expo-web",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "(Logs for your project will appear|Waiting on|exp://|Web is waiting|Local:)"
+        }
+      },
       "presentation": {
-        "reveal": "silent",
-        "panel": "shared"
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
+    },
+    {
+      "label": "Frontend: npm start (safe)",
+      "type": "shell",
+      "command": "npm start",
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "BROWSER": "none",
+          "NODE_OPTIONS": ""
+        }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "cra",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "(Compiled successfully|compiled with|webpack compiled|Local:)"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false
       }
     }
   ]

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CategorieService, SousCategorieService, Prestation, Besoin, TransactionService, Message
+from .models import CategorieService, SousCategorieService, Prestation, Besoin, TransactionService, Message, Avis
 from .taxonomy import normalize_text, overlap_strength, required_fields_for_besoin_category, tokenize
 
 
@@ -283,16 +283,18 @@ class TransactionServiceSerializer(serializers.ModelSerializer):
     prestation_intitule = serializers.CharField(source='prestation.intitule', read_only=True)
     besoin_intitule = serializers.CharField(source='besoin.intitule', read_only=True)
     besoin_mode_budget = serializers.CharField(source='besoin.mode_budget', read_only=True)
+    besoin_lieu_intervention = serializers.CharField(source='besoin.lieu_intervention', read_only=True)
     prestation_mode_tarification = serializers.CharField(
         source='prestation.mode_tarification', read_only=True
     )
+    avis = serializers.SerializerMethodField()
     
     class Meta:
         model = TransactionService
         fields = [
             'id', 'prestation', 'besoin', 'fournisseur', 'client',
             'fournisseur_nom', 'client_nom', 'prestation_intitule', 'besoin_intitule',
-            'besoin_mode_budget', 'prestation_mode_tarification',
+            'besoin_mode_budget', 'besoin_lieu_intervention', 'prestation_mode_tarification',
             'prix_final', 'statut', 'debut_confirme', 'fin_confirmee',
             'devis_montant_propose', 'devis_description', 'devis_statut',
             'devis_date_proposition', 'devis_date_reponse_client', 'devis_propose_par',
@@ -301,9 +303,42 @@ class TransactionServiceSerializer(serializers.ModelSerializer):
             'verification_client_effectuee', 'verification_client_validee', 'verification_client_date',
             'demande_validation_admin', 'demande_validation_admin_date',
             'validation_admin_statut', 'validation_admin_date', 'validation_admin_par',
-            'notes', 'created_at', 'updated_at'
+            'notes', 'created_at', 'updated_at', 'avis',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def get_avis(self, obj):
+        try:
+            avis = obj.avis
+        except Avis.DoesNotExist:
+            return None
+        auteur = avis.auteur
+        auteur_label = f'{auteur.first_name} {auteur.last_name}'.strip() or auteur.username
+        return {
+            'id': avis.id,
+            'rating': avis.note,
+            'comment': avis.commentaire,
+            'date': avis.created_at,
+            'auteur': auteur_label,
+        }
+
+
+class AvisSerializer(serializers.ModelSerializer):
+    auteur_nom = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Avis
+        fields = ['id', 'transaction', 'note', 'commentaire', 'auteur_nom', 'created_at']
+        read_only_fields = ['id', 'auteur_nom', 'created_at']
+
+    def validate_note(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError('La note doit être entre 1 et 5.')
+        return value
+
+    def get_auteur_nom(self, obj):
+        auteur = obj.auteur
+        return f'{auteur.first_name} {auteur.last_name}'.strip() or auteur.username
 
 class MessageSerializer(serializers.ModelSerializer):
     """Serializer pour les messages"""

@@ -45,6 +45,7 @@ Fichier : `backend/transport_platform/settings.py`
 ```
 mise_en_relation/
 ├── frontend/              # Create React App — proxy → http://localhost:8000
+├── mobile/                # Expo (React Native) — client / fournisseur
 ├── backend/
 │   ├── transport_platform/   # settings, urls racine
 │   ├── accounts/             # User JWT, profils client/fournisseur
