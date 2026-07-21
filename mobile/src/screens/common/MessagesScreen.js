@@ -83,9 +83,13 @@ export default function MessagesScreen({ navigation }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const load = useCallback(async () => {
-    const [msgs, txs] = await Promise.all([fetchMessages(), fetchTransactions()]);
-    setMessages(msgs);
-    setTxList(txs);
+    const results = await Promise.allSettled([fetchMessages(), fetchTransactions()]);
+    const msgs = results[0].status === 'fulfilled' ? results[0].value : null;
+    const txs = results[1].status === 'fulfilled' ? results[1].value : null;
+    if (msgs) setMessages(msgs);
+    if (txs) setTxList(txs);
+    if (results[0].status === 'rejected') throw results[0].reason;
+    if (results[1].status === 'rejected' && !msgs) throw results[1].reason;
     refreshAppData();
   }, [refreshAppData]);
 

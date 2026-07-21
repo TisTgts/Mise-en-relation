@@ -38,16 +38,22 @@ export default function FournisseurHomeScreen({ navigation }) {
       else if (!hasLoaded.current) setInitialLoading(true);
       setError(null);
       try {
-        const [p, t, m] = await Promise.all([
+        const results = await Promise.allSettled([
           fetchMyPrestations(),
           fetchTransactions(),
           fetchMessages(),
         ]);
-        setPrestations(p);
-        setTransactions(t);
-        setMessages(m);
-        hasLoaded.current = true;
-        refreshAppData();
+        const [p, t, m] = results.map((r) => (r.status === 'fulfilled' ? r.value : null));
+        if (p) setPrestations(p);
+        if (t) setTransactions(t);
+        if (m) setMessages(m);
+        const failed = results.find((r) => r.status === 'rejected');
+        if (failed) {
+          setError(extractErrorMessage(failed.reason, 'Impossible de charger l\'accueil'));
+        } else {
+          refreshAppData();
+        }
+        if (p || t || m) hasLoaded.current = true;
       } catch (e) {
         setError(extractErrorMessage(e, 'Impossible de charger l\'accueil'));
       } finally {

@@ -312,6 +312,11 @@ class TransactionServiceSerializer(serializers.ModelSerializer):
             avis = obj.avis
         except Avis.DoesNotExist:
             return None
+        except Exception:
+            # Table avis absente (migrate non appliqué) ou autre erreur relationnelle
+            return None
+        if avis is None:
+            return None
         auteur = avis.auteur
         auteur_label = f'{auteur.first_name} {auteur.last_name}'.strip() or auteur.username
         return {

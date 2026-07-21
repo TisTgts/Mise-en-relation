@@ -1,172 +1,252 @@
-# Étude comparative — Application mobile Toghinis
+# Étude de l’application mobile Toghinis
 
-Étude de faisabilité pour construire une application mobile qui consomme les APIs existantes de la plateforme de mise en relation (clients ↔ fournisseurs).
-
+**Document de synthèse — version claire et détaillée**  
+**Projet :** plateforme de mise en relation clients ↔ fournisseurs  
+**Marque :** Toghinis  
 **Date :** juillet 2026  
-**Stack actuelle :** React 18 (CRA) + Django REST Framework + JWT  
-**Marque :** Toghinis
 
 ---
 
-## 1. Verdict
+## 1. Objet de cette étude
 
-Les APIs Django REST + JWT sont déjà **prêtes pour un client mobile**.  
-La stack la plus adaptée au projet actuel est **React Native (Expo)** pour les rôles **client** et **fournisseur**, en gardant le **web React** pour **admin** et **super-admin**.
+Cette étude explique, en termes simples, **pourquoi** et **comment** **et avec technologies** réaliser une application mobile pour Toghinis.
 
----
+Elle répond aux questions suivantes :
 
-## 2. Ce que l’existant apporte
+1. Peut-on s’appuyer sur les APIs déjà existantes ?
+2. Quelle technologie mobile choisir ?
+3. Que faire sur le téléphone, et que garder sur le site web ?
+4. Quelles étapes suivre pour aboutir à une application installable (Play Store) ?
 
-| Élément actuel | Impact mobile |
-|----------------|---------------|
-| API REST `/api/` (accounts, services, matching) | Réutilisable telle quelle |
-| JWT (access ~60 min + refresh 1 jour) | Compatible ; stocker en **SecureStore**, pas `localStorage` |
-| Axios + services front | Patterns réutilisables (auth, besoins, prestations, messages) |
-| Géolocalisation (`navigator.geolocation`) | Remplacée par modules Expo Location |
-| Messages + pièces jointes | OK via multipart ; UX upload / caméra native à prévoir |
-| Multi-pays (`pays/*.json`) | Réutilisable (bundle ou `/api/config/country/`) |
-| Admin + Recharts + tableaux | **Peu adaptés au mobile** → rester sur le web |
-| Notifications in-app | Pas de push FCM / APNs aujourd’hui → à ajouter côté backend |
-
-**Conclusion :** pas besoin de réécrire le backend. Il faut un **nouveau client mobile** et quelques **adaptations API / ops**.
-
-Endpoints de référence côté front : `frontend/src/config/api.js`.
+Le public visé est à la fois technique et décisionnel : direction, produit, développement.
 
 ---
 
-## 3. Comparatif des options
+## 2. Conclusion en une phrase
 
-| Option | Réutilise le React actuel | Perf / UX native | Effort | Stores (Play / App) | Adapté à Toghinis ? |
-|--------|---------------------------|------------------|--------|---------------------|---------------------|
-| **PWA** (même React web) | ★★★★★ | ★★ | Faible | Non (ou limité) | Bon pour un **MVP rapide**, faible sur Android low-end / offline |
-| **Capacitor** (wrapper du web) | ★★★★★ | ★★★ | Faible–moyen | Oui | OK si UI déjà mobile-first (ce n’est pas le cas) |
-| **React Native + Expo** | ★★★★ (JS/React, pas le DOM) | ★★★★ | Moyen | Oui | **Meilleur équilibre** |
-| **React Native CLI** (sans Expo) | ★★★★ | ★★★★★ | Élevé | Oui | Overkill au départ |
-| **Flutter** | ★ (aucun) | ★★★★★ | Élevé | Oui | Solide, mais **nouvelle stack Dart** = coût équipe |
-| **Native** (Kotlin / Swift) | ★ | ★★★★★ | Très élevé | Oui | Pas justifié avec une API REST existante |
-
-### Lecture vs la tech actuelle
-
-- **React + Axios déjà en place** → RN / Expo maximise le transfert de compétences (hooks, contextes, services API, logique métier).
-- **TypeScript peu utiliséé** → Expo fonctionne très bien en JavaScript ; TypeScript optionnel plus tard.
-- **Tailwind / CRA / Recharts** → ne se portent pas tels quels ; UI mobile à reconstruire (NativeWind possible pour garder l’esprit Tailwind).
-- **Contexte Afrique de l’Ouest** → Android en priorité ; Expo simplifie le build Play Store (EAS).
+**Oui, l’application mobile est faisable sans reconstruire le serveur.**  
+La solution recommandée est **React Native avec Expo**, pour les utilisateurs **clients** et **fournisseurs**.  
+Le site web actuel reste le meilleur outil pour l’**administration** et le **super-admin**.
 
 ---
 
-## 4. Recommandation
+## 3. Contexte du projet
 
-### 4.1 Cible produit
+### 3.1 Ce qu’est Toghinis aujourd’hui
 
-1. **App mobile** : rôles `client` et `fournisseur` uniquement  
-2. **Web actuel** : marketing + admin + super-admin (+ consultation desktop)
+Toghinis est une plateforme qui met en relation :
 
-### 4.2 Stack mobile proposée
+- des **clients**, qui publient des besoins de services ;
+- des **fournisseurs**, qui proposent des prestations ;
+- un moteur de **matching** pour trouver les meilleures correspondances ;
+- un suivi des **collaborations** (devis, travail, validation, messages).
 
-| Couche | Choix |
+### 3.2 Technologies déjà en place
+
+| Couche | Technologie |
+|--------|-------------|
+| Site web | React (Create React App) |
+| Serveur / API | Django REST Framework |
+| Authentification | JWT (jeton d’accès + jeton de renouvellement) |
+| Marque / déploiement | Toghinis (`toghinis.com`) |
+
+### 3.3 Idée centrale
+
+Le serveur expose déjà une API REST.  
+Une application mobile peut **consommer la même API**, comme le fait le site web.  
+Il n’est donc **pas nécessaire** de réécrire tout le backend pour lancer le mobile.
+
+---
+
+## 4. Ce que l’existant permet déjà
+
+| Élément déjà présent | Intérêt pour le mobile |
+|----------------------|-------------------------|
+| API REST (`/api/…`) | Réutilisable telle quelle (comptes, services, matching, messages) |
+| Authentification JWT | Compatible mobile ; les jetons doivent être stockés de façon sécurisée (SecureStore), pas dans le stockage web classique |
+| Services front (auth, besoins, prestations, messages) | La **logique métier** se réutilise ; l’interface se reconstruit pour le tactile |
+| Géolocalisation | Remplacée par les modules natifs Expo (`expo-location`) |
+| Messages et pièces jointes | Possibles via envoi multipart ; caméra et galerie à prévoir |
+| Configuration multi-pays | Réutilisable via l’API `/api/config/country/` |
+| Tableaux de bord admin (graphiques, listes denses) | **Peu adaptés au téléphone** → à laisser sur le web |
+
+**En résumé :**  
+pas de refonte serveur majeure.  
+Il faut surtout un **nouveau client mobile**, plus quelques ajustements techniques de production (HTTPS, médias, notifications).
+
+---
+
+## 5. Comparaison des options techniques
+
+Plusieurs approches sont possibles pour « avoir une app ». Elles ne se valent pas toutes pour Toghinis.
+
+| Option | Réutilise le savoir React | Qualité d’expérience mobile | Effort | Publication Play / App Store | Verdict pour Toghinis |
+|--------|---------------------------|-----------------------------|--------|------------------------------|------------------------|
+| **PWA** (site web installable) | Très élevé | Moyenne | Faible | Limité | Utile pour un test rapide, moins solide sur le terrain |
+| **Capacitor** (emballage du site web) | Très élevé | Moyenne à bonne | Faible à moyen | Oui | Intéressant seulement si le web est déjà pensé « mobile first » |
+| **React Native + Expo** | Élevé (JS / React) | Très bonne | Moyen | Oui | **Meilleur équilibre** |
+| **React Native sans Expo** | Élevé | Très bonne | Élevé | Oui | Plus complexe au démarrage, peu justifié |
+| **Flutter** | Faible (nouveau langage Dart) | Excellente | Élevé | Oui | Solide, mais double stack à maintenir |
+| **Natife (Kotlin / Swift)** | Aucun | Excellente | Très élevé | Oui | Trop coûteux alors qu’une API REST existe déjà |
+
+### Lecture pratique
+
+- L’équipe maîtrise déjà **React** et **Axios** → Expo permet de capitaliser sur ces compétences.
+- En Afrique de l’Ouest, **Android** est prioritaire → Expo simplifie la génération d’APK et la publication Play Store (EAS).
+- L’interface web actuelle (tableaux, admin) ne se copie pas telle quelle sur téléphone : on **reprend les parcours métier**, pas les pages desktop.
+
+---
+
+## 6. Recommandation produit et technique
+
+### 6.1 Périmètre mobile
+
+L’application mobile doit couvrir :
+
+1. le rôle **client** ;
+2. le rôle **fournisseur**.
+
+Le site web conserve :
+
+- la présentation / marketing ;
+- l’espace **administrateur** ;
+- l’espace **super-administrateur** ;
+- l’usage bureau plus confortable pour les tâches de gestion.
+
+### 6.2 Stack mobile recommandée
+
+| Besoin | Choix |
 |--------|--------|
 | Framework | **Expo (React Native)** |
-| Navigation | React Navigation |
-| HTTP | Axios (même schéma d’endpoints que `api.js`) |
-| Auth tokens | SecureStore + refresh automatique |
-| Géoloc / médias | `expo-location`, `expo-image-picker` / document picker |
-| Notifications | `expo-notifications` + endpoint backend FCM (phase 2) |
-| Pays | `/api/config/country/` (déjà disponible) |
+| Navigation | React Navigation (onglets + écrans) |
+| Appels API | Axios (mêmes endpoints que le web) |
+| Stockage des jetons | SecureStore + renouvellement automatique |
+| Localisation | `expo-location` |
+| Photos / documents | `expo-image-picker`, sélecteur de documents |
+| Notifications | `expo-notifications` (+ enregistrement côté serveur) |
+| Pays / villes | API `/api/config/country/` |
 
-### 4.3 Pourquoi pas PWA seule ?
+### 6.3 Pourquoi ne pas se contenter d’une PWA ?
 
-Utile en **phase 0** (tests terrain), mais limitée pour : installation native, GPS fiable, caméra, push, perception « vraie app » chez les fournisseurs terrain.
+Une PWA peut servir de **phase d’essai**.  
+En revanche, elle est plus limitée pour :
 
-### 4.4 Pourquoi pas Flutter ?
+- une installation claire comme « vraie application » ;
+- la géolocalisation fiable ;
+- la caméra ;
+- les notifications push ;
+- la perception de sérieux auprès des fournisseurs sur le terrain.
 
-Excellent techniquement, mais perte du capital React et double charge de maintenance (web React + mobile Dart) sans gain métier immédiat.
+### 6.4 Pourquoi ne pas choisir Flutter tout de suite ?
 
----
-
-## 5. Adaptations backend (légères)
-
-Sans ces points, l’app marchera en local mais sera fragile en production :
-
-1. **HTTPS + `ALLOWED_HOSTS`** — URL API fixe (`https://…/api`). Une app native ne s’appuie pas sur CORS comme un navigateur.
-2. **JWT** — refresh robuste ; éventuellement allonger le refresh ou refresh silencieux en foreground.
-3. **Pagination / payloads** — pagination actuelle (20) adaptée au mobile ; éviter les payloads admin lourds.
-4. **Médias** — URLs absolues pour `/media/` (pièces jointes).
-5. **Push (phase 2)** — modèle `DeviceToken` + envoi sur nouveau message / devis / match.
-6. **Versioning API** (optionnel) — `/api/v1/` pour évoluer sans casser web + mobile.
-
-Le matching, les transactions, la messagerie et l’auth sont **réutilisables sans refonte**.
+Flutter est excellent.  
+Mais il impose un **nouveau langage** et une **deuxième équipe de compétences**, alors que le web Toghinis est déjà en React.  
+Le coût de maintenance (web React + mobile Dart) n’apporte pas de gain métier immédiat.
 
 ---
 
-## 6. Ce qu’il ne faut pas porter tel quel
+## 7. Adaptations serveur recommandées
 
-| Web actuel | Mobile |
-|------------|--------|
-| `localStorage` | SecureStore |
+Sans ces points, l’app peut marcher en local, mais rester fragile en production.
+
+1. **HTTPS et hôtes autorisés**  
+   L’application mobile doit appeler une URL stable du type `https://toghinis.com/api`.
+
+2. **Gestion robuste des jetons JWT**  
+   Renouvellement automatique du jeton d’accès ; session sécurisée sur l’appareil.
+
+3. **Réponses API adaptées au mobile**  
+   Pagination (environ 20 éléments) ; éviter les gros payloads conçus pour l’admin.
+
+4. **Fichiers et médias**  
+   URLs absolues pour les pièces jointes (`/media/…`).
+
+5. **Notifications push (phase suivante)**  
+   Enregistrer le jeton de l’appareil et envoyer une alerte lors d’un nouveau message, devis ou match.
+
+6. **Versionnement d’API (optionnel)**  
+   Prévoir `/api/v1/` plus tard pour faire évoluer le serveur sans casser le web et le mobile en même temps.
+
+Les briques métier déjà présentes (matching, transactions, messagerie, authentification) restent **réutilisables**.
+
+---
+
+## 8. Ce qu’il ne faut pas recopier tel quel du web
+
+| Sur le site web | Sur le mobile |
+|-----------------|---------------|
+| `localStorage` | SecureStore (coffre sécurisé de l’appareil) |
 | React Router + pages larges | React Navigation + écrans courts |
-| Layout dashboard / TopBar | Bottom tabs (Besoins / Matchings / Messages / Profil) |
-| Recharts admin | Hors scope mobile |
-| Tailwind DOM | StyleSheet / NativeWind |
-| OpenStreetMap iframe | Map native ou lien externe |
+| Barre latérale / tableau de bord dense | Onglets du bas (Accueil, Besoins ou Prestations, Collaborations, Messages, Profil) |
+| Graphiques d’administration | Hors périmètre mobile |
+| Styles Tailwind « page web » | Composants natifs (StyleSheet) |
+| Carte OpenStreetMap en iframe | Carte native ou ouverture externe |
 
-On **réutilise la logique** (services, flux devis, matching), pas le markup.
+**Principe :** réutiliser la **logique métier**, reconstruire l’**expérience tactile**.
 
 ---
 
-## 7. Feuille de route
+## 9. Feuille de route proposée
 
-| Phase | Durée indicative | Livrable |
+| Phase | Durée indicative | Objectif |
 |-------|------------------|----------|
-| **0** | 1–2 semaines | PWA responsive « app-like » *ou* prototype Expo : login + listes besoins / prestations (validation API) |
-| **1** | 4–8 semaines | Expo : auth, profils, CRUD besoins / prestations, matching, transactions de base, messages |
-| **2** | — | Géoloc fine, pièces jointes, push, polish offline léger |
-| **3** | — | Builds EAS → Play Store (prioritaire), App Store si besoin |
+| **Phase 0** | 1 à 2 semaines | Prototype : connexion + listes (besoins / prestations) pour valider l’API |
+| **Phase 1** | 4 à 8 semaines | Application complète client / fournisseur : profils, création, matching, collaborations, messages |
+| **Phase 2** | Selon priorités | Géolocalisation fine, pièces jointes, notifications push, confort hors ligne léger |
+| **Phase 3** | Selon priorités | Builds de production (EAS) → publication Play Store (prioritaire), App Store si besoin |
 
-**Effort typique** pour un premier store Android client + fournisseur : **1–2 mois** pour un développeur React déjà familier du projet, si le scope admin reste sur le web.
+**Ordre de grandeur :**  
+pour un premier livrable Android client + fournisseur, compter environ **1 à 2 mois** pour un développeur React déjà familier du projet, **si** l’administration reste sur le web.
 
 ---
 
-## 8. Synthèse
+## 10. État d’avancement (juillet 2026)
+
+Une application Expo a été démarrée dans le dossier **`mobile/`** (SDK 54).
+
+Fonctionnalités déjà présentes ou avancées :
+
+- connexion / inscription / mot de passe oublié ;
+- espaces client et fournisseur ;
+- besoins, prestations, matching ;
+- collaborations (devis, validation, clôture) ;
+- messages et pièces jointes ;
+- profil, localisation (villes / quartiers), avis ;
+- mesures de sécurité (HTTPS en production, SecureStore, validation des fichiers) ;
+- préparation du build APK (EAS).
+
+L’API de production utilisée par l’app est :  
+**`https://toghinis.com/api`**
+
+---
+
+## 11. Synthèse décisionnelle
 
 | Question | Réponse |
 |----------|---------|
-| Les APIs suffisent-elles ? | **Oui** |
-| Faut-il changer Django ? | **Non** (ajustements mineurs) |
-| Stack mobile adaptée à l’existant ? | **Expo / React Native** |
-| Alternative MVP ultra-rapide ? | **PWA**, puis bascule Expo |
-| Garder le web ? | **Oui**, surtout admin |
+| Les APIs suffisent-elles pour une app mobile ? | **Oui** |
+| Faut-il changer Django en profondeur ? | **Non** (ajustements ciblés) |
+| Quelle stack mobile choisir ? | **Expo / React Native** |
+| Alternative ultra-rapide pour tester ? | **PWA**, puis passage à Expo |
+| Faut-il garder le site web ? | **Oui**, surtout pour l’administration |
+| Qui utilise l’app mobile ? | **Clients** et **fournisseurs** |
 
 ---
 
-## 9. Implémentation démarrée
+## 12. Références internes du dépôt
 
-App Expo dans **`mobile/`** — **SDK 54** (compatible Expo Go store).
-
-- Auth JWT (SecureStore / fallback web) + refresh
-- Navigation client / fournisseur
-- Listes besoins, prestations, messages, profil
-- Lancement : `demarrer-mobile.ps1` (+ backend `demarrer-local.ps1`)
-
-Voir : `mobile/README.md`
-
-### Suites possibles
-
-- Création / édition besoins & prestations
-- Matching & transactions (devis)
-- Checklist backend (HTTPS, médias, tokens, push)
-- Géoloc + push notifications
-
----
-
-## Références internes
-
-| Élément | Chemin |
-|---------|--------|
-| App mobile Expo | `mobile/` (SDK 54) |
-| Endpoints front web | `frontend/src/config/api.js` |
+| Élément | Emplacement |
+|---------|-------------|
+| Application mobile | `mobile/` |
+| Endpoints web | `frontend/src/config/api.js` |
 | Endpoints mobile | `mobile/src/config/api.js` |
-| Auth JWT | `backend/accounts/` + `LenientJWTAuthentication` |
+| Authentification | `backend/accounts/` |
 | Matching | `backend/matching/` |
-| Config pays | `pays/`, `/api/config/country/` |
+| Configuration pays | `pays/`, `/api/config/country/` |
 | Guide développeur | `docs/GUIDE_DEVELOPPEUR.md` |
 | README projet | `README.md` |
+| README mobile | `mobile/README.md` |
+
+---
+
+*Document préparé pour Toghinis — étude application mobile, version accessible et professionnelle.*
