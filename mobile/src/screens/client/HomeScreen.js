@@ -38,16 +38,23 @@ export default function ClientHomeScreen({ navigation }) {
       else if (!hasLoaded.current) setInitialLoading(true);
       setError(null);
       try {
-        const [b, t, m] = await Promise.all([
+        const results = await Promise.allSettled([
           fetchMyBesoins(),
           fetchTransactions(),
           fetchMessages(),
         ]);
-        setBesoins(b);
-        setTransactions(t);
-        setMessages(m);
-        hasLoaded.current = true;
-        refreshAppData();
+        const [b, t, m] = results.map((r) => (r.status === 'fulfilled' ? r.value : null));
+        if (b) setBesoins(b);
+        if (t) setTransactions(t);
+        if (m) setMessages(m);
+        const failed = results.find((r) => r.status === 'rejected');
+        if (failed) {
+          setError(extractErrorMessage(failed.reason, 'Impossible de charger l\'accueil'));
+        } else {
+          hasLoaded.current = true;
+          refreshAppData();
+        }
+        if (b || t || m) hasLoaded.current = true;
       } catch (e) {
         setError(extractErrorMessage(e, 'Impossible de charger l\'accueil'));
       } finally {

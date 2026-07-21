@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import models
+from django.db import connection, models
 from django.utils import timezone
 from accounts.permissions import IsAdministrator
 from accounts.permissions import IsServiceProvider, IsClientProvider
@@ -22,6 +22,34 @@ from .serializers import (
     AvisSerializer,
 )
 from .avis_utils import recalculate_fournisseur_rating
+
+_AVIS_TABLE_READY = None
+
+
+def _avis_table_ready():
+    """True si la table Avis est migrée (évite un 500 si migrate non appliqué)."""
+    global _AVIS_TABLE_READY
+    if _AVIS_TABLE_READY is not None:
+        return _AVIS_TABLE_READY
+    try:
+        table = Avis._meta.db_table
+        _AVIS_TABLE_READY = table in connection.introspection.table_names()
+    except Exception:
+        _AVIS_TABLE_READY = False
+    return _AVIS_TABLE_READY
+
+
+def _transactions_base_qs(user):
+    if user.is_admin_type:
+        qs = TransactionService.objects.all()
+    else:
+        qs = TransactionService.objects.filter(
+            models.Q(fournisseur=user) | models.Q(client=user)
+        )
+    qs = qs.select_related('fournisseur', 'client', 'prestation', 'besoin')
+    if _avis_table_ready():
+        qs = qs.select_related('avis', 'avis__auteur')
+    return qs
 
 class ServiceCategoryListView(generics.ListAPIView):
     """Vue pour lister les catégories de services"""
@@ -147,12 +175,7 @@ class ServiceTransactionListView(generics.ListAPIView):
     ordering = ['-created_at']
     
     def get_queryset(self):
-        user = self.request.user
-        if user.is_admin_type:
-            return TransactionService.objects.all()
-        return TransactionService.objects.filter(
-            models.Q(fournisseur=user) | models.Q(client=user)
-        ).select_related('avis', 'avis__auteur')
+        return _transactions_base_qs(self.request.user)
 
 
 class ServiceTransactionDetailView(generics.RetrieveUpdateAPIView):
@@ -161,23 +184,11 @@ class ServiceTransactionDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = TransactionServiceSerializer
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_admin_type:
-            return TransactionService.objects.all()
-        return TransactionService.objects.filter(
-            models.Q(fournisseur=user) | models.Q(client=user)
-        ).select_related('avis', 'avis__auteur')
+        return _transactions_base_qs(self.request.user)
 
 
 def _get_transaction_for_actor(user, transaction_id):
-    qs = TransactionService.objects.select_related(
-        'fournisseur', 'client', 'prestation', 'besoin', 'avis', 'avis__auteur'
-    )
-    if user.is_admin_type:
-        return qs.filter(id=transaction_id).first()
-    return qs.filter(id=transaction_id).filter(
-        models.Q(fournisseur=user) | models.Q(client=user)
-    ).first()
+    return _transactions_base_qs(user).filter(id=transaction_id).first()
 
 
 def _transaction_requires_quote_acceptance(transaction):
@@ -424,6 +435,12 @@ def transaction_besoin_details(request, transaction_id):
 @permission_classes([permissions.IsAuthenticated])
 def transaction_avis(request, transaction_id):
     """Consulter ou publier un avis sur une collaboration terminée."""
+    if not _avis_table_ready():
+        return Response(
+            {'error': 'Le module avis n\'est pas encore disponible sur le serveur.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+
     transaction = _get_transaction_for_actor(request.user, transaction_id)
     if not transaction:
         return Response({'error': 'Transaction introuvable.'}, status=status.HTTP_404_NOT_FOUND)
@@ -442,12 +459,12 @@ def transaction_avis(request, transaction_id):
             {'error': 'La collaboration doit être terminée pour laisser un avis.'},
             status=status.HTTP_400_BAD_REQUEST,
         )
-    if hasattr(transaction, 'avis') and transaction.avis is not None:
-        try:
-            transaction.avis
+    try:
+        if getattr(transaction, 'avis', None) is not None:
+            transaction.avis  # may raise DoesNotExist
             return Response({'error': 'Un avis existe déjà pour cette collaboration.'}, status=status.HTTP_400_BAD_REQUEST)
-        except Avis.DoesNotExist:
-            pass
+    except Avis.DoesNotExist:
+        pass
     if Avis.objects.filter(transaction_id=transaction.id).exists():
         return Response({'error': 'Un avis existe déjà pour cette collaboration.'}, status=status.HTTP_400_BAD_REQUEST)
 

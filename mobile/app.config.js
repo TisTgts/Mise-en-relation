@@ -61,7 +61,7 @@ export default {
     },
     extra: {
       eas: {
-        projectId: EAS_PROJECT_ID || undefined,
+        projectId: EAS_PROJECT_ID || '48e21cf7-5750-4bd1-b621-ae788c49253a',
       },
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://toghinis.com/api',
       appEnv: process.env.EXPO_PUBLIC_APP_ENV || 'development',
