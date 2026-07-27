@@ -9,13 +9,13 @@ const localNetworkExceptions = {
 
 export default {
   expo: {
-    name: 'Toghinis',
-    slug: 'toghinis-mobile',
+    name: 'AppName',
+    slug: 'appname-mobile',
     version: '0.1.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
-    scheme: 'toghinis',
+    scheme: 'appname',
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
@@ -23,7 +23,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.toghinis.mobile',
+      bundleIdentifier: 'com.appname.mobile',
       infoPlist: IS_PRODUCTION_BUILD
         ? {
             NSAppTransportSecurity: {
@@ -39,7 +39,7 @@ export default {
           },
     },
     android: {
-      package: 'com.toghinis.mobile',
+      package: 'com.appname.mobile',
       versionCode: 1,
       usesCleartextTraffic: !IS_PRODUCTION_BUILD,
       adaptiveIcon: {
@@ -61,9 +61,10 @@ export default {
     },
     extra: {
       eas: {
-        projectId: EAS_PROJECT_ID || '48e21cf7-5750-4bd1-b621-ae788c49253a',
+        // Créer un projet EAS dédié à la plateforme .net (ne pas réutiliser celui de .com)
+        projectId: EAS_PROJECT_ID || '',
       },
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://toghinis.com/api',
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://toghinis.net/api',
       appEnv: process.env.EXPO_PUBLIC_APP_ENV || 'development',
     },
     plugins: [
@@ -73,16 +74,16 @@ export default {
         'expo-location',
         {
           locationWhenInUsePermission:
-            'Autoriser Toghinis à utiliser votre position pour localiser votre profil et vos besoins.',
+            'Autoriser AppName à utiliser votre position pour localiser votre profil et vos besoins.',
         },
       ],
       [
         'expo-image-picker',
         {
           photosPermission:
-            'Autoriser Toghinis à accéder à vos photos pour envoyer des pièces jointes.',
+            'Autoriser AppName à accéder à vos photos pour envoyer des pièces jointes.',
           cameraPermission:
-            "Autoriser Toghinis à utiliser l'appareil photo pour envoyer des photos.",
+            "Autoriser AppName à utiliser l'appareil photo pour envoyer des photos.",
         },
       ],
       [

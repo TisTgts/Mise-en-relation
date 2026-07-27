@@ -4,7 +4,7 @@
 #   2. eas login
 #   3. eas init   (une seule fois — génère le projectId)
 #
-# L'APK pointe vers l'API prod : https://toghinis.com/api
+# L'APK pointe vers l'API prod : https://toghinis.net/api
 # (défini dans eas.json profil "preview")
 
 $ErrorActionPreference = "Stop"
@@ -30,7 +30,7 @@ if ($config -notmatch "projectId" -or -not (Test-Path ".\.eas")) {
 
 Write-Host ""
 Write-Host "Build APK (profil preview)" -ForegroundColor Cyan
-Write-Host "  API  : https://toghinis.com/api" -ForegroundColor Gray
+Write-Host "  API  : https://toghinis.net/api" -ForegroundColor Gray
 Write-Host "  Env  : production (HTTPS strict)" -ForegroundColor Gray
 Write-Host "Le lien de téléchargement s'affichera à la fin." -ForegroundColor Gray
 Write-Host ""

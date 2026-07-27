@@ -1,8 +1,11 @@
-# Étude de l’application mobile Toghinis
+# Étude de l’application mobile
+
+> **Plateforme toghinis.net** (`feature/code`) : marque **AppName**, API `https://toghinis.net/api`.  
+> La plateforme sœur **toghinis.com** (`deploy/toghinis-com`) conserve la marque Toghinis et son propre déploiement.
 
 **Document de synthèse — version claire et détaillée**  
 **Projet :** plateforme de mise en relation clients ↔ fournisseurs  
-**Marque :** Toghinis  
+**Marque (cette branche) :** AppName  
 **Date :** juillet 2026  
 
 ---

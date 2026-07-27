@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 
 Write-Host ""
-Write-Host "=== Toghinis - demarrage sur Django + Mobile ===" -ForegroundColor Cyan
+Write-Host "=== AppName - demarrage sur Django + Mobile ===" -ForegroundColor Cyan
 Write-Host ""
 
 $local = Join-Path $Root "demarrer-local.ps1"

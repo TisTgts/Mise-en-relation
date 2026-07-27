@@ -1,6 +1,6 @@
-# Toghinis Mobile
+# AppName Mobile
 
-Application Expo **SDK 54** — expérience complète **client** et **fournisseur**.
+Application Expo **SDK 54** — expérience complète **client** et **fournisseur** (plateforme toghinis.net).
 
 ## Parcours
 
@@ -33,12 +33,12 @@ Comptes démo : voir `utilisateurs_identifiants.md` à la racine du projet.
 
 Par défaut l’app appelle l’API hébergée :
 
-`https://toghinis.com/api`
+`https://toghinis.net/api`
 
 Fichier `mobile/.env` :
 
 ```env
-EXPO_PUBLIC_API_URL=https://toghinis.com/api
+EXPO_PUBLIC_API_URL=https://toghinis.net/api
 ```
 
 Pour le développement local (Django sur le PC) :
@@ -76,6 +76,6 @@ npm run build:apk
 
 Le build se fait dans le cloud Expo. À la fin, un lien de téléchargement **APK** est fourni (profil `preview`).
 
-Variables d’environnement du build : `EXPO_PUBLIC_API_URL=https://toghinis.com/api` (défini dans `eas.json`).
+Variables d’environnement du build : `EXPO_PUBLIC_API_URL=https://toghinis.net/api` (défini dans `eas.json`).
 
 Pour le Play Store (AAB) : `npm run build:apk:prod` (profil `production`).

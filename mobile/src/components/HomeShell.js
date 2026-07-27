@@ -39,7 +39,7 @@ export function HomeHero({
       <View style={styles.orbB} />
 
       <Animated.View style={{ opacity: fade, transform: [{ translateY: slide }] }}>
-        <Text style={styles.brand}>Toghinis</Text>
+        <Text style={styles.brand}>AppName</Text>
         <Text style={styles.role}>{roleLabel}</Text>
         <Text style={styles.hello}>
           Bonjour{firstName ? `, ${firstName}` : ''}

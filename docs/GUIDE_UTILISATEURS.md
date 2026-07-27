@@ -80,7 +80,7 @@ La cloche en haut à droite du tableau de bord signale notamment :
 
 ## Support
 
-Contact : voir `APP_CONTACT_EMAIL` dans la configuration de la plateforme (`contact@toghinis.com` par défaut).
+Contact : voir `APP_CONTACT_EMAIL` dans la configuration de la plateforme (`contact@appname.bf` par défaut).
 
 ---
 

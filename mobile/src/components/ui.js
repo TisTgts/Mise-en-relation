@@ -30,7 +30,7 @@ export function BootstrapScreen() {
         <View style={styles.bootstrapLogo}>
           <Ionicons name="hand-left-outline" size={36} color="#fff" />
         </View>
-        <Text style={styles.bootstrapBrand}>Toghinis</Text>
+        <Text style={styles.bootstrapBrand}>AppName</Text>
         <Text style={styles.bootstrapTagline}>Mise en relation simple et locale</Text>
         <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 32 }} />
       </Animated.View>
@@ -79,7 +79,7 @@ export function Screen({ children, style, edges = ['top', 'left', 'right'] }) {
 
 /** En-tête listes / onglets — style mobile (titre large + méta + FAB optionnel). */
 export function PageHeader({
-  eyebrow = 'Toghinis',
+  eyebrow = 'AppName',
   title,
   meta,
   onAdd,
@@ -103,7 +103,7 @@ export function PageHeader({
 }
 
 /** Alias : même look que PageHeader (plus de bandeau dégradé). */
-export function HeroHeader({ title, subtitle, right, eyebrow = 'Toghinis', onAdd, addLabel }) {
+export function HeroHeader({ title, subtitle, right, eyebrow = 'AppName', onAdd, addLabel }) {
   return (
     <View style={styles.heroCompat}>
       <PageHeader

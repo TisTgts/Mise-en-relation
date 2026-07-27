@@ -80,7 +80,7 @@ export default function RegisterScreen({ navigation }) {
           <View style={styles.header}>
             <Image source={require('../../../assets/logo.png')} style={styles.logo} />
             <Text style={styles.brand}>Créer un compte</Text>
-            <Text style={styles.subtitle}>Rejoignez Toghinis en tant que client ou fournisseur.</Text>
+            <Text style={styles.subtitle}>Rejoignez AppName en tant que client ou fournisseur.</Text>
           </View>
 
           <View style={styles.form}>

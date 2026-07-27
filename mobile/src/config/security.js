@@ -1,5 +1,5 @@
 /** Hôtes API autorisés en build de production. */
-export const DEFAULT_PRODUCTION_HOSTS = ['toghinis.com', 'www.toghinis.com'];
+export const DEFAULT_PRODUCTION_HOSTS = ['toghinis.net', 'www.toghinis.net'];
 
 export function isProductionBuild() {
   return process.env.EXPO_PUBLIC_APP_ENV === 'production';

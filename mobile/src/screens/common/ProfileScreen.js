@@ -316,7 +316,7 @@ export default function ProfileScreen() {
           <View style={styles.orbB} />
 
           <Animated.View style={{ opacity: fade, transform: [{ translateY: slide }] }}>
-            <Text style={styles.brand}>Toghinis</Text>
+            <Text style={styles.brand}>AppName</Text>
             <Text style={styles.heroEyebrow}>Mon compte</Text>
 
             <View style={styles.identity}>

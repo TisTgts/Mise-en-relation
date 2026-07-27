@@ -64,7 +64,7 @@ export default function LoginScreen({ navigation }) {
         >
           <View style={styles.header}>
             <Image source={require('../../../assets/logo.png')} style={styles.logo} />
-            <Text style={styles.brand}>Toghinis</Text>
+            <Text style={styles.brand}>AppName</Text>
             <Text style={styles.subtitle}>Connectez-vous à votre compte</Text>
           </View>
 

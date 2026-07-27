@@ -1,4 +1,4 @@
-# Demarrage mobile Toghinis (Expo SDK 54 — compatible Expo Go store)
+# Demarrage mobile AppName / toghinis.net (Expo SDK 54 — compatible Expo Go store)
 #
 #   powershell -ExecutionPolicy Bypass -File demarrer-mobile.ps1
 #   powershell -ExecutionPolicy Bypass -File demarrer-mobile.ps1 -Web
@@ -12,14 +12,14 @@ param(
     [switch]$Local
 )
 
-$ProductionApi = "https://toghinis.com/api"
+$ProductionApi = "https://toghinis.net/api"
 
 $ErrorActionPreference = "Stop"
 $Root = $PSScriptRoot
 $MobileDir = Join-Path $Root "mobile"
 
 Write-Host ""
-Write-Host "=== Toghinis Mobile (Expo SDK 54) ===" -ForegroundColor Cyan
+Write-Host "=== AppName Mobile (Expo SDK 54) ===" -ForegroundColor Cyan
 Write-Host ""
 
 if (-not (Test-Path $MobileDir)) {

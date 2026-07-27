@@ -46,10 +46,10 @@ def request_password_reset(email: str):
         expires_at=timezone.now() + timedelta(minutes=CODE_TTL_MINUTES),
     )
 
-    subject = 'Toghinis — code de réinitialisation'
+    subject = 'AppName — code de réinitialisation'
     body = (
         f'Bonjour,\n\n'
-        f'Votre code de réinitialisation Toghinis est : {code}\n'
+        f'Votre code de réinitialisation AppName est : {code}\n'
         f'Il expire dans {CODE_TTL_MINUTES} minutes.\n\n'
         f'Si vous n\'êtes pas à l\'origine de cette demande, ignorez cet email.\n'
     )
@@ -57,7 +57,7 @@ def request_password_reset(email: str):
         send_mail(
             subject,
             body,
-            getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@toghinis.com',
+            getattr(settings, 'DEFAULT_FROM_EMAIL', None) or 'noreply@toghinis.net',
             [user.email],
             fail_silently=True,
         )

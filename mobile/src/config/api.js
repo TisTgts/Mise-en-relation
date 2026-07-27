@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { assertSecureApiUrl, isProductionBuild } from './security';
 
-/** API hébergée (branche deploy/toghinis-com). */
-export const PRODUCTION_API_URL = 'https://toghinis.com/api';
+/** API hébergée (branche feature/code — toghinis.net). */
+export const PRODUCTION_API_URL = 'https://toghinis.net/api';
 
 function hostFromMetro() {
   const candidates = [
