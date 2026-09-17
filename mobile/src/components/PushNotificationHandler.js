@@ -1,34 +1,55 @@
 import { useEffect, useRef } from 'react';
-import * as Notifications from 'expo-notifications';
-import { getNotificationData } from '../services/pushNotifications';
+import { getNotificationData, getNotificationsModule } from '../services/pushNotifications';
 
 /**
  * Écoute les taps sur notifications et navigue vers Messages / MessageThread.
- * navigationRef : ref React Navigation (createNavigationContainerRef).
+ * No-op dans Expo Go (push distant indisponible depuis SDK 53).
  */
 export default function PushNotificationHandler({ navigationRef }) {
   const responseSub = useRef(null);
 
   useEffect(() => {
-    const handle = (response) => {
-      const data = getNotificationData(response);
-      if (!navigationRef?.isReady?.()) return;
+    const N = getNotificationsModule();
+    if (!N) return undefined;
 
-      const transactionId = data.transactionId || data.transaction_id;
-      if (transactionId) {
-        navigationRef.navigate('MessageThread', {
-          transactionId: Number(transactionId) || transactionId,
-        });
-        return;
-      }
-      if (data.screen === 'Messages' || data.screen === 'MessagesTab') {
-        navigationRef.navigate('Tabs', { screen: 'MessagesTab' });
-      }
+    const navigateWhenReady = (fn) => {
+      const tryNav = () => {
+        if (!navigationRef?.isReady?.()) {
+          setTimeout(tryNav, 200);
+          return;
+        }
+        fn();
+      };
+      tryNav();
     };
 
-    responseSub.current = Notifications.addNotificationResponseReceivedListener(handle);
+    const handle = (response) => {
+      const data = getNotificationData(response);
+      const transactionId = data.transactionId || data.transaction_id;
+      const collaborationId = data.collaborationId || data.transactionId || data.transaction_id;
 
-    Notifications.getLastNotificationResponseAsync().then((response) => {
+      navigateWhenReady(() => {
+        if (data.screen === 'CollaborationDetail' && collaborationId) {
+          navigationRef.navigate('CollaborationDetail', {
+            id: Number(collaborationId) || collaborationId,
+          });
+          return;
+        }
+        if (transactionId) {
+          navigationRef.navigate('MessageThread', {
+            transactionId: Number(transactionId) || transactionId,
+          });
+          return;
+        }
+        if (data.screen === 'Messages' || data.screen === 'MessagesTab') {
+          navigationRef.navigate('Tabs', { screen: 'MessagesTab' });
+        }
+      });
+    };
+
+    responseSub.current = N.addNotificationResponseReceivedListener(handle);
+
+    N.getLastNotificationResponseAsync().then((response) => {
       if (response) handle(response);
     });
 

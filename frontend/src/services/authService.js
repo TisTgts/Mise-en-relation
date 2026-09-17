@@ -7,6 +7,7 @@ class AuthService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Client-App': 'toghinis-web',
       },
       body: JSON.stringify({ email, password }),
     });
@@ -31,6 +32,7 @@ class AuthService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Client-App': 'toghinis-web',
       },
       body: JSON.stringify(userData),
     });
@@ -64,6 +66,7 @@ class AuthService {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${this.getToken()}`,
+          'X-Client-App': 'toghinis-web',
         },
       });
     } catch (error) {
@@ -99,6 +102,7 @@ class AuthService {
     const token = this.getToken();
     return {
       'Content-Type': 'application/json',
+      'X-Client-App': 'toghinis-web',
       ...(token && { 'Authorization': `Bearer ${token}` }),
     };
   }
@@ -114,6 +118,7 @@ class AuthService {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Client-App': 'toghinis-web',
       },
       body: JSON.stringify({ refresh: refreshToken }),
     });
@@ -131,7 +136,7 @@ class AuthService {
   async requestPasswordReset(email) {
     const response = await fetch(API_ENDPOINTS.AUTH.PASSWORD_RESET, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Client-App': 'toghinis-web' },
       body: JSON.stringify({ email: email.trim() }),
     });
     const data = await response.json().catch(() => ({}));
@@ -144,7 +149,7 @@ class AuthService {
   async confirmPasswordReset(email, code, password) {
     const response = await fetch(API_ENDPOINTS.AUTH.PASSWORD_RESET_CONFIRM, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Client-App': 'toghinis-web' },
       body: JSON.stringify({
         email: email.trim(),
         code: String(code).trim(),
@@ -155,6 +160,27 @@ class AuthService {
     if (!response.ok) {
       throw new Error(data.error || data.detail || 'Réinitialisation impossible');
     }
+    return data;
+  }
+
+  async deleteAccount() {
+    const refresh = localStorage.getItem('refresh_token');
+    const response = await fetch(API_ENDPOINTS.AUTH.DELETE_ACCOUNT, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({
+        confirmation: 'SUPPRIMER',
+        ...(refresh ? { refresh } : {}),
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || data.detail || 'Suppression impossible');
+    }
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('type_utilisateur');
     return data;
   }
 }

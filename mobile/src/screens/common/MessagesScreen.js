@@ -24,6 +24,7 @@ import { useScreenLoad } from '../../hooks/useScreenLoad';
 import { fetchMessages, fetchTransactions } from '../../services/dataService';
 import { pickTransactionTitle } from '../../utils/collaborationView';
 import { groupMessagesIntoThreads, relativeMessageTime } from '../../utils/messageThreads';
+import { LIST_PERF } from '../../utils/listPerf';
 
 function ThreadCard({ thread, onPress }) {
   const initials = (thread.partnerName || '?')
@@ -162,6 +163,7 @@ export default function MessagesScreen({ navigation }) {
         <FlatList
           data={filtered}
           keyExtractor={(i) => i.key}
+          {...LIST_PERF}
           ListHeaderComponent={listHeader}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />

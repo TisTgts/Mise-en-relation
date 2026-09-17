@@ -22,6 +22,8 @@ from .serializers import (
     ProfileClientSerializer,
     ProfileFournisseurUpdateSerializer,
     ProfileClientUpdateSerializer,
+    PublicProfileFournisseurSerializer,
+    PublicProfileClientSerializer,
 )
 
 User = get_user_model()
@@ -38,16 +40,16 @@ class UserListView(generics.ListAPIView):
     ordering = ['-date_joined']
 
 class ProviderListView(generics.ListAPIView):
-    """Vue pour lister tous les fournisseurs de services (offreurs)."""
+    """Liste publique des fournisseurs — sans email / téléphone."""
     queryset = ProfileFournisseur.objects.select_related('user').all()
-    serializer_class = ProfileFournisseurSerializer
+    serializer_class = PublicProfileFournisseurSerializer
     permission_classes = [permissions.AllowAny]
 
 class ClientProviderListView(generics.ListAPIView):
-    """Vue pour lister tous les clients (demandeurs de services)."""
+    """Liste des clients (auth requise) — sans email / téléphone."""
     queryset = ProfileClient.objects.select_related('user').all()
-    serializer_class = ProfileClientSerializer
-    permission_classes = [permissions.AllowAny]
+    serializer_class = PublicProfileClientSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class RegisterView(generics.CreateAPIView):
     """Vue pour l'inscription des utilisateurs"""
@@ -90,17 +92,143 @@ def login_view(request):
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def logout_view(request):
-    """Vue pour la déconnexion des utilisateurs"""
+    """Déconnexion de l'appareil courant (blacklist du refresh fourni)."""
+    refresh_token = request.data.get('refresh')
+    if not refresh_token:
+        return Response({'error': 'Token refresh requis'}, status=status.HTTP_400_BAD_REQUEST)
     try:
-        refresh_token = request.data["refresh"]
         token = RefreshToken(refresh_token)
         token.blacklist()
-        return Response({'message': 'Déconnexion réussie'})
-    except Exception as e:
+    except Exception:
+        return Response({'error': 'Token invalide'}, status=status.HTTP_400_BAD_REQUEST)
+
+    push = request.data.get('push_token')
+    if push:
+        DevicePushToken.objects.filter(user=request.user, token=push).delete()
+
+    return Response({'message': 'Déconnexion réussie'})
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def logout_all_view(request):
+    """
+    Déconnexion de tous les appareils : blacklist de tous les refresh tokens
+    de l'utilisateur + suppression des tokens push.
+    """
+    from rest_framework_simplejwt.token_blacklist.models import (
+        BlacklistedToken,
+        OutstandingToken,
+    )
+
+    user = request.user
+    outstanding = OutstandingToken.objects.filter(user=user)
+    for outstanding_token in outstanding:
+        BlacklistedToken.objects.get_or_create(token=outstanding_token)
+
+    # Sécurité : blacklist aussi le refresh envoyé (au cas où non encore tracké)
+    refresh_token = request.data.get('refresh')
+    if refresh_token:
+        try:
+            RefreshToken(refresh_token).blacklist()
+        except Exception:
+            pass
+
+    deleted_push, _ = DevicePushToken.objects.filter(user=user).delete()
+
+    return Response({
+        'message': 'Déconnexion de tous les appareils réussie',
+        'sessions_revoked': outstanding.count(),
+        'push_tokens_removed': deleted_push,
+    })
+
+
+def _revoke_all_sessions(user, refresh_token=None):
+    """Blacklist tous les refresh tokens + push tokens d'un utilisateur."""
+    from rest_framework_simplejwt.token_blacklist.models import (
+        BlacklistedToken,
+        OutstandingToken,
+    )
+
+    outstanding = OutstandingToken.objects.filter(user=user)
+    for outstanding_token in outstanding:
+        BlacklistedToken.objects.get_or_create(token=outstanding_token)
+    if refresh_token:
+        try:
+            RefreshToken(refresh_token).blacklist()
+        except Exception:
+            pass
+    DevicePushToken.objects.filter(user=user).delete()
+    return outstanding.count()
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_account_view(request):
+    """
+    Suppression / anonymisation du compte (droit à l'effacement).
+    Corps attendu : { "confirmation": "SUPPRIMER", "refresh": "..." }.
+    Les collaborations historiques sont conservées anonymisées pour l'autre partie.
+    """
+    if request.user.type_utilisateur in getattr(User, 'ADMIN_TYPES', ('administrateur', 'super_admin')):
         return Response(
-            {'error': 'Token invalide'}, 
-            status=status.HTTP_400_BAD_REQUEST
+            {'error': 'Les comptes administrateurs ne peuvent pas être supprimés via cette API.'},
+            status=status.HTTP_403_FORBIDDEN,
         )
+
+    confirmation = (request.data.get('confirmation') or '').strip().upper()
+    if confirmation != 'SUPPRIMER':
+        return Response(
+            {
+                'error': 'Confirmation invalide. Envoyez confirmation: "SUPPRIMER".',
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = request.user
+    user_id = user.id
+    _revoke_all_sessions(user, request.data.get('refresh'))
+
+    # Anonymiser plutôt que hard-delete (intégrité collabs / messages)
+    stamp = f'deleted_{user_id}_{timezone_now_compact()}'
+    user.email = f'{stamp}@deleted.local'
+    user.username = stamp[:150]
+    user.first_name = ''
+    user.last_name = ''
+    user.telephone = ''
+    user.is_active = False
+    user.set_unusable_password()
+    if getattr(user, 'photo_profil', None):
+        try:
+            user.photo_profil.delete(save=False)
+        except Exception:
+            pass
+        user.photo_profil = None
+    user.save()
+
+    # Nettoyer profils métier sensibles
+    pc = ProfileClient.objects.filter(user=user).first()
+    if pc:
+        pc.raison_sociale = ''
+        pc.contact_principal = ''
+        pc.emplacement = {}
+        pc.save(update_fields=['raison_sociale', 'contact_principal', 'emplacement', 'updated_at'])
+    pf = ProfileFournisseur.objects.filter(user=user).first()
+    if pf:
+        pf.raison_sociale = ''
+        pf.emplacement = {}
+        pf.save(update_fields=['raison_sociale', 'emplacement', 'updated_at'])
+
+    return Response(
+        {'message': 'Compte anonymisé et désactivé. Vous êtes déconnecté.'},
+        status=status.HTTP_200_OK,
+    )
+
+
+def timezone_now_compact():
+    from django.utils import timezone
+    return timezone.now().strftime('%Y%m%d%H%M%S')
+
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     """Profil métier (client ou fournisseur) : lecture et mise à jour des champs du modèle lié."""

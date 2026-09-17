@@ -155,6 +155,16 @@ export default function ClientHomeScreen({ navigation }) {
               />
             ))}
           </HomeSection>
+        ) : !initialLoading ? (
+          <HomeSection title="Besoins ouverts">
+            <QuietEmpty
+              icon="construct-outline"
+              title="Aucun besoin ouvert"
+              subtitle="Publiez un besoin pour lancer le matching avec des pros."
+              actionLabel="Publier un besoin"
+              onAction={() => navigation.navigate('BesoinCreate')}
+            />
+          </HomeSection>
         ) : null}
 
         <HomeSection

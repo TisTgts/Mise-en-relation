@@ -16,6 +16,10 @@ export default {
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     scheme: 'toghinis',
+    androidNavigationBar: {
+      backgroundColor: '#FFFFFF',
+      barStyle: 'dark-content',
+    },
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
@@ -42,6 +46,8 @@ export default {
       package: 'com.toghinis.mobile',
       versionCode: 1,
       usesCleartextTraffic: !IS_PRODUCTION_BUILD,
+      // "pan" : le clavier ne réduit pas la fenêtre — on remonte le composer en JS (fiable sur Samsung).
+      softwareKeyboardLayoutMode: 'pan',
       adaptiveIcon: {
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundColor: '#FFFFFF',

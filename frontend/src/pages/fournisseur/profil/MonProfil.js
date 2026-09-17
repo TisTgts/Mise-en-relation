@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FiMail, FiPhone, FiBriefcase, FiAward, FiEdit2, FiSave, FiX, FiSettings } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useConfirm } from '../../../contexts/ConfirmContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
 import { getEmplacementExample } from '../../../pays';
@@ -44,7 +45,8 @@ const parseEmplacement = (raw) => {
 };
 
 const MonProfil = () => {
-  const { user, updateUser, loading: authLoading } = useAuth();
+  const { user, deleteAccount, updateUser, loading: authLoading } = useAuth();
+  const confirm = useConfirm();
   const location = useLocation();
   const isParametres = location.pathname.includes('/parametres');
   const [loading, setLoading] = useState(true);
@@ -260,6 +262,25 @@ const MonProfil = () => {
       setToast({ message: 'Impossible de recharger le profil', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const ok = await confirm({
+      title: 'Supprimer mon compte ?',
+      message:
+        'Votre compte sera anonymisé et désactivé. Cette action est irréversible. Les collaborations historiques restent visibles anonymisées pour l’autre partie.',
+      confirmLabel: 'Supprimer définitivement',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await deleteAccount();
+    } catch (err) {
+      setToast({
+        message: err.message || 'Suppression impossible. Réessayez ou contactez le support.',
+        type: 'error',
+      });
     }
   };
 
@@ -714,6 +735,22 @@ const MonProfil = () => {
           </form>
         </div>
       </div>
+
+      {isParametres && (
+        <div className="max-w-5xl rounded-2xl border border-red-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Zone sensible</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            La suppression anonymise vos données personnelles et désactive le compte.
+          </p>
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            className="mt-4 inline-flex items-center rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
+          >
+            Supprimer mon compte
+          </button>
+        </div>
+      )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>

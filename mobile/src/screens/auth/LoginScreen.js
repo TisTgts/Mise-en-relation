@@ -15,23 +15,26 @@ import { useAuth } from '../../contexts/AuthContext';
 import { colors, radii, spacing } from '../../config/theme';
 import { hapticLight, hapticSuccess, hapticError } from '../../utils/haptics';
 
-const DEMO_ACCOUNTS = [
-  { label: 'Client', email: 'client@demo.local', password: 'demo1234' },
-  { label: 'Fournisseur', email: 'fournisseur@demo.local', password: 'demo1234' },
-];
+/** Uniquement en développement — pas de mots de passe en dur dans le dépôt. */
+const DEMO_ACCOUNTS = __DEV__
+  ? [
+      { label: 'Client', email: 'client@demo.local' },
+      { label: 'Fournisseur', email: 'fournisseur@demo.local' },
+    ]
+  : [];
 
 export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { login, loading, error, clearError } = useAuth();
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [mdp, setMdp] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
 
   const fillDemo = (account) => {
     hapticLight();
     clearError();
     setEmail(account.email);
-    setPassword(account.password);
+    setMdp('');
     setFieldErrors({});
   };
 
@@ -39,11 +42,11 @@ export default function LoginScreen({ navigation }) {
     clearError();
     const nextErrors = {};
     if (!email.trim()) nextErrors.email = 'Email requis';
-    if (!password) nextErrors.password = 'Mot de passe requis';
+    if (!mdp) nextErrors.mdp = 'Mot de passe requis';
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
-    const result = await login(email.trim(), password);
+    const result = await login(email.trim(), mdp);
     if (result?.success) hapticSuccess();
     else hapticError();
   };
@@ -85,12 +88,12 @@ export default function LoginScreen({ navigation }) {
               placeholder="vous@exemple.com"
             />
             <PasswordField
-              value={password}
+              value={mdp}
               onChangeText={(v) => {
-                setPassword(v);
-                if (fieldErrors.password) setFieldErrors((e) => ({ ...e, password: null }));
+                setMdp(v);
+                if (fieldErrors.mdp) setFieldErrors((e) => ({ ...e, mdp: null }));
               }}
-              error={fieldErrors.password}
+              error={fieldErrors.mdp}
               placeholder="Mot de passe"
               onSubmitEditing={onSubmit}
             />
@@ -120,9 +123,9 @@ export default function LoginScreen({ navigation }) {
             </Pressable>
           </View>
 
-          {__DEV__ ? (
+          {__DEV__ && DEMO_ACCOUNTS.length > 0 ? (
             <View style={styles.demoBlock}>
-              <Text style={styles.demoLabel}>Comptes démo (demo1234)</Text>
+              <Text style={styles.demoLabel}>Emails démo (dev) — mot de passe dans README</Text>
               <View style={styles.demoRow}>
                 {DEMO_ACCOUNTS.map((account) => (
                   <Pressable

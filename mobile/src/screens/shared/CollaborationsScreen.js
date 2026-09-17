@@ -30,8 +30,11 @@ import {
   pickTransactionNextAction,
   pickTransactionReview,
   TRANSACTION_FILTERS,
+  TRANSACTION_QUICK_FILTERS,
+  matchesTransactionFilter,
   transactionSummary,
 } from '../../utils/collaborationView';
+import { LIST_PERF } from '../../utils/listPerf';
 
 function CollaborationCard({ item, role, onPress }) {
   const summary = transactionSummary(item, role);
@@ -123,15 +126,19 @@ export default function CollaborationsScreen({ navigation }) {
         d.besoin_intitule?.toLowerCase().includes(q) ||
         d.prestation_intitule?.toLowerCase().includes(q) ||
         d.devis_statut?.toLowerCase().includes(q);
-      const review = pickTransactionReview(d);
-      const matchesStatut =
-        filter === 'all' ||
-        (filter === 'avec_avis' && review) ||
-        (filter === 'sans_avis' && !review && d.statut === 'terminee') ||
-        (filter !== 'avec_avis' && filter !== 'sans_avis' && d.statut === filter);
-      return matchesSearch && matchesStatut;
+      return matchesSearch && matchesTransactionFilter(d, filter, role);
     });
   }, [items, searchTerm, filter, role]);
+
+  const counts = useMemo(() => {
+    const out = { all: items.length, a_faire: 0, actives: 0, terminees: 0 };
+    for (const d of items) {
+      if (matchesTransactionFilter(d, 'a_faire', role)) out.a_faire += 1;
+      if (matchesTransactionFilter(d, 'actives', role)) out.actives += 1;
+      if (matchesTransactionFilter(d, 'terminees', role)) out.terminees += 1;
+    }
+    return out;
+  }, [items, role]);
 
   const actives = filtered.filter(
     (t) => t.statut !== 'terminee' && t.statut !== 'annulee'
@@ -148,6 +155,29 @@ export default function CollaborationsScreen({ navigation }) {
         meta={`${filtered.length} au total${actives > 0 ? ` · ${actives} active${actives > 1 ? 's' : ''}` : ''}${pendingActions > 0 ? ` · ${pendingActions} action${pendingActions > 1 ? 's' : ''}` : ''}`}
       />
       <InlineError message={error} onRetry={retry} />
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.quickRow}
+      >
+        {TRANSACTION_QUICK_FILTERS.map((o) => {
+          const count = counts[o.value];
+          const active = filter === o.value;
+          return (
+            <Pressable
+              key={o.value}
+              onPress={() => setFilter(o.value)}
+              style={[styles.chip, active && styles.chipOn]}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextOn]}>
+                {o.label}
+                {typeof count === 'number' ? ` (${count})` : ''}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       <View style={styles.searchCard}>
         <View style={styles.searchRow}>
@@ -175,15 +205,19 @@ export default function CollaborationsScreen({ navigation }) {
               size={18}
               color={filtersOpen ? colors.primary : colors.textMuted}
             />
-            {filter !== 'all' ? <View style={styles.filtersDot} /> : null}
+            {filter !== 'all' && !TRANSACTION_QUICK_FILTERS.some((f) => f.value === filter) ? (
+              <View style={styles.filtersDot} />
+            ) : null}
           </Pressable>
         </View>
 
         {filtersOpen ? (
           <View style={styles.filtersBody}>
-            <Text style={styles.filterLabel}>Statut</Text>
+            <Text style={styles.filterLabel}>Plus de filtres</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-              {TRANSACTION_FILTERS.map((o) => (
+              {TRANSACTION_FILTERS.filter(
+                (o) => !TRANSACTION_QUICK_FILTERS.some((q) => q.value === o.value)
+              ).map((o) => (
                 <Pressable
                   key={o.value}
                   onPress={() => setFilter(o.value)}
@@ -212,6 +246,7 @@ export default function CollaborationsScreen({ navigation }) {
         <FlatList
           data={filtered}
           keyExtractor={(i) => String(i.id)}
+          {...LIST_PERF}
           ListHeaderComponent={listHeader}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />
@@ -312,6 +347,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   chipRow: { gap: 8, paddingBottom: 4 },
+  quickRow: {
+    gap: 8,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 8,

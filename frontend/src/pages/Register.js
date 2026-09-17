@@ -67,6 +67,7 @@ const Register = () => {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { register, token } = useAuth();
@@ -229,6 +230,12 @@ const Register = () => {
     setLoading(true);
     setError('');
 
+    if (!acceptedLegal) {
+      setError('Veuillez accepter la politique d’usage et la politique de confidentialité.');
+      setLoading(false);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       setLoading(false);
@@ -274,6 +281,12 @@ const Register = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (!acceptedLegal) {
+      setError('Veuillez accepter la politique d’usage et la politique de confidentialité.');
+      setLoading(false);
+      return;
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
@@ -714,6 +727,26 @@ const Register = () => {
                 </div>
               </div>
 
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  checked={acceptedLegal}
+                  onChange={(e) => setAcceptedLegal(e.target.checked)}
+                />
+                <span>
+                  J’accepte la{' '}
+                  <Link to="/cgu" target="_blank" className="font-semibold text-indigo-600 hover:underline">
+                    politique d’usage
+                  </Link>{' '}
+                  et la{' '}
+                  <Link to="/confidentialite" target="_blank" className="font-semibold text-indigo-600 hover:underline">
+                    politique de confidentialité
+                  </Link>
+                  .
+                </span>
+              </label>
+
               {error && (
                 <div className="flex items-center rounded-xl border border-red-200 bg-red-50 p-3">
                   <FiAlertCircle className="mr-2 h-4 w-4 shrink-0 text-red-500" />
@@ -867,6 +900,26 @@ const Register = () => {
                   </div>
                 </div>
               </div>
+
+              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  checked={acceptedLegal}
+                  onChange={(e) => setAcceptedLegal(e.target.checked)}
+                />
+                <span>
+                  J’accepte la{' '}
+                  <Link to="/cgu" target="_blank" className="font-semibold text-indigo-600 hover:underline">
+                    politique d’usage
+                  </Link>{' '}
+                  et la{' '}
+                  <Link to="/confidentialite" target="_blank" className="font-semibold text-indigo-600 hover:underline">
+                    politique de confidentialité
+                  </Link>
+                  .
+                </span>
+              </label>
 
               {error && (
                 <div className="flex items-center rounded-xl border border-red-200 bg-red-50 p-3">

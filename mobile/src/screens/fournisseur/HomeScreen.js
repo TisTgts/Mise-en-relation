@@ -169,6 +169,16 @@ export default function FournisseurHomeScreen({ navigation }) {
               />
             ))}
           </HomeSection>
+        ) : !initialLoading ? (
+          <HomeSection title="Prestations actives">
+            <QuietEmpty
+              icon="briefcase-outline"
+              title="Aucune prestation active"
+              subtitle="Créez une offre pour apparaître dans le matching clients."
+              actionLabel="Nouvelle prestation"
+              onAction={() => navigation.navigate('PrestationCreate')}
+            />
+          </HomeSection>
         ) : null}
 
         <HomeSection

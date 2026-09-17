@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
+  Linking,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -30,8 +32,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchMyProfile, updateMe, updateProfile } from '../../services/dataService';
 import { extractErrorMessage } from '../../services/authService';
 import { API_BASE_URL } from '../../config/api';
+import { TERMS_URL } from '../../config/legal';
 import { captureCurrentLocation } from '../../utils/geolocation';
 import { parseLieuIntervention } from '../../utils/location';
+
+const PHONE_RE = /^[+0-9\s().-]{8,20}$/;
 
 function initialsOf(user) {
   const a = (user?.first_name || '').trim().charAt(0);
@@ -75,15 +80,16 @@ function splitList(value) {
     .filter(Boolean);
 }
 
-export default function ProfileScreen() {
+export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, logout, type_utilisateur, updateUser } = useAuth();
+  const { user, logout, logoutAll, deleteAccount, type_utilisateur, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileError, setProfileError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState(false);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const isFournisseur = type_utilisateur === 'fournisseur';
   const [form, setForm] = useState({
     first_name: user?.first_name || '',
@@ -107,9 +113,14 @@ export default function ProfileScreen() {
   const [coords, setCoords] = useState({ latitude: null, longitude: null });
   const [zonesSelected, setZonesSelected] = useState([]);
   const [locating, setLocating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(16)).current;
+  const hasLoaded = useRef(false);
+  const userRef = useRef(user);
+  const dirtyRef = useRef(false);
+  userRef.current = user;
 
   useEffect(() => {
     Animated.parallel([
@@ -118,19 +129,29 @@ export default function ProfileScreen() {
     ]).start();
   }, [fade, slide]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     setProfileError(null);
     try {
       const p = await fetchMyProfile();
       setProfile(p);
-      const account = p?.user || user || {};
+      const account = p?.user || userRef.current || {};
       setForm({
         first_name: account.first_name || '',
         last_name: account.last_name || '',
         telephone: account.telephone || '',
       });
       if (p?.user) {
-        updateUser?.(p.user);
+        const cur = userRef.current;
+        const next = p.user;
+        if (
+          next.first_name !== cur?.first_name ||
+          next.last_name !== cur?.last_name ||
+          next.telephone !== cur?.telephone ||
+          next.email !== cur?.email
+        ) {
+          updateUser?.(next);
+        }
       }
       const emp = {
         raison_sociale: p.raison_sociale || '',
@@ -162,17 +183,21 @@ export default function ProfileScreen() {
         longitude: p.emplacement?.longitude ?? null,
       });
       setZonesSelected(Array.isArray(p.zones_couverture) ? p.zones_couverture : []);
+      hasLoaded.current = true;
     } catch (e) {
       setProfileError(extractErrorMessage(e, 'Impossible de charger le profil'));
     } finally {
       setLoading(false);
     }
-  }, [updateUser, user]);
+  }, [updateUser]);
 
   useFocusEffect(
     useCallback(() => {
-      setLoading(true);
-      load();
+      // Ne recharge pas à chaque focus (évite le clignotement / boucle updateUser).
+      // Pull-to-refresh reste disponible ; on ignore aussi si le formulaire est sale.
+      if (hasLoaded.current || dirtyRef.current) return undefined;
+      load({ silent: false });
+      return undefined;
     }, [load])
   );
 
@@ -187,10 +212,41 @@ export default function ProfileScreen() {
     return accountDirty || enterpriseDirty;
   }, [form, user, enterprise, enterpriseInitial]);
 
+  dirtyRef.current = dirty;
+
+  const onRefresh = useCallback(async () => {
+    if (dirtyRef.current) return;
+    setRefreshing(true);
+    try {
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
   const onSave = async () => {
     setSaving(true);
     setError(null);
     setSavedFlash(false);
+
+    const nextErr = {};
+    if (!form.first_name.trim()) nextErr.first_name = 'Prénom requis';
+    if (!form.last_name.trim()) nextErr.last_name = 'Nom requis';
+    if (form.telephone.trim() && !PHONE_RE.test(form.telephone.trim())) {
+      nextErr.telephone = 'Numéro invalide';
+    }
+    if (isFournisseur && enterprise.tarif_horaire) {
+      const n = Number(enterprise.tarif_horaire);
+      if (Number.isNaN(n) || n < 0) nextErr.tarif_horaire = 'Tarif invalide';
+    }
+    setFieldErrors(nextErr);
+    if (Object.keys(nextErr).length > 0) {
+      setError('Corrigez les champs marqués.');
+      setSaving(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+
     try {
       const me = await updateMe({
         first_name: form.first_name.trim(),
@@ -233,7 +289,8 @@ export default function ProfileScreen() {
         });
       }
 
-      await load();
+      await load({ silent: true });
+      setFieldErrors({});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setSavedFlash(true);
       setTimeout(() => setSavedFlash(false), 2200);
@@ -246,7 +303,7 @@ export default function ProfileScreen() {
   };
 
   const onLogout = () => {
-    Alert.alert('Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [
+    Alert.alert('Déconnexion', 'Voulez-vous vraiment vous déconnecter de cet appareil ?', [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Se déconnecter',
@@ -257,6 +314,65 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const onLogoutAll = () => {
+    Alert.alert(
+      'Déconnexion partout',
+      'Tous vos appareils seront déconnectés. Vous devrez vous reconnecter partout.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnecter partout',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            logoutAll();
+          },
+        },
+      ]
+    );
+  };
+
+  const onDeleteAccount = () => {
+    Alert.alert(
+      'Supprimer mon compte',
+      'Votre compte sera anonymisé et désactivé. Cette action est irréversible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Continuer',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Confirmation finale',
+              'Confirmez la suppression définitive de vos données personnelles.',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                {
+                  text: 'Supprimer définitivement',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                      await deleteAccount();
+                    } catch (e) {
+                      Alert.alert(
+                        'Erreur',
+                        extractErrorMessage(
+                          e,
+                          'Suppression impossible. Réessayez ou contactez le support.'
+                        )
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const roleLabel = type_utilisateur === 'fournisseur' ? 'Fournisseur' : 'Client';
@@ -298,7 +414,11 @@ export default function ProfileScreen() {
     <Screen edges={['left', 'right']} style={styles.screen}>
       <ScrollView
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         contentContainerStyle={{
           paddingBottom: 48 + Math.max(insets.bottom, 8) + 56,
@@ -387,21 +507,33 @@ export default function ProfileScreen() {
           <Field
             label="Prénom"
             value={form.first_name}
-            onChangeText={(v) => setForm((f) => ({ ...f, first_name: v }))}
+            onChangeText={(v) => {
+              setForm((f) => ({ ...f, first_name: v }));
+              if (fieldErrors.first_name) setFieldErrors((e) => ({ ...e, first_name: null }));
+            }}
+            error={fieldErrors.first_name}
             autoCapitalize="words"
             placeholder="Votre prénom"
           />
           <Field
             label="Nom"
             value={form.last_name}
-            onChangeText={(v) => setForm((f) => ({ ...f, last_name: v }))}
+            onChangeText={(v) => {
+              setForm((f) => ({ ...f, last_name: v }));
+              if (fieldErrors.last_name) setFieldErrors((e) => ({ ...e, last_name: null }));
+            }}
+            error={fieldErrors.last_name}
             autoCapitalize="words"
             placeholder="Votre nom"
           />
           <Field
             label="Téléphone"
             value={form.telephone}
-            onChangeText={(v) => setForm((f) => ({ ...f, telephone: v }))}
+            onChangeText={(v) => {
+              setForm((f) => ({ ...f, telephone: v }));
+              if (fieldErrors.telephone) setFieldErrors((e) => ({ ...e, telephone: null }));
+            }}
+            error={fieldErrors.telephone}
             keyboardType="phone-pad"
             placeholder="Ex. 90 00 00 00"
           />
@@ -479,7 +611,13 @@ export default function ProfileScreen() {
               <Field
                 label="Tarif horaire (FCFA)"
                 value={enterprise.tarif_horaire}
-                onChangeText={(v) => setEnterprise((e) => ({ ...e, tarif_horaire: v }))}
+                onChangeText={(v) => {
+                  setEnterprise((e) => ({ ...e, tarif_horaire: v }));
+                  if (fieldErrors.tarif_horaire) {
+                    setFieldErrors((err) => ({ ...err, tarif_horaire: null }));
+                  }
+                }}
+                error={fieldErrors.tarif_horaire}
                 keyboardType="numeric"
               />
             </>
@@ -525,6 +663,22 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.logoutBlock}>
+            <Pressable
+              onPress={() => navigation.navigate('Privacy')}
+              style={({ pressed }) => [styles.legalBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+              <Text style={styles.legalText}>Politique de confidentialité</Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+            </Pressable>
+            <Pressable
+              onPress={() => Linking.openURL(TERMS_URL)}
+              style={({ pressed }) => [styles.legalBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+              <Text style={styles.legalText}>Politique d’usage</Text>
+              <Ionicons name="open-outline" size={16} color={colors.textMuted} />
+            </Pressable>
           <Pressable
             onPress={onLogout}
             style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.85 }]}
@@ -532,12 +686,34 @@ export default function ProfileScreen() {
             <Ionicons name="log-out-outline" size={20} color={colors.danger} />
             <Text style={styles.logoutText}>Se déconnecter</Text>
           </Pressable>
+          <Pressable
+            onPress={onLogoutAll}
+            style={({ pressed }) => [styles.logoutAllBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="phone-portrait-outline" size={18} color={colors.textMuted} />
+            <Text style={styles.logoutAllText}>Se déconnecter de tous les appareils</Text>
+          </Pressable>
+          <Pressable
+            onPress={onDeleteAccount}
+            style={({ pressed }) => [styles.deleteAccountBtn, pressed && { opacity: 0.85 }]}
+          >
+            <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            <Text style={styles.deleteAccountText}>Supprimer mon compte</Text>
+          </Pressable>
           {__DEV__ ? <Text style={styles.api}>API · {API_BASE_URL}</Text> : null}
         </View>
       </ScrollView>
 
       {dirty ? (
-        <View style={[styles.stickySave, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <View
+          style={[
+            styles.stickySave,
+            {
+              // Au-dessus de la tab bar (hauteur contenu ~56 + inset système)
+              bottom: 56 + Math.max(insets.bottom, Platform.OS === 'android' ? 8 : 0),
+            },
+          ]}
+        >
           <Pressable
             onPress={onSave}
             disabled={saving}
@@ -766,6 +942,26 @@ const styles = StyleSheet.create({
   logoutBlock: {
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
+    gap: spacing.sm,
+  },
+  legalBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 4,
+  },
+  legalText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
   },
   logoutBtn: {
     flexDirection: 'row',
@@ -784,6 +980,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.danger,
   },
+  logoutAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    height: 44,
+    marginTop: 8,
+  },
+  logoutAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
+  },
+  deleteAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  deleteAccountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.danger,
+  },
   api: {
     marginTop: spacing.md,
     fontSize: 11,
@@ -794,9 +1019,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 52,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     backgroundColor: 'rgba(241, 245, 249, 0.96)',
     borderTopWidth: 1,
     borderTopColor: colors.border,

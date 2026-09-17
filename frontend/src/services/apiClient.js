@@ -38,6 +38,7 @@ export async function request(url, options = {}) {
   const tokenHeaders = getAuthHeaders();
   const headers = {
     'Content-Type': 'application/json',
+    'X-Client-App': 'toghinis-web',
     ...(tokenHeaders || {}),
     ...(options.headers || {}),
   };

@@ -11,11 +11,29 @@ from django.utils import timezone
 
 from .models import PasswordResetCode, User
 
-CODE_TTL_MINUTES = 30
+CODE_TTL_MINUTES = 15
 
 
 def _generate_code():
     return f'{random.randint(100000, 999999)}'
+
+
+def _revoke_user_sessions(user):
+    """Invalide toutes les sessions JWT après reset MDP."""
+    try:
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
+        for outstanding_token in OutstandingToken.objects.filter(user=user):
+            BlacklistedToken.objects.get_or_create(token=outstanding_token)
+    except Exception:
+        pass
+    try:
+        from .models import DevicePushToken
+        DevicePushToken.objects.filter(user=user).delete()
+    except Exception:
+        pass
 
 
 def request_password_reset(email: str):
@@ -100,4 +118,5 @@ def confirm_password_reset(email: str, code: str, new_password: str):
     reset.used_at = timezone.now()
     reset.save(update_fields=['used_at'])
     PasswordResetCode.objects.filter(user=user, used_at__isnull=True).delete()
-    return True, 'Mot de passe mis à jour. Vous pouvez vous connecter.'
+    _revoke_user_sessions(user)
+    return True, 'Mot de passe mis à jour. Reconnectez-vous avec le nouveau mot de passe.'

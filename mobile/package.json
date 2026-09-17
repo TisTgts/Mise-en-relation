@@ -12,7 +12,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "build:apk": "eas build --platform android --profile preview",
-    "build:apk:prod": "eas build --platform android --profile production"
+    "build:apk:prod": "eas build --platform android --profile production",
+    "security:scan": "herozion --lang fr scan . -e node_modules -e dist -e .expo -e .expo-check-build -e src/config/api.local.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
-    "@expo/ngrok": "^4.1.3"
+    "@expo/ngrok": "^4.1.3",
+    "herozion": "^1.2.27"
   }
 }
