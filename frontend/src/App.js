@@ -19,6 +19,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import LegalUsage from './pages/LegalUsage';
+import LegalPrivacy from './pages/LegalPrivacy';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
 
@@ -112,6 +114,16 @@ function App() {
           } />
           <Route path="/reset-password" element={
             <ResetPassword />
+          } />
+          <Route path="/cgu" element={
+            <PublicPage>
+              <LegalUsage />
+            </PublicPage>
+          } />
+          <Route path="/confidentialite" element={
+            <PublicPage>
+              <LegalPrivacy />
+            </PublicPage>
           } />
 
           {/* Anciennes URLs → chemins canoniques */}

@@ -155,13 +155,43 @@ export function pickTransactionReview(tx) {
   };
 }
 
+export const TRANSACTION_QUICK_FILTERS = [
+  { value: 'all', label: 'Toutes' },
+  { value: 'a_faire', label: 'À faire' },
+  { value: 'actives', label: 'En cours' },
+  { value: 'terminees', label: 'Terminées' },
+];
+
 export const TRANSACTION_FILTERS = [
   { value: 'all', label: 'Toutes' },
+  { value: 'a_faire', label: 'À faire' },
+  { value: 'actives', label: 'En cours' },
   { value: 'en_attente', label: 'En attente' },
   { value: 'acceptee', label: 'Acceptées' },
-  { value: 'en_cours', label: 'En cours' },
-  { value: 'terminee', label: 'Terminées' },
+  { value: 'en_cours', label: 'Statut « en cours »' },
+  { value: 'terminees', label: 'Terminées' },
   { value: 'annulee', label: 'Annulées' },
   { value: 'avec_avis', label: 'Avec avis' },
   { value: 'sans_avis', label: 'Sans avis' },
 ];
+
+/** Filtre métier collaborations (rapide ou détail). */
+export function matchesTransactionFilter(item, filter, role) {
+  if (!filter || filter === 'all') return true;
+  const review = pickTransactionReview(item);
+  const next = pickTransactionNextAction(item, role);
+  const closed = item.statut === 'terminee' || item.statut === 'annulee';
+
+  if (filter === 'a_faire') {
+    return Boolean(next && next.tone !== 'muted');
+  }
+  if (filter === 'actives') {
+    return !closed;
+  }
+  if (filter === 'terminees' || filter === 'terminee') {
+    return item.statut === 'terminee';
+  }
+  if (filter === 'avec_avis') return Boolean(review);
+  if (filter === 'sans_avis') return !review && item.statut === 'terminee';
+  return item.statut === filter;
+}

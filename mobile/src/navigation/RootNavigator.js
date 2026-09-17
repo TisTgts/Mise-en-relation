@@ -1,5 +1,5 @@
-import React from 'react';
-import { Platform } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import { NavigationContainer, DefaultTheme, createNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -10,7 +10,9 @@ import { useAppData } from '../contexts/AppDataContext';
 import { BootstrapScreen } from '../components/ui';
 import PushNotificationHandler from '../components/PushNotificationHandler';
 import { colors } from '../config/theme';
+import { hasCompletedOnboarding } from '../utils/onboarding';
 
+import OnboardingScreen from '../screens/auth/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
@@ -35,6 +37,7 @@ import CollaborationDetailScreen from '../screens/shared/CollaborationDetailScre
 import MessageThreadScreen from '../screens/shared/MessageThreadScreen';
 import MessagesScreen from '../screens/common/MessagesScreen';
 import ProfileScreen from '../screens/common/ProfileScreen';
+import PrivacyScreen from '../screens/common/PrivacyScreen';
 
 const AuthStack = createNativeStackNavigator();
 const ClientTab = createBottomTabNavigator();
@@ -69,16 +72,28 @@ const stackScreenOptions = {
   contentStyle: { backgroundColor: colors.background },
 };
 
-/** Évite le chevauchement avec la barre système Android / iPhone. */
+/** Évite le chevauchement avec la barre système Android / iPhone (gesture ou 3 boutons). */
 function useTabBarStyle() {
   const insets = useSafeAreaInsets();
-  const bottom = Math.max(insets.bottom, Platform.OS === 'android' ? 12 : 8);
+  // Android : si insets.bottom = 0 (OEM), garder un minimum pour les 3 boutons.
+  const bottomPad =
+    Platform.OS === 'android'
+      ? Math.max(insets.bottom, insets.bottom > 0 ? 0 : 16)
+      : Math.max(insets.bottom, 8);
+  const contentHeight = 56;
+
   return {
     borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
     backgroundColor: colors.surface,
-    height: 52 + bottom,
+    elevation: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -2 },
+    height: contentHeight + bottomPad,
     paddingTop: 6,
-    paddingBottom: bottom,
+    paddingBottom: bottomPad,
   };
 }
 
@@ -98,6 +113,8 @@ function ClientTabs() {
         tabBarInactiveTintColor: colors.textMuted,
         tabBarHideOnKeyboard: true,
         tabBarStyle,
+        // On gère nous-mêmes le padding (évite double inset RN + système)
+        tabBarSafeAreaInsets: { bottom: 0 },
         tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
         tabBarItemStyle: { paddingTop: 2 },
       }}
@@ -159,6 +176,7 @@ function FournisseurTabs() {
         tabBarInactiveTintColor: colors.textMuted,
         tabBarHideOnKeyboard: true,
         tabBarStyle,
+        tabBarSafeAreaInsets: { bottom: 0 },
         tabBarLabelStyle: { fontWeight: '600', fontSize: 11 },
         tabBarItemStyle: { paddingTop: 2 },
       }}
@@ -235,15 +253,40 @@ function AppStacks({ role }) {
       <RootStack.Screen name="PrestationDetail" component={PrestationDetailScreen} options={{ title: 'Prestation' }} />
       <RootStack.Screen name="CollaborationDetail" component={CollaborationDetailScreen} options={{ title: 'Collaboration' }} />
       <RootStack.Screen name="MessageThread" component={MessageThreadScreen} options={{ title: 'Messages' }} />
+      <RootStack.Screen
+        name="Privacy"
+        component={PrivacyScreen}
+        options={{ headerShown: false, presentation: 'modal' }}
+      />
     </RootStack.Navigator>
   );
 }
 
 export default function RootNavigator() {
   const { isAuthenticated, bootstrapping, type_utilisateur, user } = useAuth();
+  const [onboardingReady, setOnboardingReady] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
-  if (bootstrapping) {
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const done = await hasCompletedOnboarding();
+      if (!cancelled) {
+        setShowOnboarding(!done);
+        setOnboardingReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (bootstrapping || !onboardingReady) {
     return <BootstrapScreen />;
+  }
+
+  if (!isAuthenticated && showOnboarding) {
+    return <OnboardingScreen onDone={() => setShowOnboarding(false)} />;
   }
 
   const role = type_utilisateur || user?.type_utilisateur;

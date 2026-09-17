@@ -12,6 +12,7 @@ import {
   FiServer,
   FiPlay,
   FiPause,
+  FiSmartphone,
 } from 'react-icons/fi';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import superAdminService from '../../services/superAdminService';
@@ -139,9 +140,66 @@ const SystemHealth = () => {
   const meta = STATUS_META[health.status] || STATUS_META.degraded;
   const StatusIcon = meta.icon;
   const t = health.traffic || {};
+  const mobile = t.by_client?.mobile || { total_requests: 0, total_errors: 0, error_rate: 0, endpoints: [] };
+  const web = t.by_client?.web || { total_requests: 0, total_errors: 0, error_rate: 0, endpoints: [] };
+  const other = t.by_client?.other || { total_requests: 0, total_errors: 0, error_rate: 0, endpoints: [] };
+  const mobileShare =
+    (t.total_requests || 0) > 0
+      ? Math.round(((mobile.total_requests || 0) / t.total_requests) * 1000) / 10
+      : 0;
   const db = health.database || {};
   const mig = health.migrations || {};
   const rt = health.runtime || {};
+
+  const renderEndpointTable = (endpoints, emptyHint) => (
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-slate-200 text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="px-4 py-2.5 text-left font-semibold text-slate-700">Endpoint</th>
+            <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Appels</th>
+            <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Erreurs</th>
+            <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Taux</th>
+            <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Moy.</th>
+            <th className="px-4 py-2.5 text-right font-semibold text-slate-700">p95</th>
+            <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Max</th>
+            <th className="px-4 py-2.5 text-center font-semibold text-slate-700">Dernier</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {(endpoints || []).length === 0 ? (
+            <tr>
+              <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
+                {emptyHint}
+              </td>
+            </tr>
+          ) : (
+            (endpoints || []).map((e) => (
+              <tr key={e.key} className="hover:bg-slate-50/80">
+                <td className="px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">{e.method}</span>
+                    <span className="font-mono text-xs text-slate-600">{e.route}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-2.5 text-right font-medium text-slate-900">{e.count}</td>
+                <td className="px-4 py-2.5 text-right text-slate-700">{e.errors}</td>
+                <td className={`px-4 py-2.5 text-right font-medium ${e.error_rate >= 10 ? 'text-rose-600' : 'text-slate-700'}`}>{e.error_rate}%</td>
+                <td className={`px-4 py-2.5 text-right font-medium ${latencyColor(e.avg_ms)}`}>{e.avg_ms} ms</td>
+                <td className={`px-4 py-2.5 text-right ${latencyColor(e.p95_ms)}`}>{e.p95_ms} ms</td>
+                <td className="px-4 py-2.5 text-right text-slate-500">{e.max_ms} ms</td>
+                <td className="px-4 py-2.5 text-center">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor(e.last_status)}`}>
+                    {e.last_status || '—'}
+                  </span>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-10">
@@ -231,10 +289,57 @@ const SystemHealth = () => {
         <StatCard icon={FiServer} label="Endpoints suivis" value={(t.endpoints || []).length} tone="bg-violet-100 text-violet-700" />
       </div>
 
+      {/* Aperçu trafic mobile */}
+      <div className="overflow-hidden rounded-xl border border-indigo-200 bg-white shadow-sm">
+        <div className="border-b border-indigo-100 bg-indigo-50/60 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <FiSmartphone className="h-4 w-4 text-indigo-600" />
+              <h2 className="text-sm font-semibold text-slate-900">Trafic application mobile</h2>
+            </div>
+            <p className="text-xs text-slate-500">
+              Via en-tête <span className="font-mono">X-Client-App: toghinis-mobile</span>
+            </p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
+          <StatCard
+            icon={FiSmartphone}
+            label="Requêtes mobile"
+            value={mobile.total_requests ?? 0}
+            hint={`${mobileShare} % du trafic total`}
+            tone="bg-indigo-100 text-indigo-700"
+          />
+          <StatCard
+            icon={FiXCircle}
+            label="Erreurs mobile (5xx)"
+            value={mobile.total_errors ?? 0}
+            tone={(mobile.total_errors ?? 0) > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}
+          />
+          <StatCard
+            icon={FiZap}
+            label="Taux d'erreur mobile"
+            value={`${mobile.error_rate ?? 0} %`}
+            tone={(mobile.error_rate ?? 0) >= 10 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}
+          />
+          <StatCard
+            icon={FiServer}
+            label="Endpoints mobile"
+            value={(mobile.endpoints || []).length}
+            hint={`Web ${web.total_requests ?? 0} · Autre ${other.total_requests ?? 0}`}
+            tone="bg-violet-100 text-violet-700"
+          />
+        </div>
+        {renderEndpointTable(
+          mobile.endpoints,
+          'Aucune requête mobile pour le moment. Utilisez l’app (Expo) pour alimenter ces métriques.'
+        )}
+      </div>
+
       {/* Tableau endpoints */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-          <h2 className="text-sm font-semibold text-slate-900">Trafic par endpoint</h2>
+          <h2 className="text-sm font-semibold text-slate-900">Trafic par endpoint (tous clients)</h2>
           <button
             type="button"
             onClick={handleReset}
@@ -244,53 +349,10 @@ const SystemHealth = () => {
             Réinitialiser
           </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="px-4 py-2.5 text-left font-semibold text-slate-700">Endpoint</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Appels</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Erreurs</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Taux</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Moy.</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-slate-700">p95</th>
-                <th className="px-4 py-2.5 text-right font-semibold text-slate-700">Max</th>
-                <th className="px-4 py-2.5 text-center font-semibold text-slate-700">Dernier</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(t.endpoints || []).length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-slate-500">
-                    Aucune requête enregistrée pour le moment. Naviguez dans l'application pour alimenter les métriques.
-                  </td>
-                </tr>
-              ) : (
-                (t.endpoints || []).map((e) => (
-                  <tr key={e.key} className="hover:bg-slate-50/80">
-                    <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">{e.method}</span>
-                        <span className="font-mono text-xs text-slate-600">{e.route}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-medium text-slate-900">{e.count}</td>
-                    <td className="px-4 py-2.5 text-right text-slate-700">{e.errors}</td>
-                    <td className={`px-4 py-2.5 text-right font-medium ${e.error_rate >= 10 ? 'text-rose-600' : 'text-slate-700'}`}>{e.error_rate}%</td>
-                    <td className={`px-4 py-2.5 text-right font-medium ${latencyColor(e.avg_ms)}`}>{e.avg_ms} ms</td>
-                    <td className={`px-4 py-2.5 text-right ${latencyColor(e.p95_ms)}`}>{e.p95_ms} ms</td>
-                    <td className="px-4 py-2.5 text-right text-slate-500">{e.max_ms} ms</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${statusColor(e.last_status)}`}>
-                        {e.last_status || '—'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        {renderEndpointTable(
+          t.endpoints,
+          "Aucune requête enregistrée pour le moment. Naviguez dans l'application pour alimenter les métriques."
+        )}
       </div>
 
       {/* Erreurs récentes */}
@@ -313,9 +375,18 @@ const SystemHealth = () => {
                   {err.status}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 text-sm">
+                  <p className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs font-semibold text-slate-700">{err.method}</span>
                     <span className="truncate font-mono text-xs text-slate-600">{err.path}</span>
+                    {err.client === 'mobile' ? (
+                      <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700">
+                        mobile
+                      </span>
+                    ) : err.client === 'web' ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                        web
+                      </span>
+                    ) : null}
                   </p>
                   {err.message && <p className="mt-0.5 truncate text-xs text-rose-600">{err.message}</p>}
                 </div>

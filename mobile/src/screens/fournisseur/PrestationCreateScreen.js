@@ -24,6 +24,7 @@ export default function PrestationCreateScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [form, setForm] = useState({
     categorie: null,
     intitule: '',
@@ -48,26 +49,36 @@ export default function PrestationCreateScreen({ navigation }) {
           }));
         }
       })
-      .catch(() => setError('Catégories indisponibles'));
+      .catch(() => setError(extractErrorMessage(null, 'Catégories indisponibles')));
   }, []);
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k, v) => {
+    setForm((p) => ({ ...p, [k]: v }));
+    if (fieldErrors[k]) setFieldErrors((prev) => ({ ...prev, [k]: null }));
+  };
 
   const validateStep = () => {
     setError(null);
+    const next = {};
     if (step === 0 && !form.categorie) {
       setError('Choisissez une catégorie.');
       return false;
     }
     if (step === 1) {
-      if (!form.intitule.trim()) {
-        setError('L’intitulé est requis.');
-        return false;
-      }
+      if (!form.intitule.trim()) next.intitule = 'L’intitulé est requis';
       if (!form.description.trim() || form.description.trim().length < 10) {
-        setError('Décrivez votre offre (au moins 10 caractères).');
-        return false;
+        next.description = 'Au moins 10 caractères';
       }
+    }
+    if (step === 2 && form.mode_tarification !== 'devis') {
+      if (!String(form.tarif_min).trim() && !String(form.tarif_max).trim()) {
+        next.tarif_min = 'Indiquez au moins un tarif';
+      }
+    }
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0) {
+      setError('Complétez les champs marqués.');
+      return false;
     }
     return true;
   };
@@ -85,6 +96,7 @@ export default function PrestationCreateScreen({ navigation }) {
       return;
     }
     setError(null);
+    setFieldErrors({});
     setStep((s) => s - 1);
   };
 
@@ -158,6 +170,7 @@ export default function PrestationCreateScreen({ navigation }) {
             label="Intitulé"
             value={form.intitule}
             onChangeText={(v) => set('intitule', v)}
+            error={fieldErrors.intitule}
             autoCapitalize="sentences"
             placeholder="Ex. Installation électrique résidentielle"
           />
@@ -165,6 +178,7 @@ export default function PrestationCreateScreen({ navigation }) {
             label="Description"
             value={form.description}
             onChangeText={(v) => set('description', v)}
+            error={fieldErrors.description}
             multiline
             autoCapitalize="sentences"
             placeholder="Compétences, délais, matériel inclus…"
@@ -196,12 +210,14 @@ export default function PrestationCreateScreen({ navigation }) {
                 label="Tarif min (FCFA)"
                 value={form.tarif_min}
                 onChangeText={(v) => set('tarif_min', v)}
+                error={fieldErrors.tarif_min}
                 keyboardType="numeric"
               />
               <Field
                 label="Tarif max (FCFA)"
                 value={form.tarif_max}
                 onChangeText={(v) => set('tarif_max', v)}
+                error={fieldErrors.tarif_max}
                 keyboardType="numeric"
               />
             </>

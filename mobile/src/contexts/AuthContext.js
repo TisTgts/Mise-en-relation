@@ -14,6 +14,23 @@ const AUTH_ACTIONS = {
   UPDATE_USER: 'UPDATE_USER',
 };
 
+/** Rôles autorisés dans l'app mobile (jamais admin / super_admin). */
+const MOBILE_ROLES = new Set(['client', 'fournisseur']);
+const MOBILE_ROLE_DENIED =
+  'Cette application est réservée aux clients et fournisseurs.';
+
+function isAllowedMobileRole(role) {
+  return MOBILE_ROLES.has(role);
+}
+
+function sanitizeRegisterPayload(payload = {}) {
+  const role = payload.type_utilisateur;
+  return {
+    ...payload,
+    type_utilisateur: isAllowedMobileRole(role) ? role : 'client',
+  };
+}
+
 const initialState = {
   user: null,
   token: null,
@@ -87,6 +104,11 @@ export function AuthProvider({ children }) {
           return;
         }
         const user = await authService.fetchMe();
+        if (!isAllowedMobileRole(user?.type_utilisateur)) {
+          await clearSession();
+          if (!cancelled) dispatch({ type: AUTH_ACTIONS.LOGOUT });
+          return;
+        }
         if (!cancelled) {
           dispatch({
             type: AUTH_ACTIONS.LOGIN_SUCCESS,
@@ -111,12 +133,11 @@ export function AuthProvider({ children }) {
     dispatch({ type: AUTH_ACTIONS.LOGIN_START });
     try {
       const data = await authService.login(email, password);
-      const role = data.user?.type_utilisateur;
-      if (role !== 'client' && role !== 'fournisseur') {
+      // Rôle issu de la réponse serveur uniquement — jamais du formulaire client.
+      if (!isAllowedMobileRole(data.user?.type_utilisateur)) {
         await clearSession();
-        const msg = 'Cette application est réservée aux clients et fournisseurs.';
-        dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: msg });
-        return { success: false, error: msg };
+        dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: MOBILE_ROLE_DENIED });
+        return { success: false, error: MOBILE_ROLE_DENIED };
       }
       dispatch({
         type: AUTH_ACTIONS.LOGIN_SUCCESS,
@@ -137,8 +158,14 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (payload) => {
     dispatch({ type: AUTH_ACTIONS.LOGIN_START });
     try {
-      const data = await authService.register(payload);
+      const safePayload = sanitizeRegisterPayload(payload);
+      const data = await authService.register(safePayload);
       if (data.access && data.user) {
+        if (!isAllowedMobileRole(data.user?.type_utilisateur)) {
+          await clearSession();
+          dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: MOBILE_ROLE_DENIED });
+          return { success: false, error: MOBILE_ROLE_DENIED };
+        }
         dispatch({
           type: AUTH_ACTIONS.LOGIN_SUCCESS,
           payload: { user: data.user, token: data.access },
@@ -154,13 +181,29 @@ export function AuthProvider({ children }) {
         "Erreur d'inscription"
       );
       dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: msg });
-      return { success: false, error: msg };
+      return {
+        success: false,
+        error: msg,
+        fieldErrors: authService.extractFieldErrors(err),
+      };
     }
   }, []);
 
   const logout = useCallback(async () => {
     await clearPushTokenOnLogout();
     await authService.logout();
+    dispatch({ type: AUTH_ACTIONS.LOGOUT });
+  }, []);
+
+  const logoutAll = useCallback(async () => {
+    await clearPushTokenOnLogout();
+    await authService.logoutAll();
+    dispatch({ type: AUTH_ACTIONS.LOGOUT });
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    await clearPushTokenOnLogout();
+    await authService.deleteAccount();
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
   }, []);
 
@@ -178,10 +221,12 @@ export function AuthProvider({ children }) {
       login,
       register,
       logout,
+      logoutAll,
+      deleteAccount,
       updateUser,
       clearError,
     }),
-    [state, login, register, logout, updateUser, clearError]
+    [state, login, register, logout, logoutAll, deleteAccount, updateUser, clearError]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

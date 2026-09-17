@@ -19,6 +19,7 @@ import { extractErrorMessage } from '../../services/authService';
 import { formatMoney, pickTitle } from '../../utils/format';
 import { hapticLight, hapticSuccess } from '../../utils/haptics';
 import { normalizeMatches } from '../../utils/matchingView';
+import { LIST_PERF } from '../../utils/listPerf';
 
 function MatchCard({ item, acting, onConfirm }) {
   const score = item.score ?? item.score_total ?? item.matching_score;
@@ -198,6 +199,7 @@ export default function BesoinMatchingScreen({ route, navigation }) {
         <FlatList
           data={matches}
           keyExtractor={(item, index) => String(item.prestation_id || item.id || index)}
+          {...LIST_PERF}
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listPad}
           ListEmptyComponent={

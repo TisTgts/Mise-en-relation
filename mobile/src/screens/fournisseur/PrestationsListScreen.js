@@ -28,6 +28,7 @@ import { deletePrestation, fetchMyPrestations } from '../../services/dataService
 import { extractErrorMessage } from '../../services/authService';
 import { formatMoney, pickTitle, relativeDate } from '../../utils/format';
 import { hapticLight, hapticSuccess } from '../../utils/haptics';
+import { LIST_PERF } from '../../utils/listPerf';
 
 const STATUT_OPTIONS = [
   { value: 'all', label: 'Toutes' },
@@ -416,6 +417,7 @@ export default function PrestationsListScreen({ navigation }) {
         <FlatList
           data={filtered}
           keyExtractor={(i) => String(i.id)}
+          {...LIST_PERF}
           ListHeaderComponent={listHeader}
           contentContainerStyle={{
             paddingHorizontal: spacing.lg,

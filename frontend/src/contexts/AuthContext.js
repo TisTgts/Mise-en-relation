@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config/api';
+import authService from '../services/authService';
 
 // Actions pour le reducer
 const AUTH_ACTIONS = {
@@ -148,7 +149,8 @@ export const AuthProvider = ({ children }) => {
           const response = await fetch('/api/accounts/me/', {
             headers: {
               'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'X-Client-App': 'toghinis-web',
             }
           });
           
@@ -214,6 +216,9 @@ export const AuthProvider = ({ children }) => {
       
       const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: 'POST',
+        headers: {
+          'X-Client-App': 'toghinis-web',
+        },
         body: formData,
         mode: 'cors'
       });
@@ -261,7 +266,8 @@ export const AuthProvider = ({ children }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'X-Client-App': 'toghinis-web',
         },
         body: JSON.stringify(userData),
         mode: 'cors'
@@ -313,8 +319,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('type_utilisateur');
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
-    // Rediriger vers la page d'accueil
+    window.location.href = '/';
+  };
+
+  const deleteAccount = async () => {
+    await authService.deleteAccount();
+    dispatch({ type: AUTH_ACTIONS.LOGOUT });
     window.location.href = '/';
   };
 
@@ -334,6 +349,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    deleteAccount,
     updateUser,
     clearError
   };

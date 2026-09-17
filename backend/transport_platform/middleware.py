@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import time
 
-from .monitoring import metrics
+from .monitoring import detect_client, metrics
 
 _TRACKED_PREFIXES = ("/api/", "/dashboard/")
 
@@ -46,6 +46,7 @@ class ApiMetricsMiddleware:
                 status_code=status_code,
                 duration_ms=duration_ms,
                 error_message=getattr(request, "_api_metrics_error", None),
+                client=detect_client(request),
             )
 
     def process_exception(self, request, exception):

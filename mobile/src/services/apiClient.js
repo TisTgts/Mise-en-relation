@@ -14,6 +14,7 @@ const apiClient = axios.create({
   headers: {
     Accept: 'application/json',
     'Content-Type': 'application/json',
+    'X-Client-App': 'toghinis-mobile',
   },
   maxRedirects: isProductionBuild() ? 0 : 5,
 });
@@ -60,6 +61,7 @@ apiClient.interceptors.response.use(
               headers: {
                 Accept: 'application/json',
                 'Content-Type': 'application/json',
+                'X-Client-App': 'toghinis-mobile',
               },
             }
           );

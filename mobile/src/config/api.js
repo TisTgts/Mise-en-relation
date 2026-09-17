@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { assertSecureApiUrl, isProductionBuild } from './security';
 
@@ -48,6 +47,7 @@ function isLocalApiUrl(url) {
   }
 }
 
+/** HTTP local réservé au développement — jamais appelé en build production. */
 function resolveApiBaseUrl() {
   const fromEnv = (process.env.EXPO_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
 
@@ -56,22 +56,19 @@ function resolveApiBaseUrl() {
     return fromEnv;
   }
 
-  if (isProductionBuild()) {
+  // Build EAS / store / release : HTTPS prod uniquement
+  if (isProductionBuild() || !__DEV__) {
     return PRODUCTION_API_URL;
   }
 
-  if (Platform.OS === 'web') {
-    return fromEnv || 'http://127.0.0.1:8000/api';
-  }
-
-  const metroHost = hostFromMetro();
-  if (metroHost && (!fromEnv || isLocalApiUrl(fromEnv))) {
-    return `http://${metroHost}:8000/api`;
-  }
-
-  if (fromEnv) return fromEnv;
-  if (Platform.OS === 'android') return 'http://10.0.2.2:8000/api';
-  return PRODUCTION_API_URL;
+  // Dev uniquement — module séparé pour éviter le HTTP dans le bundle prod
+  // eslint-disable-next-line global-require, import/no-dynamic-require
+  const { resolveLocalApiBaseUrl } = require('./api.local');
+  return resolveLocalApiBaseUrl(fromEnv, {
+    hostFromMetro,
+    isLocalApiUrl,
+    productionUrl: PRODUCTION_API_URL,
+  });
 }
 
 const resolvedApiBaseUrl = resolveApiBaseUrl();
@@ -83,6 +80,8 @@ export const API_ENDPOINTS = {
     REGISTER: `${API_BASE_URL}/accounts/register/`,
     REFRESH: `${API_BASE_URL}/accounts/token/refresh/`,
     LOGOUT: `${API_BASE_URL}/accounts/logout/`,
+    LOGOUT_ALL: `${API_BASE_URL}/accounts/logout-all/`,
+    DELETE_ACCOUNT: `${API_BASE_URL}/accounts/delete-account/`,
     PASSWORD_RESET: `${API_BASE_URL}/accounts/password-reset/`,
     PASSWORD_RESET_CONFIRM: `${API_BASE_URL}/accounts/password-reset/confirm/`,
     PUSH_TOKEN: `${API_BASE_URL}/accounts/push-token/`,

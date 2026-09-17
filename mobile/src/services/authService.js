@@ -1,15 +1,15 @@
 import apiClient from './apiClient';
 import { API_ENDPOINTS } from '../config/api';
-import { sanitizeErrorMessage } from '../utils/secureError';
+import { isNetworkError, NETWORK_USER_MSG, sanitizeErrorMessage } from '../utils/secureError';
 import { clearSession, getRefreshToken, saveSession } from './tokenStorage';
 
 function extractErrorMessage(errOrData, fallback) {
   if (errOrData && typeof errOrData === 'object' && errOrData.isAxiosError) {
+    if (isNetworkError(errOrData)) {
+      return NETWORK_USER_MSG;
+    }
     if (!errOrData.response) {
-      return sanitizeErrorMessage(
-        errOrData.message,
-        'Connexion impossible. Vérifiez votre réseau et réessayez.'
-      );
+      return sanitizeErrorMessage(errOrData.message, NETWORK_USER_MSG);
     }
     return extractErrorMessage(errOrData.response.data, fallback);
   }
@@ -29,6 +29,19 @@ function extractErrorMessage(errOrData, fallback) {
     .join(' | ');
 
   return sanitizeErrorMessage(fieldErrors, fallback);
+}
+
+/** Mappe les erreurs DRF champ → { field: message } pour validation inline. */
+function extractFieldErrors(err) {
+  const data = err?.isAxiosError ? err.response?.data : err;
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
+  const out = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (key === 'detail' || key === 'non_field_errors' || key === 'message') continue;
+    if (Array.isArray(value)) out[key] = value.join(', ');
+    else if (typeof value === 'string') out[key] = value;
+  }
+  return out;
 }
 
 export async function login(email, password) {
@@ -68,14 +81,48 @@ export async function fetchMe() {
 export async function logout() {
   try {
     const refresh = await getRefreshToken();
+    let pushToken = null;
+    try {
+      const { getStoredPushToken } = require('./pushNotifications');
+      pushToken = await getStoredPushToken();
+    } catch {
+      /* ignore */
+    }
     if (refresh) {
-      await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, { refresh });
+      await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT, {
+        refresh,
+        ...(pushToken ? { push_token: pushToken } : {}),
+      });
     }
   } catch {
     // ignore
   } finally {
     await clearSession();
   }
+}
+
+/** Révoque toutes les sessions JWT + tokens push côté serveur. */
+export async function logoutAll() {
+  try {
+    const refresh = await getRefreshToken();
+    await apiClient.post(API_ENDPOINTS.AUTH.LOGOUT_ALL, {
+      ...(refresh ? { refresh } : {}),
+    });
+  } catch {
+    // ignore — on nettoie quand même le local
+  } finally {
+    await clearSession();
+  }
+}
+
+/** Anonymise / désactive le compte (confirmation: SUPPRIMER). */
+export async function deleteAccount() {
+  const refresh = await getRefreshToken();
+  await apiClient.post(API_ENDPOINTS.AUTH.DELETE_ACCOUNT, {
+    confirmation: 'SUPPRIMER',
+    ...(refresh ? { refresh } : {}),
+  });
+  await clearSession();
 }
 
 export async function requestPasswordReset(email) {
@@ -113,4 +160,4 @@ export async function unregisterPushToken(token) {
   return null;
 }
 
-export { extractErrorMessage };
+export { extractErrorMessage, extractFieldErrors, isNetworkError };

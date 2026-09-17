@@ -1,9 +1,11 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -15,11 +17,12 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
-import { EmptyState, ErrorBanner, LoadingBlock, Screen } from '../../components/ui';
+import { EmptyState, ErrorBanner, LoadingBlock } from '../../components/ui';
 import { colors, radii, spacing } from '../../config/theme';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAppData } from '../../contexts/AppDataContext';
@@ -42,6 +45,17 @@ import {
   messageTimeLabel,
   withDaySeparators,
 } from '../../utils/messageThreads';
+import { LIST_PERF } from '../../utils/listPerf';
+
+function keyboardOverlapHeight(e) {
+  const coords = e?.endCoordinates;
+  if (!coords) return 0;
+  const screenH = Dimensions.get('screen').height;
+  const fromScreen = Math.max(0, screenH - (coords.screenY || 0));
+  const reported = Math.max(0, coords.height || 0);
+  // Samsung / Android 14+ : prendre le max pour éviter une hauteur sous-estimée
+  return Math.max(reported, fromScreen);
+}
 
 function pickFileName(uri, fallback = 'fichier') {
   if (!uri) return fallback;
@@ -115,8 +129,10 @@ function MessageAttachment({ item, mine }) {
 export default function MessageThreadScreen({ route }) {
   const { transactionId, partnerName, collabTitle } = route.params || {};
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
   const listRef = useRef(null);
   const hasLoaded = useRef(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const { user, type_utilisateur } = useAuth();
   const { refreshAppData } = useAppData();
   const role = type_utilisateur === 'fournisseur' ? 'fournisseur' : 'client';
@@ -191,6 +207,20 @@ export default function MessageThreadScreen({ route }) {
     }, [load])
   );
 
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(keyboardOverlapHeight(e));
+      setTimeout(() => scrollToBottom(true), 100);
+    });
+    const onHide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+  }, [scrollToBottom]);
+
   const headerTitle =
     collabTitle ||
     (tx ? pickTransactionTitle(tx, role) : null) ||
@@ -235,6 +265,19 @@ export default function MessageThreadScreen({ route }) {
     setPickedAttachment(normalizeAttachment(result.assets[0], 'photo.jpg'));
   };
 
+  const takePhoto = async () => {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission refusée', "Autorisez l'accès à la caméra dans les réglages.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    setPickedAttachment(normalizeAttachment(result.assets[0], 'camera.jpg'));
+  };
+
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       copyToCacheDirectory: true,
@@ -247,7 +290,8 @@ export default function MessageThreadScreen({ route }) {
   const showAttachMenu = () => {
     hapticLight();
     Alert.alert('Pièce jointe', 'Choisir une source', [
-      { text: 'Photo', onPress: pickPhoto },
+      { text: 'Caméra', onPress: takePhoto },
+      { text: 'Galerie', onPress: pickPhoto },
       { text: 'Document', onPress: pickDocument },
       { text: 'Annuler', style: 'cancel' },
     ]);
@@ -305,124 +349,149 @@ export default function MessageThreadScreen({ route }) {
     }
   };
 
+  const keyboardOpen = keyboardHeight > 0;
+  const composerBottomPad = keyboardOpen ? spacing.sm : Math.max(insets.bottom, 8);
+  // Samsung : spacer sous le champ (= hauteur clavier). Toujours actif sur Android.
+  const androidSpacer = Platform.OS === 'android' ? keyboardHeight : 0;
+
   return (
-    <Screen style={{ flex: 1 }} edges={['left', 'right']}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <View style={[styles.header, { paddingTop: spacing.sm }]}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{headerTitle}</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>{headerPartner}</Text>
-        </View>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={headerHeight || 0}
+    >
+      <View style={[styles.header, { paddingTop: spacing.sm }]}>
+        <Text style={styles.headerTitle} numberOfLines={1}>{headerTitle}</Text>
+        <Text style={styles.headerSub} numberOfLines={1}>{headerPartner}</Text>
+      </View>
 
-        <ErrorBanner message={error} />
+      <ErrorBanner message={error} />
 
-        {loading && messages.length === 0 ? (
+      {loading && messages.length === 0 ? (
+        <View style={styles.listFlex}>
           <LoadingBlock />
-        ) : (
-          <FlatList
-            ref={listRef}
-            data={listRows}
-            keyExtractor={(i) => i.id}
-            contentContainerStyle={styles.list}
-            onContentSizeChange={() => scrollToBottom(false)}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={() => load('refresh')}
-                tintColor={colors.primary}
-              />
-            }
-            renderItem={({ item: row }) => {
-              if (row.type === 'day') {
-                return (
-                  <View style={styles.daySep}>
-                    <View style={styles.dayLine} />
-                    <Text style={styles.dayLabel}>{row.label}</Text>
-                    <View style={styles.dayLine} />
-                  </View>
-                );
-              }
-              const item = row.message;
-              const mine =
-                getUserId(item.expediteur) === user?.id ||
-                item.expediteur_id === user?.id;
-              const hasText = Boolean(item.contenu?.trim());
+        </View>
+      ) : (
+        <FlatList
+          ref={listRef}
+          style={styles.listFlex}
+          data={listRows}
+          keyExtractor={(i) => i.id}
+          initialNumToRender={LIST_PERF.initialNumToRender}
+          maxToRenderPerBatch={LIST_PERF.maxToRenderPerBatch}
+          windowSize={LIST_PERF.windowSize}
+          contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          onContentSizeChange={() => scrollToBottom(false)}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => load('refresh')}
+              tintColor={colors.primary}
+            />
+          }
+          renderItem={({ item: row }) => {
+            if (row.type === 'day') {
               return (
-                <View style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}>
-                  {!mine ? (
-                    <Text style={styles.senderName}>{item.expediteur_nom || 'Contact'}</Text>
-                  ) : null}
-                  {(hasText || item.piece_jointe_url || item._pending) ? (
-                    <View style={[styles.bubble, mine ? styles.mine : styles.theirs, item._pending && styles.pending]}>
-                      {hasText ? (
-                        <Text style={[styles.bubbleText, mine && styles.mineText]}>{item.contenu}</Text>
-                      ) : null}
-                      <MessageAttachment item={item} mine={mine} />
-                      {item._pending ? (
-                        <ActivityIndicator
-                          size="small"
-                          color={mine ? '#fff' : colors.primary}
-                          style={{ marginTop: 4, alignSelf: mine ? 'flex-end' : 'flex-start' }}
-                        />
-                      ) : null}
-                    </View>
-                  ) : null}
-                  {!item._pending ? (
-                    <Text style={[styles.time, mine && styles.timeMine]}>
-                      {messageTimeLabel(item.created_at)}
-                    </Text>
-                  ) : null}
+                <View style={styles.daySep}>
+                  <View style={styles.dayLine} />
+                  <Text style={styles.dayLabel}>{row.label}</Text>
+                  <View style={styles.dayLine} />
                 </View>
               );
-            }}
-            ListEmptyComponent={
-              <EmptyState
-                icon="chatbubble-outline"
-                title="Aucun message"
-                subtitle="Envoyez le premier message pour démarrer la conversation."
-              />
             }
-          />
-        )}
-
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-          {attachment ? (
-            <AttachmentPreview attachment={attachment} onClear={() => setAttachment(null)} />
-          ) : null}
-          <View style={styles.composerRow}>
-            <Pressable onPress={showAttachMenu} style={styles.attachBtn} disabled={sending}>
-              <Ionicons name="attach" size={22} color={colors.primary} />
-            </Pressable>
-            <TextInput
-              style={styles.input}
-              value={text}
-              onChangeText={setText}
-              placeholder="Écrire un message…"
-              placeholderTextColor={colors.textMuted}
-              multiline
+            const item = row.message;
+            const mine =
+              getUserId(item.expediteur) === user?.id ||
+              item.expediteur_id === user?.id;
+            const hasText = Boolean(item.contenu?.trim());
+            return (
+              <View style={[styles.bubbleWrap, mine ? styles.wrapMine : styles.wrapTheirs]}>
+                {!mine ? (
+                  <Text style={styles.senderName}>{item.expediteur_nom || 'Contact'}</Text>
+                ) : null}
+                {(hasText || item.piece_jointe_url || item._pending) ? (
+                  <View style={[styles.bubble, mine ? styles.mine : styles.theirs, item._pending && styles.pending]}>
+                    {hasText ? (
+                      <Text style={[styles.bubbleText, mine && styles.mineText]}>{item.contenu}</Text>
+                    ) : null}
+                    <MessageAttachment item={item} mine={mine} />
+                    {item._pending ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={mine ? '#fff' : colors.primary}
+                        style={{ marginTop: 4, alignSelf: mine ? 'flex-end' : 'flex-start' }}
+                      />
+                    ) : null}
+                  </View>
+                ) : null}
+                {!item._pending ? (
+                  <Text style={[styles.time, mine && styles.timeMine]}>
+                    {messageTimeLabel(item.created_at)}
+                  </Text>
+                ) : null}
+              </View>
+            );
+          }}
+          ListEmptyComponent={
+            <EmptyState
+              icon="chatbubble-outline"
+              title="Aucun message"
+              subtitle="Envoyez le premier message pour démarrer la conversation."
             />
-            <Pressable
-              onPress={onSend}
-              disabled={sending || !canSend}
-              style={[styles.send, (sending || !canSend) && { opacity: 0.5 }]}
-            >
-              {sending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="send" size={20} color="#fff" />
-              )}
-            </Pressable>
-          </View>
+          }
+        />
+      )}
+
+      <View style={[styles.composer, { paddingBottom: composerBottomPad }]}>
+        {attachment ? (
+          <AttachmentPreview attachment={attachment} onClear={() => setAttachment(null)} />
+        ) : null}
+        <View style={styles.composerRow}>
+          <Pressable onPress={showAttachMenu} style={styles.attachBtn} disabled={sending}>
+            <Ionicons name="attach" size={22} color={colors.primary} />
+          </Pressable>
+          <TextInput
+            style={styles.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="Écrire un message…"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            textAlignVertical="center"
+            blurOnSubmit={false}
+            showSoftInputOnFocus
+            onFocus={() => setTimeout(() => scrollToBottom(true), 150)}
+          />
+          <Pressable
+            onPress={onSend}
+            disabled={sending || !canSend}
+            style={[styles.send, (sending || !canSend) && { opacity: 0.5 }]}
+          >
+            {sending ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Ionicons name="send" size={20} color="#fff" />
+            )}
+          </Pressable>
         </View>
-      </KeyboardAvoidingView>
-    </Screen>
+      </View>
+
+      {/* Pousse le composer au-dessus du clavier (Android / Samsung) */}
+      {androidSpacer > 0 ? <View style={{ height: androidSpacer }} /> : null}
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  listFlex: {
+    flex: 1,
+  },
   header: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
@@ -479,14 +548,18 @@ const styles = StyleSheet.create({
   attachBtn: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
   input: {
     flex: 1,
-    maxHeight: 100,
+    minHeight: 48,
+    maxHeight: 120,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.md,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: colors.text,
+    paddingTop: 12,
+    paddingBottom: 12,
+    fontSize: 16,
+    lineHeight: 22,
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
   send: {
     width: 44,

@@ -31,6 +31,7 @@ export default function BesoinCreateScreen({ navigation }) {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [fieldErrors, setFieldErrors] = useState({});
   const [form, setForm] = useState({
     categorie: null,
     intitule: '',
@@ -55,33 +56,34 @@ export default function BesoinCreateScreen({ navigation }) {
           }));
         }
       })
-      .catch(() => setError('Impossible de charger les catégories'));
+      .catch(() => setError(extractErrorMessage(null, 'Impossible de charger les catégories')));
   }, []);
 
-  const set = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
+  const set = (k, v) => {
+    setForm((prev) => ({ ...prev, [k]: v }));
+    if (fieldErrors[k]) setFieldErrors((prev) => ({ ...prev, [k]: null }));
+  };
 
   const validateStep = () => {
     setError(null);
+    const next = {};
     if (step === 0 && !form.categorie) {
       setError('Choisissez une catégorie.');
       return false;
     }
     if (step === 1) {
-      if (!form.intitule.trim()) {
-        setError('L’intitulé est requis.');
-        return false;
-      }
+      if (!form.intitule.trim()) next.intitule = 'L’intitulé est requis';
       if (!form.description.trim() || form.description.trim().length < 10) {
-        setError('Décrivez votre besoin (au moins 10 caractères).');
-        return false;
+        next.description = 'Au moins 10 caractères';
       }
-      if (!location.ville?.trim()) {
-        setError('Choisissez une ville d’intervention.');
-        return false;
-      }
+      if (!location.ville?.trim()) next.lieu = 'Choisissez une ville d’intervention';
     }
-    if (step === 2 && form.mode_budget === 'budget_fixe' && !form.budget) {
-      setError('Indiquez un montant ou choisissez « Sur devis ».');
+    if (step === 2 && form.mode_budget === 'budget_fixe' && !String(form.budget).trim()) {
+      next.budget = 'Indiquez un montant ou choisissez « Sur devis »';
+    }
+    setFieldErrors(next);
+    if (Object.keys(next).length > 0) {
+      setError(next.lieu || 'Complétez les champs marqués.');
       return false;
     }
     return true;
@@ -100,6 +102,7 @@ export default function BesoinCreateScreen({ navigation }) {
       return;
     }
     setError(null);
+    setFieldErrors({});
     setStep((s) => s - 1);
   };
 
@@ -190,6 +193,7 @@ export default function BesoinCreateScreen({ navigation }) {
             label="Intitulé"
             value={form.intitule}
             onChangeText={(v) => set('intitule', v)}
+            error={fieldErrors.intitule}
             autoCapitalize="sentences"
             placeholder="Ex. Réparation climatisation bureau"
           />
@@ -197,6 +201,7 @@ export default function BesoinCreateScreen({ navigation }) {
             label="Description"
             value={form.description}
             onChangeText={(v) => set('description', v)}
+            error={fieldErrors.description}
             multiline
             autoCapitalize="sentences"
             placeholder="Décrivez le contexte, les contraintes, le délai souhaité…"
@@ -206,6 +211,7 @@ export default function BesoinCreateScreen({ navigation }) {
             onChange={(next) => {
               setLocation(next);
               set('lieu_intervention', next.label || '');
+              if (fieldErrors.lieu) setFieldErrors((p) => ({ ...p, lieu: null }));
             }}
           />
           <Text style={styles.label}>Urgence</Text>
@@ -242,6 +248,7 @@ export default function BesoinCreateScreen({ navigation }) {
               label="Montant (FCFA)"
               value={form.budget}
               onChangeText={(v) => set('budget', v)}
+              error={fieldErrors.budget}
               keyboardType="numeric"
               placeholder="Ex. 150000"
             />

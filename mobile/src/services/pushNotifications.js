@@ -1,5 +1,4 @@
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -7,7 +6,7 @@ import { registerPushToken, unregisterPushToken } from './authService';
 
 const PUSH_TOKEN_KEY = 'expo_push_token';
 
-/** Expo Go (SDK 53+) : pas de push distantes. */
+/** Expo Go (SDK 53+) : pas de push distantes — éviter d’importer le module natif. */
 export function isExpoGo() {
   return Constants.appOwnership === 'expo';
 }
@@ -17,13 +16,40 @@ export function canUseRemotePush() {
   return !isExpoGo() && Device.isDevice;
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+/** Local + remote : hors Expo Go uniquement (évite ERROR / WARN Metro). */
+export function canUseNotifications() {
+  return !isExpoGo() && Device.isDevice;
+}
+
+let Notifications = null;
+let handlerReady = false;
+
+function getNotifications() {
+  if (isExpoGo()) return null;
+  if (!Notifications) {
+    // Chargement différé : en Expo Go on n’importe jamais le module (plus d’ERROR SDK 53+).
+    // eslint-disable-next-line global-require
+    Notifications = require('expo-notifications');
+  }
+  return Notifications;
+}
+
+function ensureHandler() {
+  const N = getNotifications();
+  if (!N || handlerReady) return;
+  try {
+    N.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+    handlerReady = true;
+  } catch {
+    /* ignore */
+  }
+}
 
 function resolveProjectId() {
   return (
@@ -43,20 +69,23 @@ export async function getStoredPushToken() {
 }
 
 /**
- * Prépare les notifications.
- * - Expo Go : permissions + canal Android seulement (locales OK).
- * - APK / dev build : token Expo Push si projectId EAS présent.
+ * Prépare les notifications (permissions + canal + token Expo Push).
+ * No-op silencieux dans Expo Go.
  */
 export async function initPushNotifications() {
-  if (!Device.isDevice) {
+  if (!canUseNotifications()) {
     return null;
   }
 
+  const N = getNotifications();
+  if (!N) return null;
+  ensureHandler();
+
   try {
-    const { status: existing } = await Notifications.getPermissionsAsync();
+    const { status: existing } = await N.getPermissionsAsync();
     let finalStatus = existing;
     if (existing !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await N.requestPermissionsAsync();
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
@@ -64,9 +93,9 @@ export async function initPushNotifications() {
     }
 
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('messages', {
+      await N.setNotificationChannelAsync('messages', {
         name: 'Messages',
-        importance: Notifications.AndroidImportance.DEFAULT,
+        importance: N.AndroidImportance.DEFAULT,
         vibrationPattern: [0, 250, 250, 250],
       });
     }
@@ -84,7 +113,7 @@ export async function initPushNotifications() {
   }
 
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    const tokenData = await N.getExpoPushTokenAsync({ projectId });
     await SecureStore.setItemAsync(PUSH_TOKEN_KEY, tokenData.data);
     return tokenData.data;
   } catch {
@@ -115,8 +144,14 @@ export async function clearPushTokenOnLogout() {
 }
 
 export async function scheduleLocalNotification({ title, body, data = {} }) {
+  if (!canUseNotifications()) {
+    return;
+  }
+  const N = getNotifications();
+  if (!N) return;
+  ensureHandler();
   try {
-    await Notifications.scheduleNotificationAsync({
+    await N.scheduleNotificationAsync({
       content: {
         title,
         body,
@@ -132,4 +167,11 @@ export async function scheduleLocalNotification({ title, body, data = {} }) {
 
 export function getNotificationData(response) {
   return response?.notification?.request?.content?.data || {};
+}
+
+/** Accès lazy pour les listeners (handler push). */
+export function getNotificationsModule() {
+  if (!canUseNotifications()) return null;
+  ensureHandler();
+  return getNotifications();
 }

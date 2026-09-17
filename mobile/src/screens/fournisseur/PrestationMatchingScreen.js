@@ -16,6 +16,7 @@ import { fetchPrestation, fetchTransactions, findMatchesForPrestation } from '..
 import { extractErrorMessage } from '../../services/authService';
 import { formatMoney, pickTitle } from '../../utils/format';
 import { hapticLight } from '../../utils/haptics';
+import { LIST_PERF } from '../../utils/listPerf';
 
 function normalizeMatches(payload) {
   if (!payload) return [];
@@ -180,6 +181,7 @@ export default function PrestationMatchingScreen({ route, navigation }) {
         <FlatList
           data={matches}
           keyExtractor={(item, index) => String(item.besoin_id || item.id || index)}
+          {...LIST_PERF}
           ListHeaderComponent={listHeader}
           contentContainerStyle={styles.listPad}
           ListEmptyComponent={

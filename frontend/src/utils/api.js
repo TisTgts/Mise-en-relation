@@ -24,6 +24,7 @@ class ApiClient {
     const config = {
       headers: {
         'Content-Type': 'application/json',
+        'X-Client-App': 'toghinis-web',
         ...options.headers,
       },
       ...options,

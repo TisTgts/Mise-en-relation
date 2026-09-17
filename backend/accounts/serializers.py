@@ -212,6 +212,46 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['first_name', 'last_name', 'telephone', 'photo_profil']
 
+
+class PublicUserBriefSerializer(serializers.ModelSerializer):
+    """Utilisateur public : pas d'email ni de téléphone."""
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name',
+            'type_utilisateur', 'photo_profil', 'est_verifie',
+        ]
+
+
+class PublicProfileFournisseurSerializer(serializers.ModelSerializer):
+    """Profil fournisseur public (listes marketing / matching)."""
+    user = PublicUserBriefSerializer(read_only=True)
+
+    class Meta:
+        model = ProfileFournisseur
+        fields = [
+            'user', 'raison_sociale', 'types_services_offerts', 'zones_couverture',
+            'annees_experience', 'certifications', 'assurance_valide',
+            'note_moyenne', 'services_effectues', 'disponibilites', 'tarif_horaire',
+            'emplacement', 'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
+
+class PublicProfileClientSerializer(serializers.ModelSerializer):
+    """Profil client public restreint."""
+    user = PublicUserBriefSerializer(read_only=True)
+
+    class Meta:
+        model = ProfileClient
+        fields = [
+            'user', 'raison_sociale', 'secteur_activite', 'taille_entreprise',
+            'besoins_services', 'frequence_besoins', 'emplacement',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = fields
+
 # Alias pour compatibilité (ancien vocabulaire « prestataire » = fournisseur de services)
 ProviderProfileSerializer = ProfileFournisseurSerializer
 ClientProviderProfileSerializer = ProfileClientSerializer

@@ -577,13 +577,11 @@ class MessageListCreateView(generics.ListCreateAPIView):
         message = serializer.save(expediteur=self.request.user, lu=False)
         try:
             from accounts.push import send_expo_push
-            preview = (message.contenu or message.sujet or 'Nouveau message').strip()
-            if len(preview) > 120:
-                preview = preview[:117] + '…'
+            # Corps générique : ne jamais envoyer le contenu du message en push
             send_expo_push(
                 message.destinataire_id,
                 title='Nouveau message',
-                body=preview,
+                body='Vous avez reçu un nouveau message.',
                 data={
                     'screen': 'MessageThread',
                     'transactionId': message.transaction_id,

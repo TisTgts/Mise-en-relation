@@ -351,7 +351,7 @@ class MessageSerializer(serializers.ModelSerializer):
     destinataire_nom = serializers.CharField(source='destinataire.username', read_only=True)
     piece_jointe_url = serializers.SerializerMethodField()
     piece_jointe_nom = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = Message
         fields = [
@@ -361,6 +361,32 @@ class MessageSerializer(serializers.ModelSerializer):
             'lu', 'created_at'
         ]
         read_only_fields = ['id', 'expediteur', 'lu', 'created_at']
+
+    def validate_piece_jointe(self, value):
+        from .attachment_validation import validate_uploaded_attachment
+        error = validate_uploaded_attachment(value)
+        if error:
+            raise serializers.ValidationError(error)
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        transaction = attrs.get('transaction')
+        destinataire = attrs.get('destinataire')
+
+        if transaction is not None and user and user.is_authenticated:
+            parties = {transaction.client_id, transaction.fournisseur_id}
+            if user.id not in parties and not getattr(user, 'is_admin_type', False):
+                raise serializers.ValidationError(
+                    {'transaction': 'Vous ne participez pas à cette collaboration.'}
+                )
+            if destinataire is not None and destinataire.id not in parties:
+                raise serializers.ValidationError(
+                    {'destinataire': 'Le destinataire doit être un participant de la collaboration.'}
+                )
+
+        return attrs
 
     def get_piece_jointe_url(self, obj):
         if not obj.piece_jointe:
