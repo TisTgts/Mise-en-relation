@@ -156,11 +156,11 @@ nano /var/www/plateforme/backend/.env
 Exemple (avant HTTPS, gardez `http://` dans CORS) :
 
 ```env
-SECRET_KEY=qhEZ6PRBQA3BtQuUitvKOiae1kccfcd9tEfJokgk_MX1rCLW2BxIUtWTj_g12YwoFTQ
+SECRET_KEY=COLLEZ_ICI_UNE_CLE_ALEATOIRE
 DEBUG=False
 ALLOWED_HOSTS=144.217.82.132,toghinis.net,www.toghinis.net
 
-DATABASE_URL=postgres://tis:tis&db$26@localhost:5432/plateforme_db
+DATABASE_URL=postgres://tis:MOT_DE_PASSE_BDD@localhost:5432/plateforme_db
 
 CORS_ALLOWED_ORIGINS=http://144.217.82.132,http://toghinis.net,http://www.toghinis.net
 CORS_ALLOW_ALL_ORIGINS=False

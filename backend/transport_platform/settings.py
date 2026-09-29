@@ -36,10 +36,19 @@ SECRET_KEY = env("SECRET_KEY", default=_INSECURE_SECRET_KEY)
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
-if not DEBUG and SECRET_KEY == _INSECURE_SECRET_KEY:
+# Valeurs publiques (code, .env.example, guides) : jamais acceptables en production.
+_PLACEHOLDER_SECRET_KEYS = {
+    _INSECURE_SECRET_KEY,
+    "generer-avec-python-secrets-token_urlsafe",
+    "COLLEZ_ICI_UNE_CLE_ALEATOIRE",
+}
+if not DEBUG and SECRET_KEY in _PLACEHOLDER_SECRET_KEYS:
     from django.core.exceptions import ImproperlyConfigured
 
-    raise ImproperlyConfigured("SECRET_KEY doit être défini dans l'environnement en production.")
+    raise ImproperlyConfigured(
+        "SECRET_KEY doit être une vraie clé aléatoire en production "
+        "(python3 -c \"import secrets; print(secrets.token_urlsafe(50))\")."
+    )
 
 # Sous /api/ : nginx transmet déjà ce préfixe à Django, et /admin/ reste aux pages React.
 DJANGO_ADMIN_URL = env("DJANGO_ADMIN_URL", default="api/gestion-django/").strip("/") + "/"
