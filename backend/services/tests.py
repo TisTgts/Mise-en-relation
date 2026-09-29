@@ -9,7 +9,13 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import ProfileClient, ProfileFournisseur
+from services.besoin_fields import (
+    fields_for_category,
+    required_fields_for_besoin_category,
+    service_types_for_category,
+)
 from services.models import Besoin, CategorieService, Prestation, TransactionService
+from services.prestation_fields import prestation_fields_for_category
 
 
 User = get_user_model()
@@ -157,7 +163,7 @@ class ServicesApiTests(TestCase):
         payload = self._payload_besoin()
         payload["categorie"] = cat_it.id
         payload["type_service"] = "Développement logiciel"
-        payload["exigences"] = {"contexte_technique": "ERP interne"}  # stack_souhaitee manquante
+        payload["exigences"] = {"structure": "Boutique / commerce"}  # objectif manquant
 
         response = self.client_api.post(
             reverse("besoin-list-create"),
@@ -174,8 +180,8 @@ class ServicesApiTests(TestCase):
         payload["categorie"] = cat_it.id
         payload["type_service"] = "Développement logiciel"
         payload["exigences"] = {
-            "contexte_technique": "ERP interne",
-            "stack_souhaitee": "Django + React",
+            "structure": "Boutique / commerce",
+            "objectif": "Suivre mes ventes et mon stock",
         }
 
         response = self.client_api.post(
@@ -184,6 +190,31 @@ class ServicesApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        besoin_id = response.data["id"]
+        detail = self.client_api.get(reverse("besoin-detail", args=[besoin_id]))
+        labels = {item["key"]: item["label"] for item in detail.data["exigences_detail"]}
+        self.assertEqual(labels["objectif"], "Qu'est-ce que vous voulez obtenir ?")
+
+    def test_modification_besoin_ancien_format_sans_toucher_exigences(self):
+        cat_it = CategorieService.objects.create(nom="Informatique & Digital")
+        besoin = Besoin.objects.create(
+            client=self.client_user,
+            categorie=cat_it,
+            intitule="Ancien besoin",
+            description="Créé avec les anciennes questions",
+            type_service="Développement logiciel",
+            exigences={"contexte_technique": "ERP interne", "stack_souhaitee": "Django"},
+            lieu_intervention="Lomé",
+            mode_budget="a_negocier",
+        )
+        self.client_api.force_authenticate(user=self.client_user)
+        response = self.client_api.patch(
+            reverse("besoin-detail", args=[besoin.id]),
+            {"intitule": "Ancien besoin renommé"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK, response.data)
 
     def test_creation_transaction_met_a_jour_statuts(self):
         prestation = Prestation.objects.create(
@@ -521,6 +552,229 @@ class ServicesApiTests(TestCase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+CATEGORIES_AVEC_QUESTIONS = [
+    "Transport & Logistique",
+    "Informatique & Digital",
+    "BTP & Travaux",
+    "Maintenance & Réparation",
+]
+CATEGORIES_SANS_QUESTIONS = [
+    "Nettoyage & Entretien",
+    "Services a domicile",
+    "Securite",
+]
+
+
+class CreationParCategorieTests(TestCase):
+    """Création de besoins et de prestations pour chaque catégorie de la plateforme."""
+
+    def setUp(self):
+        self.now = timezone.now()
+        self.api = APIClient()
+        self.client_user = User.objects.create_user(
+            username="client_cat",
+            email="client_cat@example.com",
+            password="TestPass123!!",
+            type_utilisateur="client",
+        )
+        self.categories = {
+            nom: CategorieService.objects.create(nom=nom)
+            for nom in CATEGORIES_AVEC_QUESTIONS + CATEGORIES_SANS_QUESTIONS
+        }
+
+    @staticmethod
+    def _answer(field):
+        if field["type"] == "select":
+            return field["options"][0]
+        return f"Réponse test pour {field['key']}"
+
+    def _exigences(self, nom, only_required=False):
+        return {
+            field["key"]: self._answer(field)
+            for field in fields_for_category(nom)
+            if field["required"] or not only_required
+        }
+
+    def _payload_besoin(self, nom, **overrides):
+        types = service_types_for_category(nom)
+        payload = {
+            "categorie": self.categories[nom].id,
+            "intitule": f"Besoin {nom}",
+            "description": f"Description du besoin {nom}",
+            "type_service": types[0] if types else nom,
+            "exigences": self._exigences(nom),
+            "lieu_intervention": "Lomé, Bè",
+            "date_souhaitee": (self.now + timedelta(days=1)).isoformat(),
+            "date_limite": (self.now + timedelta(days=7)).isoformat(),
+            "urgence": "normale",
+            "mode_budget": "budget_fixe",
+            "budget": "50000.00",
+        }
+        payload.update(overrides)
+        return payload
+
+    def _post_besoin(self, payload):
+        self.api.force_authenticate(user=self.client_user)
+        return self.api.post(reverse("besoin-list-create"), payload, format="json")
+
+    def _fournisseur_pour(self, nom, services):
+        user = User.objects.create_user(
+            username=f"fourn_{CategorieService.objects.get(nom=nom).id}",
+            email=f"fourn_{CategorieService.objects.get(nom=nom).id}@example.com",
+            password="TestPass123!!",
+            type_utilisateur="fournisseur",
+        )
+        ProfileFournisseur.objects.update_or_create(
+            user=user,
+            defaults={"types_services_offerts": services, "zones_couverture": ["Lomé"]},
+        )
+        return user
+
+    def _payload_prestation(self, nom, type_prestation):
+        return {
+            "categorie": self.categories[nom].id,
+            "intitule": f"{type_prestation} - offre test",
+            "description": f"Prestation {type_prestation} dans la catégorie {nom}",
+            "type_prestation": type_prestation,
+            "caracteristiques": {},
+            "zones_intervention": ["Lomé"],
+            "disponibilite_debut": (self.now + timedelta(hours=1)).isoformat(),
+            "disponibilite_fin": (self.now + timedelta(days=30)).isoformat(),
+            "mode_tarification": "forfait",
+            "tarif_min": "10000.00",
+            "tarif_max": "80000.00",
+        }
+
+    def test_chaque_categorie_configuree_expose_ses_questions(self):
+        response = self.api.get(reverse("category-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.data.get("results", response.data) if isinstance(response.data, dict) else response.data
+        par_nom = {item["nom"]: item for item in data}
+        for nom in CATEGORIES_AVEC_QUESTIONS:
+            with self.subTest(categorie=nom):
+                self.assertTrue(par_nom[nom]["champs_specifiques"])
+                self.assertTrue(par_nom[nom]["types_service_suggeres"])
+                self.assertTrue(required_fields_for_besoin_category(nom))
+        for nom in CATEGORIES_SANS_QUESTIONS:
+            with self.subTest(categorie=nom):
+                self.assertEqual(par_nom[nom]["champs_specifiques"], [])
+
+    def test_creation_besoin_complet_pour_chaque_categorie(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS + CATEGORIES_SANS_QUESTIONS:
+            with self.subTest(categorie=nom):
+                response = self._post_besoin(self._payload_besoin(nom))
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+                detail = self.api.get(reverse("besoin-detail", args=[response.data["id"]]))
+                self.assertEqual(detail.status_code, status.HTTP_200_OK)
+                labels = {item["key"]: item["label"] for item in detail.data["exigences_detail"]}
+                for field in fields_for_category(nom):
+                    self.assertEqual(labels.get(field["key"]), field["label"])
+
+    def test_creation_besoin_avec_seulement_les_questions_obligatoires(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS:
+            with self.subTest(categorie=nom):
+                payload = self._payload_besoin(nom, exigences=self._exigences(nom, only_required=True))
+                response = self._post_besoin(payload)
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_creation_besoin_pour_chaque_type_de_service_suggere(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS:
+            for type_service in service_types_for_category(nom):
+                with self.subTest(categorie=nom, type_service=type_service):
+                    response = self._post_besoin(self._payload_besoin(nom, type_service=type_service))
+                    self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_creation_besoin_sur_devis_pour_chaque_categorie(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS + CATEGORIES_SANS_QUESTIONS:
+            with self.subTest(categorie=nom):
+                payload = self._payload_besoin(nom, mode_budget="sur_devis", budget=None)
+                response = self._post_besoin(payload)
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_question_obligatoire_manquante_refusee_avec_message_clair(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS:
+            for field in fields_for_category(nom):
+                if not field["required"]:
+                    continue
+                with self.subTest(categorie=nom, champ=field["key"]):
+                    exigences = self._exigences(nom)
+                    exigences[field["key"]] = "   "
+                    response = self._post_besoin(self._payload_besoin(nom, exigences=exigences))
+                    self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+                    message = str(response.data["exigences"])
+                    self.assertIn("Merci de répondre à", message)
+                    self.assertIn(field["label"], message)
+
+    def test_creation_prestation_pour_chaque_type_de_service(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS:
+            types = service_types_for_category(nom)
+            fournisseur = self._fournisseur_pour(nom, types)
+            self.api.force_authenticate(user=fournisseur)
+            for type_prestation in types:
+                with self.subTest(categorie=nom, type_prestation=type_prestation):
+                    response = self.api.post(
+                        reverse("prestation-list-create"),
+                        self._payload_prestation(nom, type_prestation),
+                        format="json",
+                    )
+                    self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+    def test_chaque_categorie_expose_des_questions_fournisseur(self):
+        response = self.api.get(reverse("category-list"))
+        data = response.data.get("results", response.data) if isinstance(response.data, dict) else response.data
+        for item in data:
+            with self.subTest(categorie=item["nom"]):
+                self.assertTrue(item["champs_prestation"])
+
+    def test_prestation_precisions_affichees_avec_libelles(self):
+        for nom in CATEGORIES_AVEC_QUESTIONS + CATEGORIES_SANS_QUESTIONS:
+            with self.subTest(categorie=nom):
+                types = service_types_for_category(nom) or [nom]
+                fournisseur = self._fournisseur_pour(nom, types)
+                self.api.force_authenticate(user=fournisseur)
+                questions = prestation_fields_for_category(nom)
+                payload = self._payload_prestation(nom, types[0])
+                payload["caracteristiques"] = {q["key"]: self._answer(q) for q in questions}
+                payload["disponibilite_fin"] = None
+                response = self.api.post(reverse("prestation-list-create"), payload, format="json")
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
+
+                detail = self.api.get(reverse("prestation-detail", args=[response.data["id"]]))
+                labels = {item["key"]: item["label"] for item in detail.data["caracteristiques_detail"]}
+                for q in questions:
+                    self.assertEqual(labels.get(q["key"]), q["label"])
+
+    def test_prestation_dates_et_prix_incoherents_refuses(self):
+        nom = "BTP & Travaux"
+        fournisseur = self._fournisseur_pour(nom, ["Plomberie"])
+        self.api.force_authenticate(user=fournisseur)
+
+        payload = self._payload_prestation(nom, "Plomberie")
+        payload["disponibilite_fin"] = (self.now - timedelta(days=1)).isoformat()
+        response = self.api.post(reverse("prestation-list-create"), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("disponibilite_fin", response.data)
+
+        payload = self._payload_prestation(nom, "Plomberie")
+        payload["tarif_min"], payload["tarif_max"] = "90000.00", "10000.00"
+        response = self.api.post(reverse("prestation-list-create"), payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("tarif_max", response.data)
+
+    def test_creation_prestation_categories_sans_questions(self):
+        for nom in CATEGORIES_SANS_QUESTIONS:
+            with self.subTest(categorie=nom):
+                fournisseur = self._fournisseur_pour(nom, [nom])
+                self.api.force_authenticate(user=fournisseur)
+                response = self.api.post(
+                    reverse("prestation-list-create"),
+                    self._payload_prestation(nom, nom),
+                    format="json",
+                )
+                self.assertEqual(response.status_code, status.HTTP_201_CREATED, response.data)
 
 
 class AdminPremiumTests(TestCase):

@@ -8,6 +8,13 @@ import { deletePrestation, fetchPrestation } from '../../services/dataService';
 import { extractErrorMessage } from '../../services/authService';
 import { formatDate, formatMoney, pickTitle } from '../../utils/format';
 
+const TARIF_LABELS = {
+  devis: 'Sur devis',
+  forfait: 'Prix par travail',
+  fixe: 'Prix fixe',
+  horaire: "À l'heure",
+};
+
 function InfoRow({ icon, label, value }) {
   if (!value) return null;
   return (
@@ -22,7 +29,7 @@ function InfoRow({ icon, label, value }) {
 }
 
 export default function PrestationDetailScreen({ route, navigation }) {
-  const { id } = route.params;
+  const { id } = route.params || {};
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,6 +37,11 @@ export default function PrestationDetailScreen({ route, navigation }) {
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
+    if (!id) {
+      setError('Identifiant manquant');
+      setLoading(false);
+      return;
+    }
     try {
       setItem(await fetchPrestation(id));
     } catch (e) {
@@ -71,6 +83,7 @@ export default function PrestationDetailScreen({ route, navigation }) {
     return (
       <Screen style={{ padding: spacing.lg }}>
         <ErrorBanner message={error || 'Introuvable'} />
+        <Button title="Retour" onPress={() => navigation.goBack()} />
       </Screen>
     );
   }
@@ -79,10 +92,12 @@ export default function PrestationDetailScreen({ route, navigation }) {
   const zones = Array.isArray(item.zones_intervention)
     ? item.zones_intervention.join(', ')
     : null;
+  const tarifMode = TARIF_LABELS[item.mode_tarification] || item.mode_tarification;
   const tarif =
     item.mode_tarification === 'devis'
-      ? 'Sur devis'
-      : `${formatMoney(item.tarif_min)} – ${formatMoney(item.tarif_max)}`;
+      ? tarifMode
+      : `${tarifMode} · ${formatMoney(item.tarif_min)} – ${formatMoney(item.tarif_max)}`;
+  const precisions = Array.isArray(item.caracteristiques_detail) ? item.caracteristiques_detail : [];
 
   return (
     <Screen>
@@ -97,11 +112,22 @@ export default function PrestationDetailScreen({ route, navigation }) {
 
         <View style={styles.infoCard}>
           <InfoRow icon="grid-outline" label="Catégorie" value={category} />
-          <InfoRow icon="cash-outline" label="Tarification" value={`${item.mode_tarification} · ${tarif}`} />
+          {item.type_prestation && item.type_prestation !== category ? (
+            <InfoRow icon="construct-outline" label="Service" value={item.type_prestation} />
+          ) : null}
+          <InfoRow icon="cash-outline" label="Prix" value={tarif} />
           <InfoRow icon="location-outline" label="Zones" value={zones} />
           <InfoRow icon="calendar-outline" label="Créée le" value={formatDate(item.created_at)} />
           <InfoRow icon="time-outline" label="Mise à jour" value={formatDate(item.updated_at)} />
         </View>
+
+        {precisions.length > 0 ? (
+          <View style={styles.infoCard}>
+            {precisions.map((p) => (
+              <InfoRow key={p.key} icon="checkmark-circle-outline" label={p.label} value={String(p.value)} />
+            ))}
+          </View>
+        ) : null}
 
         <Button
           title="Besoins correspondants"

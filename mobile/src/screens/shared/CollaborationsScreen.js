@@ -245,7 +245,7 @@ export default function CollaborationsScreen({ navigation }) {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(i) => String(i.id)}
+          keyExtractor={(i, index) => String(i.id ?? `row-${index}`)}
           {...LIST_PERF}
           ListHeaderComponent={listHeader}
           refreshControl={
@@ -268,19 +268,31 @@ export default function CollaborationsScreen({ navigation }) {
                     : 'Ajustez vos filtres de recherche.'
               }
               actionLabel={
-                items.length === 0 && !error
-                  ? role === 'client'
-                    ? 'Publier un besoin'
-                    : 'Créer une prestation'
-                  : undefined
+                error
+                  ? 'Réessayer'
+                  : items.length === 0
+                    ? role === 'client'
+                      ? 'Publier un besoin'
+                      : 'Créer une prestation'
+                    : filter !== 'all' || searchTerm
+                      ? 'Réinitialiser les filtres'
+                      : undefined
               }
               onAction={
-                items.length === 0 && !error
-                  ? () =>
-                      navigation.navigate(
-                        role === 'client' ? 'BesoinCreate' : 'PrestationCreate'
-                      )
-                  : undefined
+                error
+                  ? retry
+                  : items.length === 0
+                    ? () =>
+                        navigation.navigate(
+                          role === 'client' ? 'BesoinCreate' : 'PrestationCreate'
+                        )
+                    : filter !== 'all' || searchTerm
+                      ? () => {
+                          setFilter('all');
+                          setSearchTerm('');
+                          setFiltersOpen(false);
+                        }
+                      : undefined
               }
             />
           }

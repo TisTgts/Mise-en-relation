@@ -1,6 +1,17 @@
 from rest_framework import serializers
 from .models import CategorieService, SousCategorieService, Prestation, Besoin, TransactionService, Message, Avis
-from .taxonomy import normalize_text, overlap_strength, required_fields_for_besoin_category, tokenize
+from .besoin_fields import (
+    fields_for_category,
+    label_for_key,
+    required_fields_for_besoin_category,
+    service_types_for_category,
+)
+from .prestation_fields import (
+    format_caracteristique_value,
+    prestation_fields_for_category,
+    prestation_label_for_key,
+)
+from .taxonomy import normalize_text, overlap_strength, tokenize
 
 
 def _provider_profile_tokens(user):
@@ -39,8 +50,8 @@ def _validate_prestation_profile_coherence(user, attrs):
         raise serializers.ValidationError(
             {
                 "type_prestation": (
-                    "Complétez d'abord votre profil fournisseur (types de services offerts) "
-                    "avant d'ajouter une prestation."
+                    "Complétez d'abord les types de services que vous proposez dans « Mon profil », "
+                    "puis revenez ajouter votre prestation."
                 )
             }
         )
@@ -50,10 +61,26 @@ def _validate_prestation_profile_coherence(user, attrs):
         raise serializers.ValidationError(
             {
                 "type_prestation": (
-                    "Cette prestation ne correspond pas à votre profil fournisseur. "
-                    "Choisissez une catégorie/type cohérent avec vos services offerts."
+                    "Cette prestation ne correspond pas aux services de votre profil. "
+                    "Choisissez un type proche de vos services, ou ajoutez ce service dans « Mon profil »."
                 )
             }
+        )
+    return attrs
+
+
+def _validate_prestation_dates_tarifs(attrs):
+    debut = attrs.get("disponibilite_debut")
+    fin = attrs.get("disponibilite_fin")
+    if debut and fin and fin < debut:
+        raise serializers.ValidationError(
+            {"disponibilite_fin": "La date de fin doit être après la date de début de disponibilité."}
+        )
+    tarif_min = attrs.get("tarif_min")
+    tarif_max = attrs.get("tarif_max")
+    if tarif_min is not None and tarif_max is not None and tarif_min > tarif_max:
+        raise serializers.ValidationError(
+            {"tarif_max": "Le prix maximum doit être supérieur ou égal au prix minimum."}
         )
     return attrs
 
@@ -83,8 +110,8 @@ def _validate_besoin_category_exigences(attrs):
         raise serializers.ValidationError(
             {
                 "exigences": (
-                    "Champs obligatoires manquants pour cette catégorie: "
-                    + ", ".join(missing)
+                    "Merci de répondre à : "
+                    + ", ".join(label_for_key(getattr(categorie, "nom", ""), key) for key in missing)
                 )
             }
         )
@@ -104,6 +131,9 @@ def _validate_besoin_budget_mode(attrs):
 class CategorieServiceSerializer(serializers.ModelSerializer):
     """Serializer pour les catégories de services"""
     sous_categories = serializers.SerializerMethodField()
+    champs_specifiques = serializers.SerializerMethodField()
+    types_service_suggeres = serializers.SerializerMethodField()
+    champs_prestation = serializers.SerializerMethodField()
 
     def get_sous_categories(self, obj):
         return [
@@ -111,10 +141,20 @@ class CategorieServiceSerializer(serializers.ModelSerializer):
             for sc in obj.sous_categories.filter(est_active=True).order_by("nom")
         ]
 
+    def get_champs_specifiques(self, obj):
+        return fields_for_category(obj.nom)
+
+    def get_types_service_suggeres(self, obj):
+        return service_types_for_category(obj.nom)
+
+    def get_champs_prestation(self, obj):
+        return prestation_fields_for_category(obj.nom)
+
     class Meta:
         model = CategorieService
         fields = [
-            'id', 'nom', 'description', 'est_active', 'created_at', 'sous_categories'
+            'id', 'nom', 'description', 'est_active', 'created_at', 'sous_categories',
+            'champs_specifiques', 'types_service_suggeres', 'champs_prestation',
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -138,13 +178,27 @@ class PrestationSerializer(serializers.ModelSerializer):
     )
     categorie_nom = serializers.CharField(source='categorie.nom', read_only=True)
     sous_categorie_nom = serializers.CharField(source='sous_categorie.nom', read_only=True)
-    
+    caracteristiques_detail = serializers.SerializerMethodField()
+
+    def get_caracteristiques_detail(self, obj):
+        caracteristiques = obj.caracteristiques if isinstance(obj.caracteristiques, dict) else {}
+        category_name = getattr(obj.categorie, "nom", "")
+        return [
+            {
+                "key": key,
+                "label": prestation_label_for_key(category_name, key),
+                "value": format_caracteristique_value(value),
+            }
+            for key, value in caracteristiques.items()
+            if value not in (None, "", [], {})
+        ]
+
     class Meta:
         model = Prestation
         fields = [
             'id', 'fournisseur', 'fournisseur_nom', 'fournisseur_note',
             'categorie', 'categorie_nom', 'sous_categorie', 'sous_categorie_nom', 'intitule', 'description',
-            'type_prestation', 'caracteristiques', 'zones_intervention',
+            'type_prestation', 'caracteristiques', 'caracteristiques_detail', 'zones_intervention',
             'disponibilite_debut', 'disponibilite_fin', 'mode_tarification',
             'tarif_min', 'tarif_max', 'statut', 'created_at', 'updated_at'
         ]
@@ -156,12 +210,14 @@ class PrestationCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Prestation
         fields = [
-            'categorie', 'intitule', 'description', 'type_prestation',
+            'id', 'categorie', 'intitule', 'description', 'type_prestation',
             'sous_categorie', 'caracteristiques', 'zones_intervention', 'disponibilite_debut',
-            'disponibilite_fin', 'mode_tarification', 'tarif_min', 'tarif_max'
+            'disponibilite_fin', 'mode_tarification', 'tarif_min', 'tarif_max', 'statut'
         ]
+        read_only_fields = ['id', 'statut']
 
     def validate(self, attrs):
+        _validate_prestation_dates_tarifs(attrs)
         return _validate_prestation_profile_coherence(self.context["request"].user, attrs)
     
     def create(self, validated_data):
@@ -184,6 +240,13 @@ class PrestationUpdateSerializer(serializers.ModelSerializer):
         # change réellement (et pas seulement parce que le champ est présent dans le payload).
         instance = self.instance
         should_validate_profile = False
+
+        _validate_prestation_dates_tarifs(
+            {
+                key: attrs.get(key, getattr(instance, key, None))
+                for key in ("disponibilite_debut", "disponibilite_fin", "tarif_min", "tarif_max")
+            }
+        )
 
         if instance is None:
             should_validate_profile = any(
@@ -216,12 +279,23 @@ class BesoinSerializer(serializers.ModelSerializer):
     client_email = serializers.CharField(source='client.email', read_only=True)
     categorie_nom = serializers.CharField(source='categorie.nom', read_only=True)
     sous_categorie_nom = serializers.CharField(source='sous_categorie.nom', read_only=True)
-    
+    exigences_detail = serializers.SerializerMethodField()
+
+    def get_exigences_detail(self, obj):
+        exigences = obj.exigences if isinstance(obj.exigences, dict) else {}
+        category_name = getattr(obj.categorie, "nom", "")
+        return [
+            {"key": key, "label": label_for_key(category_name, key), "value": value}
+            for key, value in exigences.items()
+            if value not in (None, "")
+        ]
+
     class Meta:
         model = Besoin
         fields = [
             'id', 'client', 'client_nom', 'client_id', 'client_email',
             'categorie', 'categorie_nom', 'sous_categorie', 'sous_categorie_nom', 'intitule', 'description', 'type_service', 'exigences',
+            'exigences_detail',
             'lieu_intervention', 'date_souhaitee', 'date_limite', 'urgence',
             'budget', 'mode_budget', 'flexible', 'statut', 'created_at', 'updated_at'
         ]
@@ -247,8 +321,12 @@ class BesoinUpdateSerializer(serializers.ModelSerializer):
             "budget": attrs.get("budget", instance.budget if instance else None),
         }
 
-        # N'imposer les exigences de catégorie que si les champs métier concernés changent.
-        if any(key in attrs for key in ("categorie", "sous_categorie", "type_service", "exigences")):
+        # N'imposer les exigences que si elles sont envoyées ou si la catégorie change réellement :
+        # les besoins créés avant une évolution des questions restent modifiables.
+        categorie_changed = (
+            "categorie" in attrs and instance is not None and attrs.get("categorie") != instance.categorie
+        )
+        if "exigences" in attrs or categorie_changed or instance is None:
             _validate_besoin_category_exigences(merged)
 
         # N'imposer la cohérence budget/mode que si la tarification est modifiée.
@@ -262,10 +340,11 @@ class BesoinCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Besoin
         fields = [
-            'categorie', 'intitule', 'description', 'type_service',
+            'id', 'categorie', 'intitule', 'description', 'type_service',
             'sous_categorie', 'exigences', 'lieu_intervention', 'date_souhaitee', 'date_limite',
-            'urgence', 'budget', 'mode_budget', 'flexible'
+            'urgence', 'budget', 'mode_budget', 'flexible', 'statut'
         ]
+        read_only_fields = ['id', 'statut']
 
     def validate(self, attrs):
         _validate_besoin_category_exigences(attrs)

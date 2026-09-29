@@ -62,13 +62,17 @@ function resolveApiBaseUrl() {
   }
 
   // Dev uniquement — module séparé pour éviter le HTTP dans le bundle prod
-  // eslint-disable-next-line global-require, import/no-dynamic-require
-  const { resolveLocalApiBaseUrl } = require('./api.local');
-  return resolveLocalApiBaseUrl(fromEnv, {
-    hostFromMetro,
-    isLocalApiUrl,
-    productionUrl: PRODUCTION_API_URL,
-  });
+  try {
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    const { resolveLocalApiBaseUrl } = require('./api.local');
+    return resolveLocalApiBaseUrl(fromEnv, {
+      hostFromMetro,
+      isLocalApiUrl,
+      productionUrl: PRODUCTION_API_URL,
+    });
+  } catch {
+    return fromEnv || PRODUCTION_API_URL;
+  }
 }
 
 const resolvedApiBaseUrl = resolveApiBaseUrl();

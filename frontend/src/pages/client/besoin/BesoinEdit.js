@@ -4,66 +4,6 @@ import { FiArrowLeft, FiSave, FiX } from 'react-icons/fi';
 import demandesService from '../../../services/demandesService';
 import categoriesService from '../../../services/categoriesService';
 
-const normalizeCategoryNameBesoinEdit = (value = '') =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/&/g, ' et ')
-    .replace(/[^a-zA-Z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .trim();
-
-const BESOIN_EDIT_CATEGORY_ALIASES = {
-  'transport logistique': 'transport et logistique',
-  'transport et logistique': 'transport et logistique',
-  'informatique digital': 'informatique et digital',
-  'informatique et digital': 'informatique et digital',
-  'btp travaux': 'btp et travaux',
-  'btp et travaux': 'btp et travaux',
-  'maintenance reparation': 'maintenance et reparation',
-  'maintenance et reparation': 'maintenance et reparation',
-};
-
-const BESOIN_EDIT_CATEGORY_CONFIGS = {
-    'transport et logistique': {
-      serviceTypes: ['Livraison urbaine', 'Transport interurbain', 'Déménagement', 'Messagerie', 'Stockage'],
-      specificFields: [
-        { key: 'type_marchandise', label: 'Type de marchandise' },
-        { key: 'volume_estime', label: 'Volume estimé' },
-        { key: 'distance_estimee_km', label: 'Distance estimée (km)', type: 'number' },
-        { key: 'date_depart_souhaitee', label: 'Date de départ souhaitée', type: 'date' }
-      ]
-    },
-    'informatique et digital': {
-      serviceTypes: ['Développement web', 'Développement logiciel', 'Support informatique', 'Maintenance IT', 'Cybersécurité'],
-      specificFields: [
-        { key: 'contexte_technique', label: 'Contexte technique' },
-        { key: 'stack_souhaitee', label: 'Stack souhaitée' },
-        { key: 'niveau_securite', label: 'Niveau de sécurité', options: ['Standard', 'Renforcé', 'Critique'] },
-        { key: 'support_requis', label: 'Support après livraison', options: ['Aucun', '1 mois', '3 mois', '6 mois'] }
-      ]
-    },
-    'btp et travaux': {
-      serviceTypes: ['Plomberie', 'Électricité', 'Maçonnerie', 'Peinture', 'Rénovation'],
-      specificFields: [
-        { key: 'surface_estimee_m2', label: 'Surface estimée (m²)', type: 'number' },
-        { key: 'materiaux_fournis_par', label: 'Matériaux fournis par', options: ['Client', 'Fournisseur', 'À définir'] },
-        { key: 'contraintes_site', label: 'Contraintes du site' },
-        { key: 'permis_autorisation', label: 'Permis / autorisation', options: ['Déjà disponible', 'À obtenir', 'Non requis'] }
-      ]
-    },
-    'maintenance et reparation': {
-      serviceTypes: ['Maintenance climatisation', 'Réparation électroménager', 'Maintenance préventive', 'Dépannage urgent', 'Contrat de maintenance'],
-      specificFields: [
-        { key: 'equipement_concerne', label: 'Équipement concerné' },
-        { key: 'marque_modele', label: 'Marque / modèle' },
-        { key: 'panne_constatee', label: 'Panne constatée' },
-        { key: 'frequence_intervention', label: 'Fréquence d’intervention', options: ['Ponctuelle', 'Mensuelle', 'Trimestrielle', 'Semestrielle'] }
-      ]
-    }
-};
-
 const BesoinEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -140,10 +80,14 @@ const BesoinEdit = () => {
   );
 
   const categoryConfig = useMemo(() => {
-    const normalized = normalizeCategoryNameBesoinEdit(selectedCategory?.nom || '');
-    const canonical = BESOIN_EDIT_CATEGORY_ALIASES[normalized] || normalized;
-    return BESOIN_EDIT_CATEGORY_CONFIGS[canonical] || null;
-  }, [selectedCategory]);
+    const specificFields = selectedCategory?.champs_specifiques || [];
+    const suggested = selectedCategory?.types_service_suggeres || [];
+    if (!specificFields.length && !suggested.length) return null;
+    const current = (formData.type_service || '').trim();
+    const serviceTypes =
+      current && current !== 'Autre' && !suggested.includes(current) ? [current, ...suggested] : suggested;
+    return { specificFields, serviceTypes };
+  }, [selectedCategory, formData.type_service]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -288,14 +232,14 @@ const BesoinEdit = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Catégorie *
+                  Catégorie <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="categorie"
                   value={formData.categorie}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-select !mt-0"
                 >
                   <option value="">Sélectionner une catégorie</option>
                   {categories.map(categorie => (
@@ -308,7 +252,7 @@ const BesoinEdit = () => {
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Type de service *
+                  Type de service <span className="text-red-500">*</span>
                 </label>
                 {categoryConfig?.serviceTypes?.length ? (
                   <select
@@ -316,7 +260,7 @@ const BesoinEdit = () => {
                     value={formData.type_service}
                     onChange={handleChange}
                     required
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="form-select !mt-0"
                   >
                     <option value="">Sélectionner un type</option>
                     {categoryConfig.serviceTypes.map((type) => (
@@ -332,7 +276,7 @@ const BesoinEdit = () => {
                     onChange={handleChange}
                     required
                     placeholder="Ex: Maintenance informatique, Nettoyage..."
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="form-input !mt-0"
                   />
                 )}
               </div>
@@ -340,7 +284,7 @@ const BesoinEdit = () => {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Intitulé du besoin *
+                Intitulé du besoin <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -349,13 +293,13 @@ const BesoinEdit = () => {
                 onChange={handleChange}
                 required
                 placeholder="Décrivez brièvement votre besoin"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="form-input !mt-0"
               />
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Description détaillée *
+                Description détaillée <span className="text-red-500">*</span>
               </label>
               <textarea
                 name="description"
@@ -364,14 +308,14 @@ const BesoinEdit = () => {
                 required
                 rows={6}
                 placeholder="Décrivez en détail votre besoin, les tâches à accomplir, les objectifs..."
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="form-input !mt-0"
               />
             </div>
 
             {/* Exigences spécifiques */}
             <div>
               <div className="mb-4 flex items-center justify-between">
-                <label className="block text-sm font-medium text-slate-700">Exigences spécifiques</label>
+                <label className="block text-sm font-medium text-slate-700">Quelques précisions</label>
                 {!categoryConfig && (
                   <button
                     type="button"
@@ -383,32 +327,44 @@ const BesoinEdit = () => {
                 )}
               </div>
 
-              {categoryConfig ? (
+              {categoryConfig?.specificFields?.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {categoryConfig.specificFields.map((field) => (
-                    <div key={field.key}>
-                      <label className="mb-1 block text-sm text-slate-700">{field.label}</label>
-                      {field.options ? (
-                        <select
-                          value={formData.exigences?.[field.key] || ''}
-                          onChange={(e) => handleExigenceChange(field.key, e.target.value)}
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        >
-                          <option value="">Sélectionner</option>
-                          {field.options.map((option) => (
-                            <option key={option} value={option}>{option}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type={field.type || 'text'}
-                          value={formData.exigences?.[field.key] || ''}
-                          onChange={(e) => handleExigenceChange(field.key, e.target.value)}
-                          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      )}
-                    </div>
-                  ))}
+                  {categoryConfig.specificFields.map((field) => {
+                    const current = formData.exigences?.[field.key] || '';
+                    const options = field.options && current && !field.options.includes(current)
+                      ? [current, ...field.options]
+                      : field.options;
+                    return (
+                      <div key={field.key}>
+                        <label className="mb-1 block text-sm text-slate-700">
+                          {field.label}{field.required && <> <span className="text-red-500">*</span></>}
+                        </label>
+                        {options ? (
+                          <select
+                            value={current}
+                            required={field.required}
+                            onChange={(e) => handleExigenceChange(field.key, e.target.value)}
+                            className="form-select !mt-0"
+                          >
+                            <option value="">Choisir une réponse</option>
+                            {options.map((option) => (
+                              <option key={option} value={option}>{option}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={current}
+                            required={field.required}
+                            placeholder={field.placeholder || ''}
+                            onChange={(e) => handleExigenceChange(field.key, e.target.value)}
+                            className="form-input !mt-0"
+                          />
+                        )}
+                        {field.help && <p className="mt-1 text-xs text-slate-500">{field.help}</p>}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -440,7 +396,7 @@ const BesoinEdit = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Lieu d'intervention *
+                  Lieu d'intervention <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -448,21 +404,21 @@ const BesoinEdit = () => {
                   value={formData.lieu_intervention}
                   onChange={handleChange}
                   required
-                  placeholder="Ex: Paris 75001, Sur site, À distance..."
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Ex: quartier, ville"
+                  className="form-input !mt-0"
                 />
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Niveau d'urgence *
+                  Niveau d'urgence <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="urgence"
                   value={formData.urgence}
                   onChange={handleChange}
                   required
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-select !mt-0"
                 >
                   <option value="basse">Basse</option>
                   <option value="normale">Normale</option>
@@ -481,7 +437,7 @@ const BesoinEdit = () => {
                   name="statut"
                   value={formData.statut}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-select !mt-0"
                 >
                   <option value="ouverte">Ouverte</option>
                   <option value="en_cours">En cours</option>
@@ -504,7 +460,7 @@ const BesoinEdit = () => {
                   name="date_souhaitee"
                   value={formData.date_souhaitee}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-input !mt-0"
                 />
               </div>
 
@@ -517,7 +473,7 @@ const BesoinEdit = () => {
                   name="date_limite"
                   value={formData.date_limite}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-input !mt-0"
                 />
               </div>
             </div>
@@ -532,7 +488,7 @@ const BesoinEdit = () => {
                   name="mode_budget"
                   value={formData.mode_budget}
                   onChange={handleChange}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-select !mt-0"
                 >
                   <option value="budget_fixe">Budget fixe</option>
                   <option value="sur_devis">Sur devis (proposition fournisseur)</option>
@@ -541,7 +497,7 @@ const BesoinEdit = () => {
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Budget (FCFA) {formData.mode_budget === 'budget_fixe' ? '*' : '(optionnel)'}
+                  Budget (FCFA) {formData.mode_budget === 'budget_fixe' ? <span className="text-red-500">*</span> : '(optionnel)'}
                 </label>
                 <input
                   type="number"
@@ -551,7 +507,7 @@ const BesoinEdit = () => {
                   placeholder="Ex: 50000"
                   min="0"
                   step="1000"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-input !mt-0"
                 />
                 {formData.mode_budget === 'sur_devis' && (
                   <p className="mt-1 text-xs text-slate-500">

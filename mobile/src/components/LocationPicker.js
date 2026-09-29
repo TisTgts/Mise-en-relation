@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Chip, Field } from './ui';
 import { colors, spacing } from '../config/theme';
 import { useCountry } from '../contexts/CountryContext';
@@ -12,7 +12,7 @@ export default function LocationPicker({
   showAdresse = false,
   label = 'Lieu',
 }) {
-  const { cities, copy, loading } = useCountry();
+  const { cities, copy, loading, refresh } = useCountry();
   const ville = value?.ville || '';
   const quartier = value?.quartier || '';
   const adresse = value?.adresse || '';
@@ -36,6 +36,30 @@ export default function LocationPicker({
       <Text style={styles.section}>{label}</Text>
       {loading && !cities.length ? (
         <Text style={styles.hint}>Chargement des villes…</Text>
+      ) : !cities.length ? (
+        <>
+          <View style={styles.unavailable}>
+            <Text style={styles.hint}>Liste des villes indisponible.</Text>
+            <Pressable onPress={refresh} hitSlop={8}>
+              <Text style={styles.retry}>Réessayer</Text>
+            </Pressable>
+          </View>
+          <Field
+            label="Ville"
+            value={ville}
+            onChangeText={(v) => update({ ville: v })}
+            autoCapitalize="words"
+            placeholder="Ex. Lomé"
+          />
+          {showQuartier ? (
+            <Field
+              label="Quartier (optionnel)"
+              value={quartier}
+              onChangeText={(v) => update({ quartier: v })}
+              autoCapitalize="words"
+            />
+          ) : null}
+        </>
       ) : (
         <>
           <Text style={styles.label}>Ville</Text>
@@ -106,6 +130,18 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     color: colors.textMuted,
+    marginTop: spacing.xs,
+  },
+  unavailable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  retry: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
     marginTop: spacing.xs,
   },
 });

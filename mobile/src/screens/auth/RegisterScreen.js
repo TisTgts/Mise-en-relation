@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, ErrorBanner, Field, PasswordField } from '../../components/ui';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { colors, radii, spacing } from '../../config/theme';
 import { PRIVACY_POLICY_URL, TERMS_URL } from '../../config/legal';
 import { hapticSuccess, hapticError } from '../../utils/haptics';
@@ -27,6 +28,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function RegisterScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { register, loading, error, clearError } = useAuth();
+  const { showToast } = useToast();
   const [form, setForm] = useState({
     email: '',
     username: '',
@@ -68,8 +70,14 @@ export default function RegisterScreen({ navigation }) {
       email: form.email.trim(),
       username: form.username.trim() || form.email.trim().split('@')[0],
     });
-    if (result?.success) hapticSuccess();
-    else {
+    if (result?.success) {
+      hapticSuccess();
+      if (result.needsLogin) {
+        clearError();
+        showToast('Compte créé — connectez-vous pour continuer.', 'success');
+        navigation.navigate('Login', { email: form.email.trim() });
+      }
+    } else {
       hapticError();
       if (result?.fieldErrors && Object.keys(result.fieldErrors).length > 0) {
         setFieldErrors((prev) => ({ ...prev, ...result.fieldErrors }));

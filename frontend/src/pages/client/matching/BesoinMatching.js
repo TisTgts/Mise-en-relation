@@ -7,6 +7,7 @@ import { clientCanSelfLaunchMatching, clientMatchingPremiumMessage } from '../..
 import { formatDateShort, formatMoneyFcfa, truncateText } from '../clientUi';
 import Toast from '../../../components/Toast';
 import transactionsService from '../../../services/transactionsService';
+import { apiErrorFromResponse, friendlyErrorMessage } from '../../../utils/apiErrors';
 import {
   devisStatutPillClass,
   labelDevisStatut,
@@ -130,7 +131,7 @@ const BesoinMatching = () => {
       });
       await loadData();
     } catch (err) {
-      setToast({ message: err.message || 'Réponse au devis impossible.', type: 'error' });
+      setToast({ message: friendlyErrorMessage(err, 'Votre réponse au devis n’a pas pu être enregistrée. Réessayez.'), type: 'error' });
     } finally {
       setRespondingDevis(false);
     }
@@ -148,13 +149,12 @@ const BesoinMatching = () => {
         headers: authHeaders(),
       });
       if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        throw new Error(payload.error || payload.detail || 'Erreur matching');
+        throw await apiErrorFromResponse(res, "Le matching n'a pas pu être relancé. Réessayez dans un instant.");
       }
       setToast({ message: 'Matching recalculé pour ce besoin.', type: 'success' });
       await loadData();
     } catch (err) {
-      setToast({ message: err.message || 'Échec du recalcul matching.', type: 'error' });
+      setToast({ message: friendlyErrorMessage(err, "Le matching n'a pas pu être relancé. Réessayez dans un instant."), type: 'error' });
     } finally {
       setRunning(false);
     }
@@ -185,14 +185,13 @@ const BesoinMatching = () => {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const p = await res.json().catch(() => ({}));
-        throw new Error(p.detail || "Envoi impossible");
+        throw await apiErrorFromResponse(res, "Le message n'a pas pu être envoyé. Réessayez.");
       }
       setMessage('');
       setSubject('');
       setToast({ message: 'Message envoyé au fournisseur.', type: 'success' });
     } catch (err) {
-      setToast({ message: err.message || "Erreur d'envoi du message.", type: 'error' });
+      setToast({ message: friendlyErrorMessage(err, "Le message n'a pas pu être envoyé. Réessayez."), type: 'error' });
     } finally {
       setSending(false);
     }
@@ -224,10 +223,10 @@ const BesoinMatching = () => {
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || data.detail || 'Impossible de confirmer ce match.');
+        throw await apiErrorFromResponse(res, "Ce prestataire n'a pas pu être sélectionné. Actualisez la page puis réessayez.");
       }
+      const data = await res.json().catch(() => ({}));
       if (data.awaiting_quote) {
         setToast({
           message:
@@ -243,7 +242,7 @@ const BesoinMatching = () => {
         navigate(`/client/mes-collaborations?created=${data.transaction_id || 'ok'}`);
       }, 300);
     } catch (err) {
-      setToast({ message: err.message || 'Erreur de confirmation du match.', type: 'error' });
+      setToast({ message: friendlyErrorMessage(err, "Ce prestataire n'a pas pu être sélectionné. Actualisez la page puis réessayez."), type: 'error' });
     } finally {
       setConfirming(false);
     }
@@ -255,13 +254,12 @@ const BesoinMatching = () => {
       const url = `${API_ENDPOINTS.MATCHING.CLIENT_FOURNISSEUR_PROFIL_MATCHE(fournisseurId)}?besoin_id=${besoinId}`;
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) {
-        const p = await res.json().catch(() => ({}));
-        throw new Error(p.error || p.detail || 'Profil non disponible');
+        throw await apiErrorFromResponse(res, "Le profil de ce prestataire n'est pas disponible pour le moment.");
       }
       const data = await res.json();
       setProviderProfile(data);
     } catch (err) {
-      setToast({ message: err.message || 'Impossible de charger le profil fournisseur.', type: 'error' });
+      setToast({ message: friendlyErrorMessage(err, "Le profil de ce prestataire n'est pas disponible pour le moment."), type: 'error' });
     } finally {
       setLoadingProviderProfile(false);
     }

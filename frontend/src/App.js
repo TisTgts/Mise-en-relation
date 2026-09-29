@@ -23,6 +23,8 @@ import LegalUsage from './pages/LegalUsage';
 import LegalPrivacy from './pages/LegalPrivacy';
 import Dashboard from './pages/Dashboard';
 import Services from './pages/Services';
+import NotFound from './pages/NotFound';
+import SeoManager from './seo/SeoManager';
 
 // Nouvelles pages avec terminologie française
 import { 
@@ -96,6 +98,7 @@ function App() {
       <Router>
         <NotificationProvider>
         <ConfirmProvider>
+        <SeoManager />
         <Routes>
           {/* Pages publiques */}
           <Route path="/" element={
@@ -504,6 +507,11 @@ function App() {
           <Route path="/services" element={
             <PublicPage>
               <Services />
+            </PublicPage>
+          } />
+          <Route path="*" element={
+            <PublicPage>
+              <NotFound />
             </PublicPage>
           } />
         </Routes>

@@ -85,7 +85,7 @@ function MatchCard({ item, acting, onConfirm }) {
 }
 
 export default function BesoinMatchingScreen({ route, navigation }) {
-  const { id } = route.params;
+  const { id } = route.params || {};
   const { showToast } = useToast();
   const [besoin, setBesoin] = useState(null);
   const [matches, setMatches] = useState([]);
@@ -95,6 +95,11 @@ export default function BesoinMatchingScreen({ route, navigation }) {
   const [ran, setRan] = useState(false);
 
   const run = useCallback(async () => {
+    if (!id) {
+      setError('Identifiant manquant');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -109,6 +114,7 @@ export default function BesoinMatchingScreen({ route, navigation }) {
   }, [id]);
 
   const loadBesoin = useCallback(async () => {
+    if (!id) return;
     try {
       setBesoin(await fetchBesoin(id));
     } catch {

@@ -6,6 +6,7 @@ import { useConfirm } from '../../../contexts/ConfirmContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import Toast from '../../../components/Toast';
 import { getEmplacementExample } from '../../../pays';
+import { messageFromPayload } from '../../../utils/apiErrors';
 
 const EMPLACEMENT_EXAMPLE = getEmplacementExample();
 const EMPLACEMENT_EXAMPLE_JSON = JSON.stringify(EMPLACEMENT_EXAMPLE);
@@ -23,17 +24,8 @@ const FREQUENCE_CHOICES = [
   { value: 'annuelle', label: 'Annuelle' },
 ];
 
-const parseApiErrors = (data) => {
-  if (!data || typeof data !== 'object') return 'Une erreur est survenue.';
-  if (typeof data.detail === 'string') return data.detail;
-  const parts = [];
-  Object.entries(data).forEach(([key, val]) => {
-    if (Array.isArray(val)) parts.push(`${key}: ${val.join(', ')}`);
-    else if (val && typeof val === 'object') parts.push(`${key}: ${JSON.stringify(val)}`);
-    else if (val) parts.push(`${key}: ${val}`);
-  });
-  return parts.length ? parts.join(' ') : 'Une erreur est survenue.';
-};
+const parseApiErrors = (data) =>
+  messageFromPayload(data, 400, 'Enregistrement impossible. Vérifiez les champs puis réessayez.');
 
 const parseEmplacement = (raw) => {
   try {

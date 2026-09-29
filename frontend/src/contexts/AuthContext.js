@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 import authService from '../services/authService';
+import {
+  NETWORK_MESSAGE,
+  apiFetch,
+  fieldErrorsFromPayload,
+  friendlyErrorMessage,
+  messageFromPayload,
+} from '../utils/apiErrors';
+
+const readJson = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
 
 // Actions pour le reducer
 const AUTH_ACTIONS = {
@@ -214,7 +229,7 @@ export const AuthProvider = ({ children }) => {
       formData.append('email', email);
       formData.append('password', password);
       
-      const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
+      const response = await apiFetch(API_ENDPOINTS.AUTH.LOGIN, {
         method: 'POST',
         headers: {
           'X-Client-App': 'toghinis-web',
@@ -223,11 +238,9 @@ export const AuthProvider = ({ children }) => {
         mode: 'cors'
       });
 
-      const data = await response.json();
-      console.log('AuthContext.login - Response data:', data);
-      console.log('AuthContext.login - Response status:', response.status);
+      const data = await readJson(response);
 
-      if (response.ok) {
+      if (response.ok && data) {
         console.log('AuthContext.login - Login successful, dispatching success');
         dispatch({
           type: AUTH_ACTIONS.LOGIN_SUCCESS,
@@ -241,20 +254,18 @@ export const AuthProvider = ({ children }) => {
         console.log('AuthContext.login - Returning success: true');
         return { success: true, user: data.user };
       } else {
-        console.log('AuthContext.login - Login failed, dispatching failure');
-        dispatch({
-          type: AUTH_ACTIONS.LOGIN_FAILURE,
-          payload: data.detail || data.message || 'Email ou mot de passe incorrect'
-        });
-        return { success: false, error: data.detail || data.message || 'Email ou mot de passe incorrect' };
+        const message = messageFromPayload(
+          data,
+          response.status,
+          'Connexion impossible. Vérifiez votre e-mail et votre mot de passe.'
+        );
+        dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: message });
+        return { success: false, error: message, fieldErrors: fieldErrorsFromPayload(data) };
       }
     } catch (error) {
-      console.error('AuthContext.login - Network error:', error);
-      dispatch({
-        type: AUTH_ACTIONS.LOGIN_FAILURE,
-        payload: 'Erreur réseau. Vérifiez votre connexion.'
-      });
-      return { success: false, error: 'Erreur réseau. Vérifiez votre connexion.' };
+      const message = friendlyErrorMessage(error, NETWORK_MESSAGE);
+      dispatch({ type: AUTH_ACTIONS.LOGIN_FAILURE, payload: message });
+      return { success: false, error: message };
     }
   };
 
@@ -262,7 +273,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: AUTH_ACTIONS.REGISTER_START });
     
     try {
-      const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
+      const response = await apiFetch(API_ENDPOINTS.AUTH.REGISTER, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -273,9 +284,9 @@ export const AuthProvider = ({ children }) => {
         mode: 'cors'
       });
 
-      const data = await response.json();
+      const data = await readJson(response);
 
-      if (response.ok) {
+      if (response.ok && data) {
         // L'API renvoie les mêmes champs que la connexion : on connecte l'utilisateur
         // pour permettre la suite du parcours (ex. inscription fournisseur en plusieurs étapes).
         dispatch({
@@ -294,27 +305,18 @@ export const AuthProvider = ({ children }) => {
           refresh: data.refresh,
         };
       } else {
-        const msg =
-          (typeof data.detail === 'string' && data.detail) ||
-          (Array.isArray(data.non_field_errors) && data.non_field_errors.join(' ')) ||
-          data.message ||
-          Object.entries(data)
-            .filter(([k]) => k !== 'detail')
-            .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : JSON.stringify(v)}`)
-            .join(' | ') ||
-          'Erreur d\'inscription';
-        dispatch({
-          type: AUTH_ACTIONS.REGISTER_FAILURE,
-          payload: msg
-        });
-        return { success: false, error: msg };
+        const msg = messageFromPayload(
+          data,
+          response.status,
+          "L'inscription n'a pas abouti. Vérifiez le formulaire puis réessayez."
+        );
+        dispatch({ type: AUTH_ACTIONS.REGISTER_FAILURE, payload: msg });
+        return { success: false, error: msg, fieldErrors: fieldErrorsFromPayload(data) };
       }
     } catch (error) {
-      dispatch({
-        type: AUTH_ACTIONS.REGISTER_FAILURE,
-        payload: 'Erreur réseau. Vérifiez votre connexion.'
-      });
-      return { success: false, error: 'Erreur réseau. Vérifiez votre connexion.' };
+      const msg = friendlyErrorMessage(error, NETWORK_MESSAGE);
+      dispatch({ type: AUTH_ACTIONS.REGISTER_FAILURE, payload: msg });
+      return { success: false, error: msg };
     }
   };
 

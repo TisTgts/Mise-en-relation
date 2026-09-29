@@ -40,7 +40,7 @@ function InfoRow({ icon, label, value }) {
 }
 
 export default function BesoinDetailScreen({ route, navigation }) {
-  const { id } = route.params;
+  const { id } = route.params || {};
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -49,6 +49,11 @@ export default function BesoinDetailScreen({ route, navigation }) {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!id) {
+      setError('Identifiant manquant');
+      setLoading(false);
+      return;
+    }
     setError(null);
     try {
       setItem(await fetchBesoin(id));
@@ -106,6 +111,7 @@ export default function BesoinDetailScreen({ route, navigation }) {
   const isOpen = item.statut === 'ouverte';
   const isCancelled = item.statut === 'annulee';
   const category = item.categorie_nom || item.categorie?.nom || item.type_service;
+  const precisions = Array.isArray(item.exigences_detail) ? item.exigences_detail : [];
   const budgetLabel =
     item.mode_budget === 'budget_fixe' || item.budget != null
       ? formatMoney(item.budget)
@@ -143,6 +149,9 @@ export default function BesoinDetailScreen({ route, navigation }) {
         <View style={[styles.block, shadows.card]}>
           <Text style={styles.blockTitle}>Informations</Text>
           <InfoRow icon="pricetag-outline" label="Catégorie" value={category} />
+          {item.type_service && item.type_service !== category ? (
+            <InfoRow icon="construct-outline" label="Type de service" value={item.type_service} />
+          ) : null}
           <InfoRow icon="location-outline" label="Lieu" value={item.lieu_intervention} />
           <InfoRow icon="cash-outline" label="Budget" value={budgetLabel} />
           <InfoRow
@@ -157,6 +166,18 @@ export default function BesoinDetailScreen({ route, navigation }) {
           />
           <InfoRow icon="create-outline" label="Créé le" value={formatDate(item.created_at)} />
         </View>
+
+        {precisions.length > 0 ? (
+          <View style={[styles.block, shadows.card]}>
+            <Text style={styles.blockTitle}>Précisions</Text>
+            {precisions.map((p) => (
+              <View key={p.key} style={styles.precisionRow}>
+                <Text style={styles.infoLabel}>{p.label}</Text>
+                <Text style={styles.infoValue}>{String(p.value)}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {isOpen && !canLaunchMatch ? (
           <View style={styles.hintBox}>
@@ -245,6 +266,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryMuted,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  precisionRow: {
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   infoLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
   infoValue: { marginTop: 2, fontSize: 15, fontWeight: '600', color: colors.text, lineHeight: 20 },

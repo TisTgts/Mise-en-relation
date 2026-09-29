@@ -72,6 +72,15 @@ export default function OnboardingScreen({ onDone }) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         keyExtractor={(i) => i.key}
+        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+        onScrollToIndexFailed={(info) => {
+          setTimeout(() => {
+            listRef.current?.scrollToIndex({
+              index: Math.min(info.index, SLIDES.length - 1),
+              animated: true,
+            });
+          }, 100);
+        }}
         onMomentumScrollEnd={(e) => {
           const i = Math.round(e.nativeEvent.contentOffset.x / width);
           setIndex(i);

@@ -25,22 +25,23 @@ async function creerPrestation(page, prefix = 'E2E Prestation') {
   const intitule = `${prefix} ${uniqueSuffix()}`;
   await ouvrirFormulaireAvecCategories(page);
 
+  // La catégorie d'abord : la changer réinitialise le type de service.
+  await page.locator('#categorie').selectOption({ label: 'Informatique & Digital' });
+  await page.locator('#type_prestation').selectOption({ label: 'Autre (préciser)' });
+  await page.locator('#type_prestation_autre').fill('Développement web');
   await page.locator('#intitule').fill(intitule);
   await page.locator('#description').fill('Prestation créée automatiquement par les tests end-to-end.');
-  await page.locator('#categorie').selectOption({ label: 'Informatique & Digital' });
-  await page.locator('#type_prestation').fill('Développement web');
 
-  // Zone d'intervention (au moins une est obligatoire).
-  const zoneInput = page.getByPlaceholder('Ajouter une zone');
-  await zoneInput.fill('Lomé');
-  await zoneInput.locator('xpath=following-sibling::button').click();
-  await expect(page.getByText('Lomé')).toBeVisible();
+  // Zone d'intervention (au moins une est obligatoire) — saisie libre : indépendante du pays actif.
+  await page.getByPlaceholder('Autre ville ou quartier').fill('Quartier E2E');
+  await page.getByRole('button', { name: 'Ajouter', exact: true }).click();
 
-  await page.locator('#disponibilite_debut').fill('2030-06-01T08:00');
-  await page.locator('#disponibilite_fin').fill('2030-12-31T18:00');
+  await page.locator('#disponibilite_debut').fill('2030-06-01');
+  await page.locator('#disponibilite_fin').fill('2030-12-31');
+  await page.locator('#mode_tarification').selectOption('forfait');
   await page.locator('#tarif_min').fill('120000');
 
-  await page.getByRole('button', { name: /Créer la prestation/i }).click();
+  await page.getByRole('button', { name: /Publier la prestation/i }).click();
   await expect(page).toHaveURL(/\/fournisseur\/dashboard/, { timeout: 15000 });
   return intitule;
 }
@@ -56,10 +57,10 @@ test.describe('Gestion des prestations — fournisseur', () => {
 
   test('un formulaire vide affiche les erreurs de validation', async ({ page }) => {
     await page.goto('/fournisseur/creer-prestation');
-    await page.getByRole('button', { name: /Créer la prestation/i }).click();
+    await page.getByRole('button', { name: /Publier la prestation/i }).click();
     await expect(page).toHaveURL(/\/fournisseur\/creer-prestation/);
-    await expect(page.getByText("L'intitulé est obligatoire")).toBeVisible();
-    await expect(page.getByText(/zone d'intervention est requise/i)).toBeVisible();
+    await expect(page.getByText('Donnez un titre à votre prestation.')).toBeVisible();
+    await expect(page.getByText('Choisissez au moins une ville où vous intervenez.')).toBeVisible();
   });
 
   test('rechercher une prestation puis ouvrir son détail', async ({ page }) => {

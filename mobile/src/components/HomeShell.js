@@ -67,10 +67,17 @@ export function ActivityStrip({ items }) {
       {items.map((item, index) => (
         <React.Fragment key={item.label}>
           {index > 0 ? <View style={styles.stripDivider} /> : null}
-          <View style={styles.stripItem}>
+          <Pressable
+            onPress={item.onPress}
+            disabled={!item.onPress}
+            style={({ pressed }) => [
+              styles.stripItem,
+              item.onPress && pressed && { opacity: 0.7 },
+            ]}
+          >
             <Text style={styles.stripValue}>{item.value}</Text>
             <Text style={styles.stripLabel}>{item.label}</Text>
-          </View>
+          </Pressable>
         </React.Fragment>
       ))}
     </View>
@@ -98,7 +105,7 @@ export function ShortcutRow({ icon, label, hint, onPress }) {
   );
 }
 
-export function ActivityItem({ title, meta, badge, onPress }) {
+export function ActivityItem({ title, subtitle, meta, badge, onPress }) {
   return (
     <Pressable
       onPress={onPress}
@@ -109,6 +116,11 @@ export function ActivityItem({ title, meta, badge, onPress }) {
         <Text style={styles.activityTitle} numberOfLines={2}>
           {title}
         </Text>
+        {subtitle ? (
+          <Text style={styles.activitySubtitle} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        ) : null}
         {meta ? <Text style={styles.activityMeta}>{meta}</Text> : null}
       </View>
       {badge}
@@ -316,6 +328,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
+  },
+  activitySubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: colors.textMuted,
   },
   activityMeta: {
     marginTop: 3,

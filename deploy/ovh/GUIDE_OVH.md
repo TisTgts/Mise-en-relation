@@ -349,7 +349,8 @@ sudo systemctl reload nginx
 |------|-----|
 | Site React | http://144.217.82.132 ou https://toghinis.net |
 | API | …/api/ |
-| Admin | …/admin/ |
+| Admin React | …/admin/dashboard |
+| Admin Django | …/api/gestion-django/ (réglable via `DJANGO_ADMIN_URL`) |
 
 Logs :
 

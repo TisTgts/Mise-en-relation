@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import BesoinPrecisionsFields, {
+  cleanPrecisions,
+  missingRequiredPrecisions,
+} from '../../components/BesoinPrecisionsFields';
 import FormScreen from '../../components/FormScreen';
 import LocationPicker from '../../components/LocationPicker';
 import {
@@ -20,7 +24,7 @@ import { parseLieuIntervention } from '../../utils/location';
 
 export default function BesoinEditScreen({ route, navigation }) {
   const { showToast } = useToast();
-  const { id } = route.params;
+  const { id } = route.params || {};
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,10 +40,27 @@ export default function BesoinEditScreen({ route, navigation }) {
     type_service: '',
   });
   const [location, setLocation] = useState({ ville: '', quartier: '', adresse: '', label: '' });
+  const [exigences, setExigences] = useState({});
+  const [initialCategorie, setInitialCategorie] = useState(null);
+  const [exigencesTouched, setExigencesTouched] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const selectedCat = categories.find((c) => c.id === form.categorie);
+  const specificFields = selectedCat?.champs_specifiques || [];
+  const suggestedTypes = selectedCat?.types_service_suggeres || [];
+  const serviceTypes =
+    form.type_service && !suggestedTypes.includes(form.type_service) && form.categorie === initialCategorie
+      ? [form.type_service, ...suggestedTypes]
+      : suggestedTypes;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (!id) {
+        setError('Identifiant manquant');
+        setLoading(false);
+        return;
+      }
       try {
         const [cats, besoin] = await Promise.all([fetchCategories(), fetchBesoin(id)]);
         if (cancelled) return;
@@ -55,6 +76,10 @@ export default function BesoinEditScreen({ route, navigation }) {
           budget: besoin.budget != null ? String(besoin.budget) : '',
           type_service: besoin.type_service || '',
         });
+        setInitialCategorie(catId);
+        setExigences(
+          besoin.exigences && typeof besoin.exigences === 'object' ? besoin.exigences : {}
+        );
         const parsed = parseLieuIntervention(besoin.lieu_intervention || '');
         setLocation({
           ...parsed,
@@ -73,6 +98,25 @@ export default function BesoinEditScreen({ route, navigation }) {
 
   const set = (k, v) => setForm((prev) => ({ ...prev, [k]: v }));
 
+  const selectCategory = (c) => {
+    if (c.id === form.categorie) return;
+    setForm((f) => ({ ...f, categorie: c.id, type_service: '' }));
+    setExigences({});
+    setExigencesTouched(true);
+    setFieldErrors({});
+  };
+
+  const setExigence = (key, value) => {
+    setExigences((prev) => {
+      const next = { ...prev };
+      if (value == null || value === '') delete next[key];
+      else next[key] = value;
+      return next;
+    });
+    setExigencesTouched(true);
+    if (fieldErrors[key]) setFieldErrors((prev) => ({ ...prev, [key]: null }));
+  };
+
   const onSubmit = async () => {
     setError(null);
     if (!form.intitule.trim() || !form.description.trim() || !form.categorie) {
@@ -83,19 +127,28 @@ export default function BesoinEditScreen({ route, navigation }) {
       setError('Choisissez une ville d’intervention.');
       return;
     }
+    const sendExigences = exigencesTouched || form.categorie !== initialCategorie;
+    if (sendExigences) {
+      const missing = missingRequiredPrecisions(specificFields, exigences);
+      setFieldErrors(missing);
+      if (Object.keys(missing).length > 0) {
+        setError('Répondez aux précisions marquées *.');
+        return;
+      }
+    }
     setSaving(true);
     try {
-      const cat = categories.find((c) => c.id === form.categorie);
       const payload = {
         categorie: form.categorie,
         intitule: form.intitule.trim(),
         description: form.description.trim(),
-        type_service: form.type_service || cat?.nom || cat?.name || 'Service',
+        type_service: form.type_service || selectedCat?.nom || selectedCat?.name || 'Service',
         lieu_intervention: location.label?.trim() || form.lieu_intervention.trim() || 'À préciser',
         urgence: form.urgence,
         mode_budget: form.mode_budget,
         flexible: true,
       };
+      if (sendExigences) payload.exigences = cleanPrecisions(exigences);
       if (form.mode_budget === 'budget_fixe') {
         payload.budget = form.budget || '0';
       }
@@ -130,16 +183,38 @@ export default function BesoinEditScreen({ route, navigation }) {
               key={c.id}
               label={c.nom || c.name || `#${c.id}`}
               selected={form.categorie === c.id}
-              onPress={() =>
-                setForm((f) => ({
-                  ...f,
-                  categorie: c.id,
-                  type_service: c.nom || c.name || f.type_service,
-                }))
-              }
+              onPress={() => selectCategory(c)}
             />
           ))}
         </View>
+
+        {serviceTypes.length > 0 ? (
+          <>
+            <Text style={styles.label}>Type de service</Text>
+            <View style={styles.chips}>
+              {serviceTypes.map((t) => (
+                <Chip
+                  key={t}
+                  label={t}
+                  selected={form.type_service === t}
+                  onPress={() => set('type_service', form.type_service === t ? '' : t)}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {specificFields.length > 0 ? (
+          <View style={styles.precisions}>
+            <Text style={styles.sectionTitle}>Précisions</Text>
+            <BesoinPrecisionsFields
+              fields={specificFields}
+              values={exigences}
+              errors={fieldErrors}
+              onChange={setExigence}
+            />
+          </View>
+        ) : null}
 
         <Field
           label="Intitulé"
@@ -205,4 +280,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
+  precisions: { marginBottom: spacing.sm },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: spacing.sm,
+  },
 });

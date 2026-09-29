@@ -5,52 +5,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import categoriesService from '../../../services/categoriesService';
 import demandesService from '../../../services/demandesService';
 import { COPY } from '../../../pays';
-
-const normalizeCategoryName = (value = '') =>
-  value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-
-const CATEGORY_CONFIGS = {
-  'transport & logistique': {
-    serviceTypes: ['Livraison urbaine', 'Transport interurbain', 'Déménagement', 'Messagerie', 'Stockage'],
-    specificFields: [
-      { key: 'type_marchandise', label: 'Type de marchandise', required: true, placeholder: 'Ex: colis fragile, matériaux' },
-      { key: 'volume_estime', label: 'Volume estimé', required: true, placeholder: 'Ex: 3 tonnes / 20 cartons' },
-      { key: 'distance_estimee_km', label: 'Distance estimée (km)', type: 'number', placeholder: 'Ex: 350' },
-      { key: 'date_depart_souhaitee', label: 'Date de départ souhaitée', type: 'date' }
-    ]
-  },
-  'informatique & digital': {
-    serviceTypes: ['Développement web', 'Développement logiciel', 'Support informatique', 'Maintenance IT', 'Cybersécurité'],
-    specificFields: [
-      { key: 'contexte_technique', label: 'Contexte technique', placeholder: 'Ex: appli interne, site web...' },
-      { key: 'stack_souhaitee', label: 'Stack souhaitée', placeholder: 'Ex: React / Django / Flutter' },
-      { key: 'niveau_securite', label: 'Niveau de sécurité', options: ['Standard', 'Renforcé', 'Critique'] },
-      { key: 'support_requis', label: 'Support après livraison', options: ['Aucun', '1 mois', '3 mois', '6 mois'] }
-    ]
-  },
-  'btp & travaux': {
-    serviceTypes: ['Plomberie', 'Électricité', 'Maçonnerie', 'Peinture', 'Rénovation'],
-    specificFields: [
-      { key: 'surface_estimee_m2', label: 'Surface estimée (m²)', type: 'number', placeholder: 'Ex: 120' },
-      { key: 'materiaux_fournis_par', label: 'Matériaux fournis par', options: ['Client', 'Fournisseur', 'À définir'] },
-      { key: 'contraintes_site', label: 'Contraintes du site', placeholder: 'Ex: accès limité, horaires...' },
-      { key: 'permis_autorisation', label: 'Permis / autorisation', options: ['Déjà disponible', 'À obtenir', 'Non requis'] }
-    ]
-  },
-  'maintenance & reparation': {
-    serviceTypes: ['Maintenance climatisation', 'Réparation électroménager', 'Maintenance préventive', 'Dépannage urgent', 'Contrat de maintenance'],
-    specificFields: [
-      { key: 'equipement_concerne', label: 'Équipement concerné', placeholder: 'Ex: climatiseur split' },
-      { key: 'marque_modele', label: 'Marque / modèle', placeholder: 'Ex: Samsung AR12' },
-      { key: 'panne_constatee', label: 'Panne constatée', placeholder: 'Décrivez le symptôme principal' },
-      { key: 'frequence_intervention', label: 'Fréquence d’intervention', options: ['Ponctuelle', 'Mensuelle', 'Trimestrielle', 'Semestrielle'] }
-    ]
-  }
-};
+import { friendlyErrorMessage } from '../../../utils/apiErrors';
 
 const BesoinCreate = () => {
   const { user, isAuthenticated } = useAuth();
@@ -100,8 +55,10 @@ const BesoinCreate = () => {
   );
 
   const categoryConfig = useMemo(() => {
-    const normalized = normalizeCategoryName(selectedCategory?.nom || '');
-    return CATEGORY_CONFIGS[normalized] || null;
+    const specificFields = selectedCategory?.champs_specifiques || [];
+    const serviceTypes = selectedCategory?.types_service_suggeres || [];
+    if (!specificFields.length && !serviceTypes.length) return null;
+    return { specificFields, serviceTypes };
   }, [selectedCategory]);
 
   const handleChange = (e) => {
@@ -183,7 +140,7 @@ const BesoinCreate = () => {
     if (categoryConfig?.specificFields?.length) {
       categoryConfig.specificFields.forEach((field) => {
         if (field.required && !String(formData.exigences?.[field.key] || '').trim()) {
-          newErrors[field.key] = `${field.label} est obligatoire`;
+          newErrors[field.key] = 'Cette information est obligatoire';
         }
       });
     }
@@ -216,8 +173,9 @@ const BesoinCreate = () => {
       navigate(`/client/mes-besoins?${qs.toString()}`);
       
     } catch (error) {
-      setErrors({ 
-        submit: error.message || 'Une erreur est survenue lors de la création du besoin'
+      setErrors({
+        ...(error?.fieldErrors || {}),
+        submit: friendlyErrorMessage(error, "Le besoin n'a pas pu être publié. Vérifiez le formulaire puis réessayez."),
       });
     } finally {
       setLoading(false);
@@ -252,7 +210,7 @@ const BesoinCreate = () => {
             <div className="space-y-6">
               <div>
                 <label htmlFor="intitule" className="block text-sm font-medium text-slate-700">
-                  Intitulé du besoin *
+                  Intitulé du besoin <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -260,8 +218,8 @@ const BesoinCreate = () => {
                   name="intitule"
                   value={formData.intitule}
                   onChange={handleChange}
-                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    errors.intitule ? 'border-red-300' : 'border-slate-300'
+                  className={`form-input ${
+                    errors.intitule ? 'form-field-error' : ''
                   }`}
                   placeholder="Ex: Transport de matières premières"
                 />
@@ -272,7 +230,7 @@ const BesoinCreate = () => {
 
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-slate-700">
-                  Description *
+                  Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   id="description"
@@ -280,8 +238,8 @@ const BesoinCreate = () => {
                   rows={4}
                   value={formData.description}
                   onChange={handleChange}
-                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    errors.description ? 'border-red-300' : 'border-slate-300'
+                  className={`form-input ${
+                    errors.description ? 'form-field-error' : ''
                   }`}
                   placeholder="Décrivez en détail votre besoin..."
                 />
@@ -293,15 +251,15 @@ const BesoinCreate = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="categorie" className="block text-sm font-medium text-slate-700">
-                    Catégorie *
+                    Catégorie <span className="text-red-500">*</span>
                   </label>
                   <select
                     id="categorie"
                     name="categorie"
                     value={formData.categorie}
                     onChange={handleChange}
-                    className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                      errors.categorie ? 'border-red-300' : 'border-slate-300'
+                    className={`form-select ${
+                      errors.categorie ? 'form-field-error' : ''
                     }`}
                   >
                     <option value="">Sélectionner une catégorie</option>
@@ -321,7 +279,7 @@ const BesoinCreate = () => {
 
                 <div>
                   <label htmlFor="type_service" className="block text-sm font-medium text-slate-700">
-                    Type de service *
+                    Type de service <span className="text-red-500">*</span>
                   </label>
                   {categoryConfig?.serviceTypes?.length ? (
                     <select
@@ -329,8 +287,8 @@ const BesoinCreate = () => {
                       name="type_service"
                       value={formData.type_service}
                       onChange={handleChange}
-                      className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                        errors.type_service ? 'border-red-300' : 'border-slate-300'
+                      className={`form-select ${
+                        errors.type_service ? 'form-field-error' : ''
                       }`}
                     >
                       <option value="">Sélectionner un type</option>
@@ -346,8 +304,8 @@ const BesoinCreate = () => {
                       name="type_service"
                       value={formData.type_service}
                       onChange={handleChange}
-                      className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                        errors.type_service ? 'border-red-300' : 'border-slate-300'
+                      className={`form-input ${
+                        errors.type_service ? 'form-field-error' : ''
                       }`}
                       placeholder="Ex: Transport routier"
                     />
@@ -360,28 +318,28 @@ const BesoinCreate = () => {
             </div>
           </div>
 
-          {categoryConfig && (
+          {categoryConfig?.specificFields?.length > 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-1 text-lg font-semibold text-slate-900">Détails spécifiques au besoin</h3>
+              <h3 className="mb-1 text-lg font-semibold text-slate-900">Quelques précisions</h3>
               <p className="mb-4 text-sm text-slate-500">
-                Ces champs changent selon la catégorie sélectionnée.
+                Ces réponses aident les prestataires à comprendre votre besoin et à vous faire un prix juste.
               </p>
 
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {categoryConfig.specificFields.map((field) => (
                   <div key={field.key}>
                     <label className="block text-sm font-medium text-slate-700">
-                      {field.label}{field.required ? ' *' : ''}
+                      {field.label}{field.required && <> <span className="text-red-500">*</span></>}
                     </label>
                     {field.options ? (
                       <select
                         value={formData.exigences?.[field.key] || ''}
                         onChange={(e) => handleSpecificFieldChange(field.key, e.target.value)}
-                        className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                          errors[field.key] ? 'border-red-300' : 'border-slate-300'
+                        className={`form-select ${
+                          errors[field.key] ? 'form-field-error' : ''
                         }`}
                       >
-                        <option value="">Sélectionner</option>
+                        <option value="">Choisir une réponse</option>
                         {field.options.map((option) => (
                           <option key={option} value={option}>{option}</option>
                         ))}
@@ -392,10 +350,13 @@ const BesoinCreate = () => {
                         value={formData.exigences?.[field.key] || ''}
                         onChange={(e) => handleSpecificFieldChange(field.key, e.target.value)}
                         placeholder={field.placeholder || ''}
-                        className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                          errors[field.key] ? 'border-red-300' : 'border-slate-300'
+                        className={`form-input ${
+                          errors[field.key] ? 'form-field-error' : ''
                         }`}
                       />
+                    )}
+                    {field.help && !errors[field.key] && (
+                      <p className="mt-1 text-xs text-slate-500">{field.help}</p>
                     )}
                     {errors[field.key] && (
                       <p className="mt-1 text-sm text-red-600">{errors[field.key]}</p>
@@ -413,7 +374,7 @@ const BesoinCreate = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="lieu_intervention" className="block text-sm font-medium text-slate-700">
-                  Lieu d'intervention *
+                  Lieu d'intervention <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -421,8 +382,8 @@ const BesoinCreate = () => {
                   name="lieu_intervention"
                   value={formData.lieu_intervention}
                   onChange={handleChange}
-                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    errors.lieu_intervention ? 'border-red-300' : 'border-slate-300'
+                  className={`form-input ${
+                    errors.lieu_intervention ? 'form-field-error' : ''
                   }`}
                   placeholder={COPY.cities_placeholder || 'Ex: ville1, ville2'}
                 />
@@ -440,7 +401,7 @@ const BesoinCreate = () => {
                   name="urgence"
                   value={formData.urgence}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-select"
                 >
                   <option value="basse">Basse</option>
                   <option value="normale">Normale</option>
@@ -451,7 +412,7 @@ const BesoinCreate = () => {
 
               <div>
                 <label htmlFor="date_souhaitee" className="block text-sm font-medium text-slate-700">
-                  Date souhaitée *
+                  Date souhaitée <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -459,8 +420,8 @@ const BesoinCreate = () => {
                   name="date_souhaitee"
                   value={formData.date_souhaitee}
                   onChange={handleChange}
-                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    errors.date_souhaitee ? 'border-red-300' : 'border-slate-300'
+                  className={`form-input ${
+                    errors.date_souhaitee ? 'form-field-error' : ''
                   }`}
                 />
                 {errors.date_souhaitee && (
@@ -470,7 +431,7 @@ const BesoinCreate = () => {
 
               <div>
                 <label htmlFor="date_limite" className="block text-sm font-medium text-slate-700">
-                  Date limite *
+                  Date limite <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -478,8 +439,8 @@ const BesoinCreate = () => {
                   name="date_limite"
                   value={formData.date_limite}
                   onChange={handleChange}
-                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    errors.date_limite ? 'border-red-300' : 'border-slate-300'
+                  className={`form-input ${
+                    errors.date_limite ? 'form-field-error' : ''
                   }`}
                 />
                 {errors.date_limite && (
@@ -503,7 +464,7 @@ const BesoinCreate = () => {
                   name="mode_budget"
                   value={formData.mode_budget}
                   onChange={handleChange}
-                  className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="form-select"
                 >
                   <option value="budget_fixe">Budget fixe — prix connu ou fourchette</option>
                   <option value="sur_devis">Sur devis — les fournisseurs chiffrent avant validation</option>
@@ -512,7 +473,7 @@ const BesoinCreate = () => {
 
               <div>
                 <label htmlFor="budget" className="block text-sm font-medium text-slate-700">
-                  Budget (FCFA) {formData.mode_budget === 'budget_fixe' ? '*' : '(optionnel)'}
+                  Budget (FCFA) {formData.mode_budget === 'budget_fixe' ? <span className="text-red-500">*</span> : '(optionnel)'}
                 </label>
                 <input
                   type="number"
@@ -520,8 +481,8 @@ const BesoinCreate = () => {
                   name="budget"
                   value={formData.budget}
                   onChange={handleChange}
-                  className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                    errors.budget ? 'border-red-300' : 'border-slate-300'
+                  className={`form-input ${
+                    errors.budget ? 'form-field-error' : ''
                   }`}
                   placeholder={formData.mode_budget === 'sur_devis' ? 'Optionnel' : '100000'}
                 />

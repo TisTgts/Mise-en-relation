@@ -20,6 +20,23 @@ const apiClient = axios.create({
 });
 
 let refreshPromise = null;
+const sessionExpiredListeners = new Set();
+
+/** AuthContext s’abonne pour dispatcher LOGOUT quand le refresh JWT échoue. */
+export function onSessionExpired(listener) {
+  sessionExpiredListeners.add(listener);
+  return () => sessionExpiredListeners.delete(listener);
+}
+
+function notifySessionExpired() {
+  sessionExpiredListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* ignore listener errors */
+    }
+  });
+}
 
 function assertRequestUrl(config) {
   if (!isProductionBuild()) return;
@@ -29,6 +46,8 @@ function assertRequestUrl(config) {
 
 apiClient.interceptors.request.use(async (config) => {
   assertRequestUrl(config);
+
+  if (config.skipAuth) return config;
 
   const token = await getAccessToken();
   if (token) {
@@ -41,7 +60,7 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
-    if (!original || error.response?.status !== 401 || original._retry) {
+    if (!original || original.skipAuth || error.response?.status !== 401 || original._retry) {
       return Promise.reject(error);
     }
 
@@ -81,6 +100,7 @@ apiClient.interceptors.response.use(
       return apiClient(original);
     } catch (refreshError) {
       await clearSession();
+      notifySessionExpired();
       return Promise.reject(refreshError);
     }
   }

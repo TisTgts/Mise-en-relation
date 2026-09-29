@@ -18,14 +18,6 @@ TOKEN_SYNONYMS = {
     "logistique": "transport",
 }
 
-BESOIN_CATEGORY_REQUIRED_FIELDS = {
-    "transport & logistique": ["type_marchandise", "volume_estime"],
-    "informatique & digital": ["contexte_technique", "stack_souhaitee"],
-    "btp & travaux": ["surface_estimee_m2", "materiaux_fournis_par"],
-    "maintenance & reparation": ["equipement_concerne", "panne_constatee"],
-}
-
-
 def normalize_text(value):
     if value is None:
         return ""
@@ -65,8 +57,3 @@ def overlap_strength(left_tokens, right_tokens):
             if len(left) >= 4 and len(right) >= 4 and (left in right or right in left):
                 return Decimal("0.65")
     return Decimal("0")
-
-
-def required_fields_for_besoin_category(category_name):
-    normalized = normalize_text(category_name)
-    return BESOIN_CATEGORY_REQUIRED_FIELDS.get(normalized, [])

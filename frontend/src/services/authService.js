@@ -1,9 +1,10 @@
 import { API_ENDPOINTS } from '../config/api';
+import { apiErrorFromResponse, apiFetch } from '../utils/apiErrors';
 
 class AuthService {
   // Login
   async login(email, password) {
-    const response = await fetch(API_ENDPOINTS.AUTH.LOGIN, {
+    const response = await apiFetch(API_ENDPOINTS.AUTH.LOGIN, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -13,7 +14,7 @@ class AuthService {
     });
     
     if (!response.ok) {
-      throw new Error('Login failed');
+      throw await apiErrorFromResponse(response, 'Connexion impossible. Vérifiez votre e-mail et votre mot de passe.');
     }
     
     const data = await response.json();
@@ -28,7 +29,7 @@ class AuthService {
   
   // Register
   async register(userData) {
-    const response = await fetch(API_ENDPOINTS.AUTH.REGISTER, {
+    const response = await apiFetch(API_ENDPOINTS.AUTH.REGISTER, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,26 +38,11 @@ class AuthService {
       body: JSON.stringify(userData),
     });
     
-    const data = await response.json();
-    
     if (!response.ok) {
-      // Afficher les erreurs spécifiques du backend
-      let errorMessage = 'Registration failed';
-      if (data.username) {
-        errorMessage = data.username[0];
-      } else if (data.email) {
-        errorMessage = data.email[0];
-      } else if (data.password) {
-        errorMessage = data.password[0];
-      } else if (data.non_field_errors) {
-        errorMessage = data.non_field_errors[0];
-      } else if (data.detail) {
-        errorMessage = data.detail;
-      }
-      throw new Error(errorMessage);
+      throw await apiErrorFromResponse(response, "L'inscription n'a pas abouti. Vérifiez le formulaire puis réessayez.");
     }
     
-    return data;
+    return response.json();
   }
   
   // Logout
@@ -124,7 +110,7 @@ class AuthService {
     });
     
     if (!response.ok) {
-      throw new Error('Token refresh failed');
+      throw await apiErrorFromResponse(response, 'Votre session a expiré. Reconnectez-vous pour continuer.');
     }
     
     const data = await response.json();
@@ -134,20 +120,19 @@ class AuthService {
   }
 
   async requestPasswordReset(email) {
-    const response = await fetch(API_ENDPOINTS.AUTH.PASSWORD_RESET, {
+    const response = await apiFetch(API_ENDPOINTS.AUTH.PASSWORD_RESET, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Client-App': 'toghinis-web' },
       body: JSON.stringify({ email: email.trim() }),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || data.detail || 'Demande impossible');
+      throw await apiErrorFromResponse(response, "La demande n'a pas pu être envoyée. Vérifiez l'e-mail saisi puis réessayez.");
     }
-    return data;
+    return response.json().catch(() => ({}));
   }
 
   async confirmPasswordReset(email, code, password) {
-    const response = await fetch(API_ENDPOINTS.AUTH.PASSWORD_RESET_CONFIRM, {
+    const response = await apiFetch(API_ENDPOINTS.AUTH.PASSWORD_RESET_CONFIRM, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Client-App': 'toghinis-web' },
       body: JSON.stringify({
@@ -156,16 +141,15 @@ class AuthService {
         password,
       }),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || data.detail || 'Réinitialisation impossible');
+      throw await apiErrorFromResponse(response, 'Réinitialisation impossible. Vérifiez le code reçu par e-mail puis réessayez.');
     }
-    return data;
+    return response.json().catch(() => ({}));
   }
 
   async deleteAccount() {
     const refresh = localStorage.getItem('refresh_token');
-    const response = await fetch(API_ENDPOINTS.AUTH.DELETE_ACCOUNT, {
+    const response = await apiFetch(API_ENDPOINTS.AUTH.DELETE_ACCOUNT, {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify({
@@ -173,10 +157,10 @@ class AuthService {
         ...(refresh ? { refresh } : {}),
       }),
     });
-    const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || data.detail || 'Suppression impossible');
+      throw await apiErrorFromResponse(response, "Le compte n'a pas pu être supprimé. Réessayez ou contactez le support.");
     }
+    const data = await response.json().catch(() => ({}));
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');

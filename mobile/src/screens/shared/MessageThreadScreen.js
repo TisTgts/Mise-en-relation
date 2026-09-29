@@ -17,7 +17,6 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { useHeaderHeight } from '@react-navigation/elements';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -126,10 +125,9 @@ function MessageAttachment({ item, mine }) {
   );
 }
 
-export default function MessageThreadScreen({ route }) {
+export default function MessageThreadScreen({ navigation, route }) {
   const { transactionId, partnerName, collabTitle } = route.params || {};
   const insets = useSafeAreaInsets();
-  const headerHeight = useHeaderHeight();
   const listRef = useRef(null);
   const hasLoaded = useRef(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -358,11 +356,16 @@ export default function MessageThreadScreen({ route }) {
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={headerHeight || 0}
+      keyboardVerticalOffset={0}
     >
-      <View style={[styles.header, { paddingTop: spacing.sm }]}>
-        <Text style={styles.headerTitle} numberOfLines={1}>{headerTitle}</Text>
-        <Text style={styles.headerSub} numberOfLines={1}>{headerPartner}</Text>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        </Pressable>
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{headerTitle}</Text>
+          <Text style={styles.headerSub} numberOfLines={1}>{headerPartner}</Text>
+        </View>
       </View>
 
       <ErrorBanner message={error} />
@@ -493,12 +496,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     backgroundColor: colors.surface,
   },
+  backBtn: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerText: { flex: 1, minWidth: 0 },
   headerTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
   headerSub: { marginTop: 2, fontSize: 13, color: colors.textMuted },
   list: { padding: spacing.lg, paddingBottom: spacing.md, flexGrow: 1 },

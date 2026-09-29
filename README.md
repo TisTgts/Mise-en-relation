@@ -80,7 +80,7 @@ python -m venv venv
 # Linux/macOS : source venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py createsuperuser   # optionnel — accès /admin/ Django
+python manage.py createsuperuser   # optionnel — accès /api/gestion-django/ (admin Django)
 python manage.py runserver
 ```
 

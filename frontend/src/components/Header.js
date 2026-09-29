@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { APP_NAME } from '../config/branding';
 import AppBrand from './AppBrand';
 import NotificationBell from './NotificationBell';
@@ -33,6 +34,7 @@ const NAV_LINKS = [
 
 const Header = () => {
   const { user, isAuthenticated, logout } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -60,7 +62,14 @@ const Header = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setIsProfileMenuOpen(false);
+    const ok = await confirm({
+      title: 'Se déconnecter ?',
+      message: 'Vous devrez vous reconnecter pour accéder à votre espace.',
+      confirmLabel: 'Se déconnecter',
+    });
+    if (!ok) return;
     logout();
     navigate('/');
   };

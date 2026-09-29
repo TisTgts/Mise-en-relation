@@ -487,7 +487,7 @@ export default function BesoinsListScreen({ navigation }) {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={(i) => String(i.id)}
+          keyExtractor={(i, index) => String(i.id ?? `row-${index}`)}
           {...LIST_PERF}
           ListHeaderComponent={listHeader}
           contentContainerStyle={{

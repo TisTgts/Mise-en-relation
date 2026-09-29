@@ -68,7 +68,7 @@ test('1. le client publie un besoin sur devis', async () => {
         intitule: besoinIntitule,
         description: 'Besoin de développement web pour le parcours end-to-end.',
         type_service: 'Développement web',
-        exigences: { contexte_technique: 'ERP interne', stack_souhaitee: 'Django + React' },
+        exigences: { structure: 'PME / entreprise', objectif: 'Un site vitrine avec prise de commande' },
         lieu_intervention: 'Lomé',
         date_souhaitee: '2030-06-01T09:00:00Z',
         date_limite: '2030-07-01T09:00:00Z',

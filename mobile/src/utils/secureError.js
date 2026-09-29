@@ -13,7 +13,7 @@ const NETWORK_HINTS = [
 ];
 
 const NETWORK_USER_MSG =
-  'Connexion impossible. Vérifiez votre réseau et réessayez.';
+  'Connexion impossible. Vérifiez que vous avez internet (données mobiles ou Wi-Fi) puis réessayez.';
 
 function isNetworkMessage(text) {
   const lower = String(text || '').toLowerCase();
@@ -52,7 +52,7 @@ export function sanitizeErrorMessage(message, fallback = 'Une erreur est survenu
     return fallback;
   }
 
-  if (text.length > 180) {
+  if (text.length > 300) {
     return fallback;
   }
 

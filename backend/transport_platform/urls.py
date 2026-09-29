@@ -22,7 +22,7 @@ from django.conf.urls.static import static
 from transport_platform.config_views import country_config, countries_list
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path(settings.DJANGO_ADMIN_URL, admin.site.urls),
     path('api/config/country/', country_config, name='country-config'),
     path('api/config/countries/', countries_list, name='countries-list'),
     path('api/accounts/', include('accounts.urls')),

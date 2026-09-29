@@ -89,6 +89,10 @@ const BesoinDetail = () => {
     );
   }
 
+  const exigencesDetail = Array.isArray(besoin.exigences_detail)
+    ? besoin.exigences_detail
+    : Object.entries(besoin.exigences || {}).map(([key, value]) => ({ key, label: key, value }));
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-10">
       <div>
@@ -188,18 +192,18 @@ const BesoinDetail = () => {
             </div>
 
             {/* Exigences spécifiques */}
-            {besoin.exigences && Object.keys(besoin.exigences).length > 0 && (
+            {exigencesDetail.length > 0 && (
               <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="mb-4 text-lg font-semibold text-slate-900">Exigences spécifiques</h2>
+                <h2 className="mb-4 text-lg font-semibold text-slate-900">Précisions</h2>
                 <div className="space-y-3">
-                  {Object.entries(besoin.exigences).map(([key, value]) => (
+                  {exigencesDetail.map(({ key, label, value }) => (
                     <div key={key} className="flex items-start">
                       <div className="flex-shrink-0">
                         <FiTag className="mt-0.5 h-5 w-5 text-slate-400" />
                       </div>
                       <div className="ml-3">
-                        <p className="text-sm font-medium text-slate-900">{key}</p>
-                        <p className="text-sm text-slate-600">{value}</p>
+                        <p className="text-sm font-medium text-slate-900">{label}</p>
+                        <p className="text-sm text-slate-600">{String(value)}</p>
                       </div>
                     </div>
                   ))}

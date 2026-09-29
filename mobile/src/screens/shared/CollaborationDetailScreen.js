@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import ReviewModal from '../../components/ReviewModal';
@@ -55,7 +55,7 @@ function InfoLine({ icon, label, value }) {
 }
 
 export default function CollaborationDetailScreen({ route, navigation }) {
-  const { id } = route.params;
+  const { id } = route.params || {};
   const { type_utilisateur } = useAuth();
   const isClient = type_utilisateur === 'client';
   const role = isClient ? 'client' : 'fournisseur';
@@ -69,6 +69,11 @@ export default function CollaborationDetailScreen({ route, navigation }) {
   const { showToast } = useToast();
 
   const load = useCallback(async () => {
+    if (!id) {
+      setError('Identifiant manquant');
+      setLoading(false);
+      return;
+    }
     setError(null);
     try {
       setTx(await fetchTransaction(id));
@@ -91,10 +96,11 @@ export default function CollaborationDetailScreen({ route, navigation }) {
     setError(null);
     try {
       await fn();
-      if (okMsg) Alert.alert('OK', okMsg);
+      if (okMsg) showToast(okMsg, 'success');
       await load();
     } catch (e) {
       setError(extractErrorMessage(e, 'Action impossible'));
+      showToast(extractErrorMessage(e, 'Action impossible'), 'error');
     } finally {
       setBusy(false);
     }
@@ -112,6 +118,7 @@ export default function CollaborationDetailScreen({ route, navigation }) {
     return (
       <Screen style={{ padding: spacing.lg }}>
         <ErrorBanner message={error || 'Introuvable'} />
+        <Button title="Retour" onPress={() => navigation.goBack()} />
       </Screen>
     );
   }
@@ -142,13 +149,27 @@ export default function CollaborationDetailScreen({ route, navigation }) {
         </View>
 
         {nextAction ? (
-          <View style={styles.nextBanner}>
+          <Pressable
+            onPress={() => {
+              if (nextAction.icon === 'chatbubbles-outline') {
+                navigation.navigate('MessageThread', {
+                  transactionId: tx.id,
+                  partnerName: summary.partner,
+                  collabTitle: summary.title,
+                });
+              }
+            }}
+            style={styles.nextBanner}
+          >
             <Ionicons name={nextAction.icon} size={20} color={colors.primary} />
             <View style={{ flex: 1 }}>
               <Text style={styles.nextBannerLabel}>Prochaine étape</Text>
               <Text style={styles.nextBannerText}>{nextAction.label}</Text>
             </View>
-          </View>
+            {nextAction.icon === 'chatbubbles-outline' ? (
+              <Ionicons name="chevron-forward" size={18} color={colors.primary} />
+            ) : null}
+          </Pressable>
         ) : null}
 
         <View style={styles.infoCard}>

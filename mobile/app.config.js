@@ -1,5 +1,8 @@
 /** @type {import('expo/config').ExpoConfig} */
 const IS_PRODUCTION_BUILD = process.env.EXPO_PUBLIC_APP_ENV === 'production';
+// Build de dev (expo-dev-client) : identifiant distinct pour cohabiter avec l'APK preview/prod.
+const IS_DEV_VARIANT = process.env.APP_VARIANT === 'development';
+const APP_ID = IS_DEV_VARIANT ? 'com.appname.mobile.dev' : 'com.appname.mobile';
 const EAS_PROJECT_ID = process.env.EAS_PROJECT_ID || process.env.EXPO_PUBLIC_EAS_PROJECT_ID || '';
 
 const localNetworkExceptions = {
@@ -9,9 +12,9 @@ const localNetworkExceptions = {
 
 export default {
   expo: {
-    name: 'AppName',
+    name: IS_DEV_VARIANT ? 'AppName Dev' : 'AppName',
     slug: 'appname-mobile',
-    version: '0.1.0',
+    version: '0.2.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -27,7 +30,7 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.appname.mobile',
+      bundleIdentifier: APP_ID,
       infoPlist: IS_PRODUCTION_BUILD
         ? {
             NSAppTransportSecurity: {
@@ -43,14 +46,15 @@ export default {
           },
     },
     android: {
-      package: 'com.appname.mobile',
-      versionCode: 1,
+      package: APP_ID,
       usesCleartextTraffic: !IS_PRODUCTION_BUILD,
       // "pan" : le clavier ne réduit pas la fenêtre — on remonte le composer en JS (fiable sur Samsung).
       softwareKeyboardLayoutMode: 'pan',
       adaptiveIcon: {
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundColor: '#FFFFFF',
+        backgroundImage: './assets/android-icon-background.png',
+        monochromeImage: './assets/android-icon-monochrome.png',
       },
       permissions: [
         'ACCESS_COARSE_LOCATION',
@@ -72,6 +76,8 @@ export default {
       },
       apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://toghinis.net/api',
       appEnv: process.env.EXPO_PUBLIC_APP_ENV || 'development',
+      privacyPolicyUrl: 'https://toghinis.net/confidentialite',
+      termsUrl: 'https://toghinis.net/cgu',
     },
     plugins: [
       'expo-secure-store',

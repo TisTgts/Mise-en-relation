@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAppData } from '../../contexts/AppDataContext';
 import { fetchMyBesoins, fetchMessages, fetchTransactions } from '../../services/dataService';
 import { extractErrorMessage } from '../../services/authService';
-import { transactionSummary } from '../../utils/collaborationView';
+import { transactionSummary, pickTransactionNextAction } from '../../utils/collaborationView';
 import { getUserId } from '../../utils/messageThreads';
 import { pickTitle } from '../../utils/format';
 
@@ -111,9 +111,21 @@ export default function ClientHomeScreen({ navigation }) {
 
         <ActivityStrip
           items={[
-            { label: 'Besoins ouverts', value: ouvertsCount },
-            { label: 'Collabs actives', value: collabsActives.length },
-            { label: 'Messages', value: unread || messages.length },
+            {
+              label: 'Besoins ouverts',
+              value: ouvertsCount,
+              onPress: () => navigation.navigate('BesoinsTab'),
+            },
+            {
+              label: 'Collabs actives',
+              value: collabsActives.length,
+              onPress: () => navigation.navigate('CollabTab'),
+            },
+            {
+              label: 'Non lus',
+              value: unread,
+              onPress: () => navigation.navigate('MessagesTab'),
+            },
           ]}
         />
 
@@ -185,12 +197,13 @@ export default function ClientHomeScreen({ navigation }) {
           ) : (
             recentCollabs.map((item) => {
               const summary = transactionSummary(item, 'client');
+              const next = pickTransactionNextAction(item, 'client');
               return (
                 <ActivityItem
                   key={item.id}
                   title={summary.title}
                   subtitle={summary.partner}
-                  meta={summary.amount}
+                  meta={next ? next.label : summary.amount}
                   onPress={() => navigation.navigate('CollaborationDetail', { id: item.id })}
                   badge={<StatusBadge value={item.statut} />}
                 />

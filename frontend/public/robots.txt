@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+Disallow: /super-admin/
+Disallow: /client/
+Disallow: /fournisseur/
+Disallow: /dashboard
+Disallow: /client_dashboard
+Disallow: /test-dashboard
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://toghinis.net/sitemap.xml
