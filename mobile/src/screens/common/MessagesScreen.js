@@ -184,24 +184,40 @@ export default function MessagesScreen({ navigation }) {
                     ? 'Vos échanges apparaîtront ici après un match confirmé.'
                     : 'Aucune conversation ne correspond à votre recherche.'
               }
-              actionLabel={messages.length === 0 && !error ? 'Voir les collaborations' : undefined}
+              actionLabel={
+                error
+                  ? 'Réessayer'
+                  : messages.length === 0
+                    ? 'Voir les collaborations'
+                    : searchTerm
+                      ? 'Effacer la recherche'
+                      : undefined
+              }
               onAction={
-                messages.length === 0 && !error
-                  ? () => navigation.navigate('CollabTab')
-                  : undefined
+                error
+                  ? retry
+                  : messages.length === 0
+                    ? () => navigation.navigate('CollabTab')
+                    : searchTerm
+                      ? () => setSearchTerm('')
+                      : undefined
               }
             />
           }
           renderItem={({ item }) => (
             <ThreadCard
               thread={item}
-              onPress={() =>
+              onPress={() => {
+                if (!item.transactionId) {
+                  navigation.navigate('CollabTab');
+                  return;
+                }
                 navigation.navigate('MessageThread', {
                   transactionId: item.transactionId,
                   partnerName: item.partnerName,
                   collabTitle: item.collabTitle,
-                })
-              }
+                });
+              }}
             />
           )}
         />

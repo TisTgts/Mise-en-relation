@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch, FiLogOut, FiMenu, FiUser, FiSettings, FiChevronDown, FiActivity } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
+import { useConfirm } from '../../contexts/ConfirmContext';
 import NotificationBell from '../NotificationBell';
 import AppBrand from '../AppBrand';
 import { dashboardPathForRole } from '../../utils/roles';
@@ -9,6 +10,7 @@ import { dashboardPathForRole } from '../../utils/roles';
 const TopBar = ({ toggleSidebar, sidebarOpen }) => {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const { user, logout } = useAuth();
+  const confirm = useConfirm();
   const profileMenuRef = useRef(null);
 
   useEffect(() => {
@@ -25,7 +27,14 @@ const TopBar = ({ toggleSidebar, sidebarOpen }) => {
     };
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    setShowProfileMenu(false);
+    const ok = await confirm({
+      title: 'Se déconnecter ?',
+      message: 'Vous devrez vous reconnecter pour accéder à votre espace.',
+      confirmLabel: 'Se déconnecter',
+    });
+    if (!ok) return;
     logout();
     window.location.href = '/login';
   };

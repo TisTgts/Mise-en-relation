@@ -8,11 +8,12 @@ from datetime import timedelta
 import os
 
 import environ
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env(
-    DEBUG=(bool, True),
+    DEBUG=(bool, False),
     ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1", "0.0.0.0", "testserver"]),
     CORS_ALLOWED_ORIGINS=(list, ["http://localhost:3000", "http://127.0.0.1:3000"]),
     CORS_ALLOW_ALL_ORIGINS=(bool, True),
@@ -30,12 +31,18 @@ _env_file = BASE_DIR / ".env"
 if _env_file.exists():
     environ.Env.read_env(_env_file)
 
-SECRET_KEY = env(
-    "SECRET_KEY",
-    default="django-insecure-change-me-before-production",
-)
+_INSECURE_SECRET_KEY = "django-insecure-change-me-before-production"
+SECRET_KEY = env("SECRET_KEY", default=_INSECURE_SECRET_KEY)
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+
+if not DEBUG and SECRET_KEY == _INSECURE_SECRET_KEY:
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured("SECRET_KEY doit être défini dans l'environnement en production.")
+
+# Sous /api/ : nginx transmet déjà ce préfixe à Django, et /admin/ reste aux pages React.
+DJANGO_ADMIN_URL = env("DJANGO_ADMIN_URL", default="api/gestion-django/").strip("/") + "/"
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -159,12 +166,21 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
+# X-Client-App : ventilation web / mobile des métriques (monitoring.detect_client).
+CORS_ALLOW_HEADERS = (*default_headers, "x-client-app")
 CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS")
 
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    # La redirection HTTP -> HTTPS est déjà faite par nginx.
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    # Même valeur que nginx : deux valeurs différentes rendraient l'en-tête invalide.
+    X_FRAME_OPTIONS = "SAMEORIGIN"
 
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND",
@@ -202,3 +218,28 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
 AUTH_USER_MODEL = "accounts.User"
+
+# Erreurs visibles dans les journaux gunicorn / systemd.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+    },
+}
+
+# Suivi des erreurs : inactif tant que SENTRY_DSN n'est pas défini.
+SENTRY_DSN = env("SENTRY_DSN", default="")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[DjangoIntegration()],
+        environment=env("SENTRY_ENVIRONMENT", default="development" if DEBUG else "production"),
+        traces_sample_rate=env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0),
+        send_default_pii=False,
+    )

@@ -16,7 +16,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useAppData } from '../../contexts/AppDataContext';
 import { fetchMessages, fetchMyPrestations, fetchTransactions } from '../../services/dataService';
 import { extractErrorMessage } from '../../services/authService';
-import { transactionSummary } from '../../utils/collaborationView';
+import { transactionSummary, pickTransactionNextAction } from '../../utils/collaborationView';
 import { getUserId } from '../../utils/messageThreads';
 import { pickTitle } from '../../utils/format';
 
@@ -111,9 +111,21 @@ export default function FournisseurHomeScreen({ navigation }) {
 
         <ActivityStrip
           items={[
-            { label: 'Prestations', value: actives },
-            { label: 'Devis à faire', value: pendingDevis.length },
-            { label: 'Messages', value: unread || messages.length },
+            {
+              label: 'Prestations',
+              value: actives,
+              onPress: () => navigation.navigate('PrestationsTab'),
+            },
+            {
+              label: 'Devis à faire',
+              value: pendingDevis.length,
+              onPress: () => navigation.navigate('CollabTab'),
+            },
+            {
+              label: 'Non lus',
+              value: unread,
+              onPress: () => navigation.navigate('MessagesTab'),
+            },
           ]}
         />
 
@@ -199,11 +211,13 @@ export default function FournisseurHomeScreen({ navigation }) {
           ) : (
             recentCollabs.map((item) => {
               const summary = transactionSummary(item, 'fournisseur');
+              const next = pickTransactionNextAction(item, 'fournisseur');
               return (
                 <ActivityItem
                   key={item.id}
                   title={summary.title}
-                  meta={`${summary.partnerLabel} · ${summary.partner} · ${summary.date}`}
+                  subtitle={summary.partner}
+                  meta={next ? next.label : `${summary.partnerLabel} · ${summary.date}`}
                   badge={<StatusBadge value={item.statut} />}
                   onPress={() => navigation.navigate('CollaborationDetail', { id: item.id })}
                 />

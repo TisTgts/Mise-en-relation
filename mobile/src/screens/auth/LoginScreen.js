@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -23,12 +23,17 @@ const DEMO_ACCOUNTS = __DEV__
     ]
   : [];
 
-export default function LoginScreen({ navigation }) {
+export default function LoginScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { login, loading, error, clearError } = useAuth();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(route?.params?.email || '');
   const [mdp, setMdp] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
+
+  useEffect(() => {
+    const prefill = route?.params?.email;
+    if (prefill) setEmail(prefill);
+  }, [route?.params?.email]);
 
   const fillDemo = (account) => {
     hapticLight();

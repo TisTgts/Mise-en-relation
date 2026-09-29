@@ -1,153 +1,83 @@
 import { API_ENDPOINTS } from '../config/api';
+import { apiErrorFromResponse, apiFetch } from '../utils/apiErrors';
+
+const LOAD_FALLBACK = 'Impossible de charger les catégories. Actualisez la page.';
+
+const ensureOk = async (response, fallback) => {
+  if (!response.ok) throw await apiErrorFromResponse(response, fallback);
+  return response;
+};
+
+const adminHeaders = (json = true) => {
+  const token = localStorage.getItem('access_token');
+  return {
+    ...(json ? { 'Content-Type': 'application/json' } : {}),
+    Authorization: `Bearer ${token}`,
+  };
+};
 
 class CategoriesService {
-  // Récupérer toutes les catégories
+  // Récupérer toutes les catégories (publiques)
   async getAllCategories() {
-    try {
-      console.log('Fetching categories from:', API_ENDPOINTS.SERVICES.CATEGORIES);
-      
-      // Utiliser fetch simple car les catégories sont publiques
-      const response = await fetch(API_ENDPOINTS.SERVICES.CATEGORIES);
-      console.log('Categories response status:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Categories error response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status} ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log('Categories data received:', data);
-      
-      // Gérer la pagination - retourner results si disponible, sinon data
-      return data.results || data;
-    } catch (error) {
-      console.error('Error in getAllCategories:', error);
-      throw error;
-    }
+    const response = await apiFetch(API_ENDPOINTS.SERVICES.CATEGORIES);
+    await ensureOk(response, LOAD_FALLBACK);
+    const data = await response.json();
+    return data.results || data;
   }
 
   // Récupérer une catégorie par ID
   async getCategorieById(id) {
-    try {
-      const response = await fetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}${id}/`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error in getCategorieById:', error);
-      throw error;
-    }
+    const response = await apiFetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}${id}/`);
+    await ensureOk(response, LOAD_FALLBACK);
+    return response.json();
   }
 
   // Récupérer les catégories actives
   async getCategoriesActives() {
-    try {
-      console.log('Fetching active categories from:', `${API_ENDPOINTS.SERVICES.CATEGORIES}?est_active=true`);
-      
-      const response = await fetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}?est_active=true`);
-      console.log('Active categories response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('Active categories data received:', data);
-      
-      // Gérer la pagination - retourner results si disponible, sinon data
-      return data.results || data;
-    } catch (error) {
-      console.error('Error in getCategoriesActives:', error);
-      throw error;
-    }
+    const response = await apiFetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}?est_active=true`);
+    await ensureOk(response, LOAD_FALLBACK);
+    const data = await response.json();
+    return data.results || data;
   }
 
   // Récupérer les sous-catégories
   async getSousCategories(parentId) {
-    try {
-      const response = await fetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}?parent=${parentId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      // Gérer la pagination - retourner results si disponible, sinon data
-      return data.results || data;
-    } catch (error) {
-      console.error('Error in getSousCategories:', error);
-      throw error;
-    }
+    const response = await apiFetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}?parent=${parentId}`);
+    await ensureOk(response, LOAD_FALLBACK);
+    const data = await response.json();
+    return data.results || data;
   }
 
   // Créer une nouvelle catégorie (admin)
   async createCategorie(categorieData) {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(API_ENDPOINTS.SERVICES.CATEGORIES, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(categorieData),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error in createCategorie:', error);
-      throw error;
-    }
+    const response = await apiFetch(API_ENDPOINTS.SERVICES.CATEGORIES, {
+      method: 'POST',
+      headers: adminHeaders(),
+      body: JSON.stringify(categorieData),
+    });
+    await ensureOk(response, "La catégorie n'a pas pu être créée. Vérifiez le formulaire puis réessayez.");
+    return response.json();
   }
 
   // Mettre à jour une catégorie (admin)
   async updateCategorie(id, categorieData) {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}${id}/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(categorieData),
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error in updateCategorie:', error);
-      throw error;
-    }
+    const response = await apiFetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}${id}/`, {
+      method: 'PATCH',
+      headers: adminHeaders(),
+      body: JSON.stringify(categorieData),
+    });
+    await ensureOk(response, "La catégorie n'a pas pu être modifiée. Vérifiez le formulaire puis réessayez.");
+    return response.json();
   }
 
   // Supprimer une catégorie (admin)
   async deleteCategorie(id) {
-    try {
-      const token = localStorage.getItem('access_token');
-      const response = await fetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}${id}/`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error in deleteCategorie:', error);
-      throw error;
-    }
+    const response = await apiFetch(`${API_ENDPOINTS.SERVICES.CATEGORIES}${id}/`, {
+      method: 'DELETE',
+      headers: adminHeaders(false),
+    });
+    await ensureOk(response, "La catégorie n'a pas pu être supprimée. Réessayez dans un instant.");
+    return true;
   }
 }
 

@@ -25,6 +25,7 @@ import {
   Screen,
 } from '../../components/ui';
 import CityChipsPicker from '../../components/CityChipsPicker';
+import { useAndroidKeyboardHeight } from '../../components/FormScreen';
 import LocationMapPreview from '../../components/LocationMapPreview';
 import LocationPicker from '../../components/LocationPicker';
 import { colors, radii, shadows, spacing } from '../../config/theme';
@@ -82,6 +83,7 @@ function splitList(value) {
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useAndroidKeyboardHeight();
   const { user, logout, logoutAll, deleteAccount, type_utilisateur, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -271,7 +273,9 @@ export default function ProfileScreen({ navigation }) {
         await updateProfile({
           raison_sociale: enterprise.raison_sociale.trim(),
           types_services_offerts: splitList(enterprise.types_services),
-          zones_couverture: zonesSelected.length ? zonesSelected : splitList(enterprise.zones_couverture),
+          zones_couverture: zonesSelected.some((z) => z.trim())
+            ? zonesSelected.map((z) => z.trim()).filter(Boolean)
+            : splitList(enterprise.zones_couverture),
           annees_experience: enterprise.annees_experience
             ? Number(enterprise.annees_experience)
             : null,
@@ -421,7 +425,7 @@ export default function ProfileScreen({ navigation }) {
           />
         }
         contentContainerStyle={{
-          paddingBottom: 48 + Math.max(insets.bottom, 8) + 56,
+          paddingBottom: 48 + Math.max(insets.bottom, 8) + 56 + keyboardHeight,
         }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"

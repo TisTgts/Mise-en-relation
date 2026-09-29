@@ -252,7 +252,7 @@ function AppStacks({ role }) {
       <RootStack.Screen name="PrestationEdit" component={PrestationEditScreen} options={{ title: 'Modifier la prestation' }} />
       <RootStack.Screen name="PrestationDetail" component={PrestationDetailScreen} options={{ title: 'Prestation' }} />
       <RootStack.Screen name="CollaborationDetail" component={CollaborationDetailScreen} options={{ title: 'Collaboration' }} />
-      <RootStack.Screen name="MessageThread" component={MessageThreadScreen} options={{ title: 'Messages' }} />
+      <RootStack.Screen name="MessageThread" component={MessageThreadScreen} options={{ headerShown: false }} />
       <RootStack.Screen
         name="Privacy"
         component={PrivacyScreen}

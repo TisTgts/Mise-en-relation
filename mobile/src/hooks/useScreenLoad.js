@@ -12,33 +12,40 @@ export function useScreenLoad(loader, deps = []) {
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const loaderRef = useRef(loader);
+  loaderRef.current = loader;
 
-  const run = useCallback(
-    async (mode = 'initial') => {
-      if (mode === 'refresh') {
-        setRefreshing(true);
-      } else if (!hasLoaded.current) {
-        setInitialLoading(true);
-      }
-      setError(null);
-      try {
-        await loader();
-        hasLoaded.current = true;
-      } catch (e) {
-        setError(extractErrorMessage(e, 'Chargement impossible'));
-      } finally {
+  const run = useCallback(async (mode = 'initial', isCancelled = () => false) => {
+    if (mode === 'refresh') {
+      setRefreshing(true);
+    } else if (!hasLoaded.current) {
+      setInitialLoading(true);
+    }
+    setError(null);
+    try {
+      await loaderRef.current();
+      if (isCancelled()) return;
+      hasLoaded.current = true;
+    } catch (e) {
+      if (isCancelled()) return;
+      setError(extractErrorMessage(e, 'Chargement impossible'));
+    } finally {
+      if (!isCancelled()) {
         setInitialLoading(false);
         setRefreshing(false);
       }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    deps
-  );
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      run(hasLoaded.current ? 'refresh' : 'initial');
-    }, [run])
+      let cancelled = false;
+      run(hasLoaded.current ? 'refresh' : 'initial', () => cancelled);
+      return () => {
+        cancelled = true;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [run, ...deps])
   );
 
   return {

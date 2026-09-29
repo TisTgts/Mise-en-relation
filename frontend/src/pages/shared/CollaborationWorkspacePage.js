@@ -13,6 +13,7 @@ import {
 } from 'react-icons/fi';
 import transactionsService from '../../services/transactionsService';
 import { API_ENDPOINTS } from '../../config/api';
+import { apiErrorFromResponse, apiFetch } from '../../utils/apiErrors';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 
@@ -324,8 +325,8 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
   }, [tx, role, isConversationClosed]);
 
   const loadMessages = async (txId) => {
-    const res = await fetch(`${API_ENDPOINTS.SERVICES.MESSAGES}?transaction=${txId}`, { headers: authHeaders() });
-    if (!res.ok) throw new Error('Impossible de charger l’espace de travail');
+    const res = await apiFetch(`${API_ENDPOINTS.SERVICES.MESSAGES}?transaction=${txId}`, { headers: authHeaders() });
+    if (!res.ok) throw await apiErrorFromResponse(res, 'Impossible de charger l’espace de travail. Actualisez la page.');
     const data = await res.json();
     const list = (Array.isArray(data) ? data : data.results || []).map(parseWorkspaceEntry);
     list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -382,12 +383,12 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
       fd.append('sujet', `[Espace travail] ${form.type} - ${form.title.trim()}`);
       fd.append('contenu', buildWorkspacePayload(form));
       if (form.file) fd.append('piece_jointe', form.file);
-      const res = await fetch(API_ENDPOINTS.SERVICES.MESSAGES, {
+      const res = await apiFetch(API_ENDPOINTS.SERVICES.MESSAGES, {
         method: 'POST',
         headers: authOnlyHeaders(),
         body: fd,
       });
-      if (!res.ok) throw new Error('Impossible d’ajouter cette information');
+      if (!res.ok) throw await apiErrorFromResponse(res, 'Impossible d’ajouter cette information. Vérifiez le contenu et la pièce jointe puis réessayez.');
       setForm({ type: 'info', title: '', content: '', fileUrl: '', file: null });
       await loadMessages(id);
     } catch (e) {
@@ -405,12 +406,12 @@ export default function CollaborationWorkspacePage({ role = 'client', backPath =
     fd.append('sujet', `[Espace travail] ${entry.type} - ${entry.title.trim()}`);
     fd.append('contenu', buildWorkspacePayload(entry));
     if (entry.file) fd.append('piece_jointe', entry.file);
-    const res = await fetch(API_ENDPOINTS.SERVICES.MESSAGES, {
+    const res = await apiFetch(API_ENDPOINTS.SERVICES.MESSAGES, {
       method: 'POST',
       headers: authOnlyHeaders(),
       body: fd,
     });
-    if (!res.ok) throw new Error('Impossible de publier dans l’espace devis');
+    if (!res.ok) throw await apiErrorFromResponse(res, 'Impossible de publier dans l’espace devis. Réessayez.');
   };
 
   const handleDevisNoteSubmit = async () => {

@@ -23,3 +23,97 @@ code {
 .btn-secondary {
   @apply bg-secondary-600 hover:bg-secondary-700 text-white font-bold py-2 px-4 rounded;
 }
+
+@layer components {
+  .form-input,
+  .form-select {
+    @apply mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm transition-colors duration-150;
+    @apply hover:border-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/25;
+    @apply disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400;
+  }
+
+  .form-input::placeholder {
+    @apply text-slate-400;
+  }
+
+  .form-select {
+    @apply cursor-pointer appearance-none pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2364748b'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem;
+  }
+
+  .form-select:focus {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23d97706'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  }
+
+  /* Tant qu'aucune option n'est choisie, le texte reste grisé comme un placeholder. */
+  .form-select:has(option[value='']:checked) {
+    @apply text-slate-400;
+  }
+
+  .form-select option {
+    @apply text-slate-900;
+  }
+
+  .form-field-error {
+    @apply border-red-300 bg-red-50/40 hover:border-red-400 focus:border-red-500 focus:ring-red-500/20;
+  }
+}
+
+/* Liste déroulante stylable (Chrome/Edge 135+) ; les autres navigateurs gardent la liste native. */
+@supports (appearance: base-select) {
+  .form-select,
+  .form-select::picker(select) {
+    appearance: base-select;
+  }
+
+  .form-select::picker-icon {
+    display: none;
+  }
+
+  .form-select::picker(select) {
+    margin-top: 0.25rem;
+    padding: 0.25rem;
+    max-height: 18rem;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    background: #fff;
+    box-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.12), 0 4px 6px -4px rgb(15 23 42 / 0.08);
+  }
+
+  .form-select option {
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    color: #0f172a;
+    cursor: pointer;
+  }
+
+  .form-select option::checkmark {
+    display: none;
+  }
+
+  .form-select option:hover,
+  .form-select option:focus-visible {
+    background: #f1f5f9;
+    outline: none;
+  }
+
+  .form-select option:checked {
+    background: #fffbeb;
+    color: #92400e;
+    font-weight: 500;
+  }
+
+  .form-select option[value=''] {
+    color: #94a3b8;
+  }
+
+  .form-select option:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+  }
+}

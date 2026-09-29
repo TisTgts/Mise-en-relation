@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
+import { onSessionExpired } from '../services/apiClient';
 import * as authService from '../services/authService';
 import { clearSession, getAccessToken } from '../services/tokenStorage';
 import { clearPushTokenOnLogout, syncPushTokenWithBackend } from '../services/pushNotifications';
@@ -46,7 +47,7 @@ function authReducer(state, action) {
     case AUTH_ACTIONS.BOOTSTRAP_START:
       return { ...state, bootstrapping: true };
     case AUTH_ACTIONS.BOOTSTRAP_DONE:
-      return { ...state, bootstrapping: false };
+      return { ...state, bootstrapping: false, loading: false };
     case AUTH_ACTIONS.LOGIN_START:
       return { ...state, loading: true, error: null };
     case AUTH_ACTIONS.LOGIN_SUCCESS:
@@ -78,6 +79,7 @@ function authReducer(state, action) {
     case AUTH_ACTIONS.CLEAR_ERROR:
       return { ...state, error: null };
     case AUTH_ACTIONS.UPDATE_USER:
+      if (!state.user) return state;
       return {
         ...state,
         user: { ...state.user, ...action.payload },
@@ -129,6 +131,14 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  // Refresh JWT échoué → tokens déjà vidés par apiClient ; synchroniser l’état React.
+  useEffect(() => {
+    return onSessionExpired(() => {
+      clearPushTokenOnLogout().catch(() => {});
+      dispatch({ type: AUTH_ACTIONS.LOGOUT });
+    });
+  }, []);
+
   const login = useCallback(async (email, password) => {
     dispatch({ type: AUTH_ACTIONS.LOGIN_START });
     try {
@@ -171,10 +181,12 @@ export function AuthProvider({ children }) {
           payload: { user: data.user, token: data.access },
         });
         syncPushTokenWithBackend();
-      } else {
-        dispatch({ type: AUTH_ACTIONS.BOOTSTRAP_DONE });
+        return { success: true, user: data.user };
       }
-      return { success: true, user: data.user };
+      // Compte créé sans session auto
+      dispatch({ type: AUTH_ACTIONS.BOOTSTRAP_DONE });
+      dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
+      return { success: true, user: data.user, needsLogin: true };
     } catch (err) {
       const msg = authService.extractErrorMessage(
         err,

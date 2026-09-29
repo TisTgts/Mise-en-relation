@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -12,10 +12,11 @@ import {
   Screen,
 } from '../../components/ui';
 import { colors, radii, shadows, spacing } from '../../config/theme';
+import { useToast } from '../../contexts/ToastContext';
 import { fetchPrestation, fetchTransactions, findMatchesForPrestation } from '../../services/dataService';
 import { extractErrorMessage } from '../../services/authService';
 import { formatMoney, pickTitle } from '../../utils/format';
-import { hapticLight } from '../../utils/haptics';
+import { hapticLight, hapticSuccess } from '../../utils/haptics';
 import { LIST_PERF } from '../../utils/listPerf';
 
 function normalizeMatches(payload) {
@@ -82,7 +83,8 @@ function MatchCard({ item, acting, onContact }) {
 }
 
 export default function PrestationMatchingScreen({ route, navigation }) {
-  const { id } = route.params;
+  const { id } = route.params || {};
+  const { showToast } = useToast();
   const [prestation, setPrestation] = useState(null);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +93,11 @@ export default function PrestationMatchingScreen({ route, navigation }) {
   const [ran, setRan] = useState(false);
 
   const run = useCallback(async () => {
+    if (!id) {
+      setError('Identifiant manquant');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -105,6 +112,7 @@ export default function PrestationMatchingScreen({ route, navigation }) {
   }, [id]);
 
   const loadPrestation = useCallback(async () => {
+    if (!id) return;
     try {
       setPrestation(await fetchPrestation(id));
     } catch {
@@ -139,11 +147,8 @@ export default function PrestationMatchingScreen({ route, navigation }) {
         navigation.navigate('CollaborationDetail', { id: existing.id });
         return;
       }
-      Alert.alert(
-        'Opportunité identifiée',
-        'Le client doit confirmer le match depuis son espace. Surveillez vos collaborations et messages.',
-        [{ text: 'OK' }]
-      );
+      hapticSuccess();
+      showToast('Le client doit confirmer le match. Surveillez collabs et messages.', 'info');
     } catch (e) {
       setError(extractErrorMessage(e, 'Action impossible'));
     } finally {

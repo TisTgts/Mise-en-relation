@@ -97,9 +97,9 @@ const PrestationDetail = () => {
 
   const getTarificationText = (mode) => {
     switch (mode) {
-      case 'fixe': return 'Tarif fixe';
-      case 'horaire': return 'Tarif horaire';
-      case 'forfait': return 'Forfait';
+      case 'fixe': return 'Prix fixe';
+      case 'horaire': return "Prix à l'heure";
+      case 'forfait': return 'Prix par travail (forfait)';
       case 'devis': return 'Sur devis';
       default: return mode;
     }
@@ -185,19 +185,18 @@ const PrestationDetail = () => {
               <p className="text-gray-700 whitespace-pre-wrap">{prestation.description}</p>
             </div>
 
-            {/* Caractéristiques techniques */}
-            {prestation.caracteristiques && Object.keys(prestation.caracteristiques).length > 0 && (
+            {Array.isArray(prestation.caracteristiques_detail) && prestation.caracteristiques_detail.length > 0 && (
               <div className="bg-white shadow rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Caractéristiques techniques</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Précisions sur l&apos;offre</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {Object.entries(prestation.caracteristiques).map(([key, value]) => (
-                    <div key={key} className="flex items-start">
+                  {prestation.caracteristiques_detail.map((item) => (
+                    <div key={item.key} className="flex items-start">
                       <div className="flex-shrink-0">
                         <FiTag className="h-5 w-5 text-gray-400 mt-0.5" />
                       </div>
                       <div className="ml-3">
-                        <p className="text-sm font-medium text-gray-900">{key}</p>
-                        <p className="text-sm text-gray-600">{value}</p>
+                        <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                        <p className="text-sm text-gray-600">{String(item.value)}</p>
                       </div>
                     </div>
                   ))}
@@ -231,7 +230,7 @@ const PrestationDetail = () => {
                         <p className="text-sm text-gray-600">
                           {prestation.disponibilite_fin ? 
                             new Date(prestation.disponibilite_fin).toLocaleDateString('fr-FR') : 
-                            'Non spécifiée'
+                            'Sans limite'
                           }
                         </p>
                       </div>

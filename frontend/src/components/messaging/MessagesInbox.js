@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../config/api';
+import { apiErrorFromResponse, friendlyErrorMessage } from '../../utils/apiErrors';
 import { fetchAllPaginated } from '../../services/apiClient';
 import Toast from '../Toast';
 import { requestNotificationsRefresh } from '../../contexts/NotificationContext';
@@ -370,8 +371,7 @@ const MessagesInbox = ({
         });
       }
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || "Envoi impossible.");
+        throw await apiErrorFromResponse(res, "Le message n'a pas pu être envoyé. Réessayez.");
       }
       const created = await res.json();
       setMessages((prev) => [...prev, created]);
@@ -379,7 +379,7 @@ const MessagesInbox = ({
       clearAttachment();
       requestNotificationsRefresh();
     } catch (error) {
-      setToast({ message: error.message || "Erreur lors de l'envoi.", type: 'error' });
+      setToast({ message: friendlyErrorMessage(error, "Le message n'a pas pu être envoyé. Vérifiez votre connexion puis réessayez."), type: 'error' });
     } finally {
       setSending(false);
     }

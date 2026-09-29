@@ -1,3 +1,4 @@
+from datetime import datetime, timezone as dt_timezone
 from decimal import Decimal
 from math import asin, cos, radians, sin, sqrt
 
@@ -191,10 +192,19 @@ class MatchingService:
             return dj_tz.make_aware(dt, dj_tz.get_current_timezone())
         return dt
 
+    GENERIC_SERVICE_TYPES = {"", "autre", "autres", "service"}
+
+    def _is_generic_type(self, entity, normalized_type):
+        # Un type vide, « Autre » ou égal au nom de la catégorie couvre toute la catégorie.
+        return (
+            normalized_type in self.GENERIC_SERVICE_TYPES
+            or normalized_type == self._normalized_main_category_name(entity)
+        )
+
     def _types_compatible(self, prestation, besoin):
         pt = self._normalize(prestation.service_type)
         bt = self._normalize(besoin.service_type)
-        if not pt or not bt:
+        if self._is_generic_type(prestation, pt) or self._is_generic_type(besoin, bt):
             return True
         return pt == bt
 
@@ -342,18 +352,22 @@ class MatchingService:
         preferred = self._datetime_aware(besoin.preferred_date)
         deadline = self._datetime_aware(besoin.deadline)
 
-        if not start or not end:
+        if not start and not end:
             return Decimal("52")
 
-        start_a = self._datetime_aware(start)
-        end_a = self._datetime_aware(end)
-        if start_a > end_a:
+        # Une borne absente signifie « sans limite » de ce côté.
+        start_a = self._datetime_aware(start) if start else None
+        end_a = self._datetime_aware(end) if end else None
+        if start_a and end_a and start_a > end_a:
             return Decimal("48")
 
-        if preferred and end_a < preferred:
+        if preferred and end_a and end_a < preferred:
             return Decimal("0")
-        if deadline and start_a > deadline:
+        if deadline and start_a and start_a > deadline:
             return Decimal("0")
+
+        start_a = start_a or datetime.min.replace(tzinfo=dt_timezone.utc)
+        end_a = end_a or datetime.max.replace(tzinfo=dt_timezone.utc)
 
         if preferred and start_a <= preferred <= end_a:
             return Decimal("100")

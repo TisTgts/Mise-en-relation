@@ -308,6 +308,49 @@ class MatchingServiceTests(MatchingBaseTestCase):
         self.assertTrue(service._within_zone_perimeter(self.prestation, self.besoin))
 
 
+class MatchingTypesEtDisponibiliteTests(TestCase):
+    def setUp(self):
+        self.service = MatchingService()
+        self.now = timezone.now()
+        self.btp = CategorieService(nom="BTP & Travaux")
+
+    def _pair(self, type_prestation, type_service, debut=None, fin=None):
+        prestation = Prestation(
+            categorie=self.btp,
+            type_prestation=type_prestation,
+            disponibilite_debut=debut,
+            disponibilite_fin=fin,
+        )
+        besoin = Besoin(
+            categorie=self.btp,
+            type_service=type_service,
+            date_souhaitee=self.now + timedelta(days=3),
+            date_limite=self.now + timedelta(days=10),
+        )
+        return prestation, besoin
+
+    def test_type_generique_compatible_avec_type_precis(self):
+        for prest_type, besoin_type in [
+            ("Plomberie", "BTP & Travaux"),
+            ("BTP & Travaux", "Plomberie"),
+            ("Plomberie", "Autre"),
+            ("Plomberie", ""),
+        ]:
+            with self.subTest(prestation=prest_type, besoin=besoin_type):
+                self.assertTrue(self.service._types_compatible(*self._pair(prest_type, besoin_type)))
+
+    def test_types_precis_differents_incompatibles(self):
+        self.assertFalse(self.service._types_compatible(*self._pair("Plomberie", "Électricité bâtiment")))
+
+    def test_disponibilite_sans_date_de_fin(self):
+        prestation, besoin = self._pair("Plomberie", "Plomberie", debut=self.now)
+        self.assertEqual(self.service.calculate_disponibilite_score(prestation, besoin), Decimal("100"))
+
+    def test_disponibilite_commence_apres_date_limite(self):
+        prestation, besoin = self._pair("Plomberie", "Plomberie", debut=self.now + timedelta(days=30))
+        self.assertEqual(self.service.calculate_disponibilite_score(prestation, besoin), Decimal("0"))
+
+
 class MatchingApiTests(MatchingBaseTestCase):
     def test_endpoint_correspondances_refuse_client_standard(self):
         profile = ProfileClient.objects.get(user=self.client_user)

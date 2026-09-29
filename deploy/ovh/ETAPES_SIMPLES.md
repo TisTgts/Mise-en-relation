@@ -315,13 +315,6 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /admin/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
     location / {
         root /var/www/plateforme/frontend/build;
         try_files $uri $uri/ /index.html;
@@ -345,7 +338,8 @@ Fichier modèle : [`nginx-serviceconnect.conf`](./nginx-serviceconnect.conf)
 |-----|---------|
 | http://144.217.82.132 | Page d’accueil React |
 | http://144.217.82.132/api/ | Réponse API |
-| http://144.217.82.132/admin/ | Connexion admin Django |
+| http://144.217.82.132/admin/dashboard | Espace admin React |
+| http://144.217.82.132/api/gestion-django/ | Connexion admin Django (chemin réglable via `DJANGO_ADMIN_URL`) |
 
 ---
 
@@ -416,8 +410,7 @@ PC (dev)                    VPS OVH
 localhost:3000  ──dev──►    (plus tard)
                             Nginx :80
                               ├─ /      → React (build)
-                              ├─ /api/  → Gunicorn → Django
-                              └─ /admin/→ Django
+                              └─ /api/  → Gunicorn → Django (API + admin Django)
                             PostgreSQL (local)
 toghinis.net ──DNS A──►     144.217.82.132
 ```

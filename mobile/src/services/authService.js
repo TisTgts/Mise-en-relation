@@ -1,9 +1,10 @@
 import apiClient from './apiClient';
 import { API_ENDPOINTS } from '../config/api';
 import { isNetworkError, NETWORK_USER_MSG, sanitizeErrorMessage } from '../utils/secureError';
+import { fieldErrorsFromPayload, messageFromPayload, translateMessage } from '../utils/errorMessages';
 import { clearSession, getRefreshToken, saveSession } from './tokenStorage';
 
-function extractErrorMessage(errOrData, fallback) {
+function extractErrorMessage(errOrData, fallback = 'Une erreur est survenue. Réessayez.') {
   if (errOrData && typeof errOrData === 'object' && errOrData.isAxiosError) {
     if (isNetworkError(errOrData)) {
       return NETWORK_USER_MSG;
@@ -11,37 +12,24 @@ function extractErrorMessage(errOrData, fallback) {
     if (!errOrData.response) {
       return sanitizeErrorMessage(errOrData.message, NETWORK_USER_MSG);
     }
-    return extractErrorMessage(errOrData.response.data, fallback);
+    const { data, status } = errOrData.response;
+    return sanitizeErrorMessage(messageFromPayload(data, status, fallback), fallback);
   }
 
-  const data = errOrData;
-  if (!data) return fallback;
-  if (typeof data === 'string') return sanitizeErrorMessage(data, fallback);
-  if (typeof data.detail === 'string') return sanitizeErrorMessage(data.detail, fallback);
-  if (Array.isArray(data.non_field_errors)) {
-    return sanitizeErrorMessage(data.non_field_errors.join(' '), fallback);
+  if (errOrData instanceof Error) {
+    // TypeError, ReferenceError… : bug interne, rien d'utile à montrer à l'utilisateur.
+    if (errOrData.name !== 'Error') return fallback;
+    return sanitizeErrorMessage(translateMessage(errOrData.message), fallback);
   }
-  if (typeof data.message === 'string') return sanitizeErrorMessage(data.message, fallback);
-
-  const fieldErrors = Object.entries(data)
-    .filter(([k]) => k !== 'detail')
-    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : JSON.stringify(v)}`)
-    .join(' | ');
-
-  return sanitizeErrorMessage(fieldErrors, fallback);
+  if (!errOrData) return fallback;
+  return sanitizeErrorMessage(messageFromPayload(errOrData, 0, fallback), fallback);
 }
 
 /** Mappe les erreurs DRF champ → { field: message } pour validation inline. */
 function extractFieldErrors(err) {
   const data = err?.isAxiosError ? err.response?.data : err;
-  if (!data || typeof data !== 'object' || Array.isArray(data)) return {};
-  const out = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (key === 'detail' || key === 'non_field_errors' || key === 'message') continue;
-    if (Array.isArray(value)) out[key] = value.join(', ');
-    else if (typeof value === 'string') out[key] = value;
-  }
-  return out;
+  if (err?.isAxiosError && (err.response?.status || 0) >= 500) return {};
+  return fieldErrorsFromPayload(data);
 }
 
 export async function login(email, password) {
